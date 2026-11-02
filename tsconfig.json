@@ -1,0 +1,7 @@
+{
+  /* File cơ sở do Cocos Creator tự sinh khi mở project lần đầu */
+  "extends": "./temp/tsconfig.cocos.json",
+  "compilerOptions": {
+    "strict": false
+  }
+}

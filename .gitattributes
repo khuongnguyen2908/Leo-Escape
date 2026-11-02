@@ -1,0 +1,14 @@
+# Thống nhất kiểu xuống dòng giữa các máy, tránh file bị đánh dấu "đã sửa" dù không đổi gì
+* text=auto
+
+# File ảnh / âm thanh / font: không bao giờ xử lý như văn bản
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.psd binary
+*.mp3 binary
+*.ogg binary
+*.wav binary
+*.ttf binary
+*.otf binary
