@@ -188,12 +188,14 @@ export class EnemyPatrol extends Component implements Hittable {
         if (this.sprite) this.sprite.color = this.stun > 0 && Math.floor(this.animTime * 16) % 2 === 0 ? HIT_TINT : Color.WHITE;
     }
 
-    /** Chạm vào mèo thì mèo bị đánh, từ phía nào cũng vậy. */
+    /** Chạm vào con mèo nào thì con đó bị đánh, từ phía nào cũng vậy. */
     private checkPlayer() {
         const gm = GameManager.instance;
-        const player = gm?.player;
-        if (!gm || !player) return;
-        if (overlaps(player.body.getRect(_player), this.body.getRect(_self))) gm.hurtPlayer(this.node.position.x);
+        if (!gm) return;
+        const self = this.body.getRect(_self);
+        for (const cat of gm.cats) {
+            if (overlaps(cat.body.getRect(_player), self)) gm.hurtCat(cat, this.node.position.x);
+        }
     }
 
     takeHit(fromX?: number, power = 1, damage = 1) {

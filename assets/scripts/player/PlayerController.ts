@@ -7,7 +7,7 @@ import { PlatformerBody } from '../core/PlatformerBody';
 import { Sound } from '../core/Sound';
 import { DashFx } from './DashFx';
 import { HitSpark } from './HitSpark';
-import { PlayerInput } from './PlayerInput';
+import { Controls, PlayerInput } from './PlayerInput';
 import { PlayerVisual } from './PlayerVisual';
 import { SlashFx } from './SlashFx';
 const { ccclass, property, requireComponent } = _decorator;
@@ -18,16 +18,20 @@ const _hit = new Rect();
 const _other = new Rect();
 
 /**
- * Điều khiển mèo: chạy có tăng/giảm tốc, Space nhảy (coyote time, jump buffer, nhả sớm thì nhảy thấp).
- * W / ↑ để đi lên bục một chiều ngay phía trên, S / ↓ để xuống khỏi bục.
- * J / X để chém: bấm liên tục ra combo 3 nhát, nhát thứ 3 mạnh nhất. Giữ J để lướt chém xuyên qua kẻ địch.
+ * Điều khiển một con mèo (Leo hoặc Angelo): chạy có tăng/giảm tốc, nhảy (coyote time, jump buffer, nhả sớm thì nhảy thấp),
+ * đi lên bục một chiều ngay phía trên, xuống khỏi bục.
+ * Đánh: bấm liên tục ra combo 3 nhát, nhát thứ 3 mạnh nhất. Giữ nút đánh để lướt chém xuyên qua kẻ địch.
  * Nhảy, chém, lướt đều tốn năng lượng (thanh xanh dưới hàng tim); hết năng lượng thì phải chờ hồi.
+ * Phím nào điều khiển con mèo này do GameManager gán (controls), theo lựa chọn 1 người / 2 người.
  */
 @ccclass('PlayerController')
 @requireComponent(PlatformerBody)
 export class PlayerController extends Component {
     @property({ type: PlayerVisual })
     visual: PlayerVisual | null = null;
+
+    @property({ tooltip: 'Tên con mèo: Leo hoặc Angelo' })
+    catName = 'Leo';
 
     @property({ group: 'Chạy' })
     moveSpeed = 520;
@@ -116,6 +120,13 @@ export class PlayerController extends Component {
     body!: PlatformerBody;
     facing = 1;
     controlEnabled = true;
+    /** Phím đang điều khiển con mèo này (GameManager gán). Mặc định không điều khiển gì. */
+    controls: Controls = PlayerInput.none;
+    /** Chơi 1 người: con mèo đang đứng chờ (không điều khiển) thì không bị đánh. */
+    idle = false;
+    /** Hết tim: nằm gục chờ đồng đội kéo dậy. */
+    downed = false;
+    hp = 3;
     invincible = 0;
     energy = 100;
     /** Còn > 0 khi vừa bấm mà không đủ năng lượng (thanh năng lượng nháy đỏ). */
@@ -153,7 +164,7 @@ export class PlayerController extends Component {
         const v = b.velocity;
         if (this.hurtLock > 0) this.hurtLock -= dt;
         if (this.invincible > 0) this.invincible -= dt;
-        const canControl = this.controlEnabled && this.hurtLock <= 0;
+        const canControl = this.controlEnabled && this.hurtLock <= 0 && !this.downed;
 
         // Năng lượng: vừa dùng thì chờ một chút rồi mới hồi
         if (this.energyWarn > 0) this.energyWarn -= dt;
@@ -168,7 +179,7 @@ export class PlayerController extends Component {
         }
 
         // Chạy
-        const dir = canControl ? (PlayerInput.right ? 1 : 0) - (PlayerInput.left ? 1 : 0) : 0;
+        const dir = canControl ? (this.controls.right ? 1 : 0) - (this.controls.left ? 1 : 0) : 0;
         if (this.lunge > 0) this.lunge -= dt;
         if (this.hurtLock <= 0 && this.lunge <= 0) {
             const accel = b.grounded ? (dir !== 0 ? this.groundAccel : this.groundDecel) : this.airAccel;
@@ -177,14 +188,14 @@ export class PlayerController extends Component {
         if (dir !== 0) this.facing = dir;
 
         // Bấm xuống khi đang đứng trên bục một chiều (bàn, thùng, ghế...) thì rơi xuyên xuống
-        if (PlayerInput.consumeDown() && canControl && b.grounded && b.groundSolid?.oneWay) {
+        if (this.controls.consumeDown() && canControl && b.grounded && b.groundSolid?.oneWay) {
             b.dropThrough();
             this.coyote = 0;
             Sound.play('drop', 0.6);
         }
 
         // W / ↑: nhảy vừa đủ cao để lên bục một chiều ngay phía trên (không tốn năng lượng)
-        if (PlayerInput.consumeUp() && canControl && b.grounded) {
+        if (this.controls.consumeUp() && canControl && b.grounded) {
             const r = b.getRect(_self);
             const top = PlatformerBody.platformAbove(r, this.climbHeight);
             if (top !== null) {
@@ -198,10 +209,10 @@ export class PlayerController extends Component {
 
         // Nhảy
         this.coyote = b.grounded ? this.coyoteTime : this.coyote - dt;
-        const pressed = PlayerInput.consumeJump() && canControl;
+        const pressed = this.controls.consumeJump() && canControl;
         this.buffer = pressed ? this.jumpBuffer : this.buffer - dt;
         if (this.buffer > 0) {
-            if (PlayerInput.down && b.grounded && b.groundSolid?.oneWay) {
+            if (this.controls.down && b.grounded && b.groundSolid?.oneWay) {
                 b.dropThrough();
                 this.buffer = this.coyote = 0;
             } else if (this.coyote > 0) {
@@ -215,7 +226,7 @@ export class PlayerController extends Component {
                 }
             }
         }
-        if (this.jumping && v.y > 0 && !PlayerInput.jumpHeld) {
+        if (this.jumping && v.y > 0 && !this.controls.jumpHeld) {
             v.y *= this.jumpCutMultiplier;
             this.jumping = false;
         }
@@ -224,14 +235,14 @@ export class PlayerController extends Component {
         // Chém. Bấm sớm một chút trước khi hết nhịp vẫn được tính (cho combo dễ ra)
         if (this.attackTimer > 0) this.attackTimer -= dt;
         if (this.comboTimer > 0) this.comboTimer -= dt;
-        this.attackQueued = PlayerInput.consumeAttack() ? 0.15 : this.attackQueued - dt;
+        this.attackQueued = this.controls.consumeAttack() ? 0.15 : this.attackQueued - dt;
         if (this.attackQueued > 0 && this.attackTimer <= 0 && canControl) {
             this.attackQueued = 0;
             if (this.spend(this.slashEnergy)) this.slash();
         }
 
         // Giữ J đủ lâu thì lướt chém (mỗi lần giữ chỉ lướt một lần, thả ra rồi giữ lại để lướt tiếp)
-        if (PlayerInput.attackHeld && canControl) {
+        if (this.controls.attackHeld && canControl) {
             this.holdTime += dt;
             if (!this.dashedThisHold && this.holdTime >= this.dashHoldTime) {
                 this.dashedThisHold = true;
@@ -259,6 +270,7 @@ export class PlayerController extends Component {
     hurt(fromX: number): boolean {
         // Đang lướt và một chút sau khi lướt (lỡ dừng ngay chỗ kẻ địch) thì không bị đánh
         if (this.invincible > 0 || this.dashTimer > 0 || this.dashGrace > 0) return false;
+        if (this.idle || this.downed) return false;
         this.invincible = this.invincibleTime;
         this.hurtLock = 0.3;
         const away = this.node.position.x >= fromX ? 1 : -1;
@@ -417,6 +429,20 @@ export class PlayerController extends Component {
             this.slashFx = n.addComponent(SlashFx);
         }
         return this.slashFx;
+    }
+
+    /** Gục xuống (hết tim) hoặc đứng dậy (được kéo dậy). */
+    setDowned(on: boolean) {
+        this.downed = on;
+        if (this.dashTimer > 0) {
+            this.dashTimer = 0;
+            this.body.gravityScale = 1;
+            this.dashFx?.release();
+            this.dashFx = null;
+        }
+        this.body.velocity.x = 0;
+        this.visual?.setDowned(on);
+        if (!on) this.invincible = 1.5;
     }
 
     respawn(pos: Readonly<Vec3>) {

@@ -60,11 +60,11 @@ export class BossHealthBar extends Component {
 
     update(dt: number) {
         const boss = this.boss;
-        const player = GameManager.instance?.player;
+        const cats = GameManager.instance?.cats ?? [];
         if (!this.opacity) return;
 
         const alive = !!boss && boss.isValid && !boss.defeated;
-        const near = alive && !!player && Math.abs(player.node.position.x - boss!.node.position.x) < this.showDistance;
+        const near = alive && cats.some((c) => Math.abs(c.node.position.x - boss!.node.position.x) < this.showDistance);
         const target = near ? 255 : 0;
         this.opacity.opacity += (target - this.opacity.opacity) * Math.min(1, dt * 6);
 

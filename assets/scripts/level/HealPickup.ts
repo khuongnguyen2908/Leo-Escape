@@ -1,5 +1,6 @@
 import { _decorator, Vec3 } from 'cc';
 import { GameManager } from '../game/GameManager';
+import { PlayerController } from '../player/PlayerController';
 import { PlayerTrigger } from './PlayerTrigger';
 const { ccclass, property } = _decorator;
 
@@ -35,8 +36,8 @@ export class HealPickup extends PlayerTrigger {
         }
     }
 
-    protected onPlayerEnter(gm: GameManager) {
-        gm.heal(this.heal);
+    protected onPlayerEnter(gm: GameManager, cat: PlayerController) {
+        gm.heal(cat, this.heal);
         this.popAndDestroy();
     }
 }

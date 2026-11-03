@@ -1,0 +1,224 @@
+import { BlockInputEvents, Color, EventTouch, Graphics, Label, Node, Sprite, SpriteFrame, UITransform, Vec3 } from 'cc';
+import { keepSystemFont, useGameFont } from './GameFont';
+
+/**
+ * Các mảnh giao diện vẽ bằng code (nút, khung, thanh trượt, công tắc) cho menu và màn chọn,
+ * cùng tông nâu kem với nút cảm ứng. Không phải component; gọi từ PauseMenu, LandingScreen, CharacterSelect.
+ * Chữ có dấu tiếng Việt dùng font hệ thống vì font Super Bouncer thiếu nhiều chữ (ẾỤẶỀƯỢ...).
+ */
+export const UI = {
+    brown: new Color(78, 60, 56, 255),
+    brownDown: new Color(110, 86, 78, 255),
+    cream: new Color(250, 240, 222, 255),
+    creamDim: new Color(214, 200, 182, 255),
+    text: new Color(70, 52, 48, 255),
+    accent: new Color(240, 165, 72, 255),
+    green: new Color(0x3b, 0x71, 0x13, 255),
+    dim: new Color(20, 14, 12, 170),
+    p1: new Color(240, 150, 60, 255),
+    p2: new Color(80, 150, 225, 255),
+};
+
+const _p = new Vec3();
+
+export function uiNode(name: string, parent: Node, w = 0, h = 0): Node {
+    const n = new Node(name);
+    n.layer = parent.layer;
+    parent.addChild(n);
+    const ut = n.addComponent(UITransform);
+    if (w > 0 || h > 0) ut.setContentSize(w, h);
+    return n;
+}
+
+/**
+ * Chữ: chuỗi chỉ có chữ không dấu thì dùng font game, có dấu tiếng Việt thì dùng font hệ thống.
+ * Chữ đổi qua lại giữa có dấu và không dấu (ô phím) thì truyền gameFont = false để luôn dùng font hệ thống.
+ */
+export function setText(label: Label, text: string, gameFont = true) {
+    label.string = text;
+    if (text === '') return;
+    if (gameFont && /^[\x20-\x7E]*$/.test(text)) {
+        keepSystemFont(label, false);
+        useGameFont(label);
+    } else {
+        keepSystemFont(label, true);
+        label.useSystemFont = true;
+        label.fontFamily = 'Arial';
+        label.isBold = true;
+    }
+}
+
+export function uiLabel(parent: Node, text: string, size: number, color: Color, opts: { outline?: Color; outlineWidth?: number; name?: string } = {}): Label {
+    const n = uiNode(opts.name ?? 'Text', parent);
+    const label = n.addComponent(Label);
+    label.fontSize = size;
+    label.lineHeight = Math.round(size * 1.2);
+    label.color = color;
+    if (opts.outline) {
+        label.enableOutline = true;
+        label.outlineWidth = opts.outlineWidth ?? 4;
+        label.outlineColor = opts.outline;
+    }
+    setText(label, text);
+    return label;
+}
+
+/** Lớp phủ tối cả khung hình, chặn bấm xuyên xuống dưới. */
+export function uiDim(parent: Node, w: number, h: number): Node {
+    const n = uiNode('Dim', parent, w, h);
+    n.addComponent(BlockInputEvents);
+    const g = n.addComponent(Graphics);
+    g.fillColor = UI.dim;
+    g.rect(-w / 2, -h / 2, w, h);
+    g.fill();
+    return n;
+}
+
+/** Khung kem viền nâu bo góc. */
+export function uiPanel(parent: Node, w: number, h: number, name = 'Panel'): Node {
+    const n = uiNode(name, parent, w, h);
+    n.addComponent(BlockInputEvents);
+    const g = n.addComponent(Graphics);
+    g.fillColor = UI.cream;
+    g.strokeColor = UI.brown;
+    g.lineWidth = 8;
+    g.roundRect(-w / 2, -h / 2, w, h, 36);
+    g.fill();
+    g.stroke();
+    return n;
+}
+
+export interface UiButton {
+    node: Node;
+    label: Label;
+    setText(text: string): void;
+    /** Đang được chọn bằng bàn phím: viền cam. */
+    setFocus(on: boolean): void;
+}
+
+/** Nút bo góc có chữ. Có frame thì dùng ảnh đó làm nền thay cho hình vẽ. */
+export function uiButton(parent: Node, text: string, w: number, h: number, onClick: () => void,
+    opts: { frame?: SpriteFrame | null; fontSize?: number; name?: string } = {}): UiButton {
+    const n = uiNode(opts.name ?? 'Button', parent, w, h);
+    let focus = false;
+    let down = false;
+    let paint: () => void;
+    if (opts.frame) {
+        const pic = uiNode('Pic', n);
+        const sp = pic.addComponent(Sprite);
+        sp.spriteFrame = opts.frame;
+        sp.sizeMode = Sprite.SizeMode.CUSTOM;
+        pic.getComponent(UITransform)!.setContentSize(w, h);
+        const ring = n.addComponent(Graphics);
+        paint = () => {
+            ring.clear();
+            if (focus) {
+                ring.strokeColor = UI.accent;
+                ring.lineWidth = 8;
+                ring.roundRect(-w / 2 - 10, -h / 2 - 10, w + 20, h + 20, h / 2);
+                ring.stroke();
+            }
+            pic.setScale(down ? 0.94 : 1, down ? 0.94 : 1, 1);
+        };
+    } else {
+        const g = n.addComponent(Graphics);
+        paint = () => {
+            g.clear();
+            g.fillColor = down ? UI.brownDown : UI.brown;
+            g.strokeColor = focus ? UI.accent : UI.cream;
+            g.lineWidth = focus ? 7 : 4;
+            g.roundRect(-w / 2, -h / 2, w, h, Math.min(24, h / 2));
+            g.fill();
+            g.stroke();
+        };
+    }
+    const label = uiLabel(n, text, opts.fontSize ?? 40, opts.frame ? Color.WHITE : UI.cream,
+        { outline: opts.frame ? UI.green : undefined, outlineWidth: opts.frame ? 6 : 0 });
+    if (opts.frame) label.node.setPosition(0, -h * 0.04, 0);
+    paint();
+    n.on(Node.EventType.TOUCH_START, () => { down = true; paint(); });
+    n.on(Node.EventType.TOUCH_CANCEL, () => { down = false; paint(); });
+    n.on(Node.EventType.TOUCH_END, () => {
+        down = false;
+        paint();
+        onClick();
+    });
+    return {
+        node: n,
+        label,
+        setText: (t: string) => setText(label, t),
+        setFocus: (on: boolean) => {
+            focus = on;
+            paint();
+        },
+    };
+}
+
+/** Thanh trượt 0..1. */
+export function uiSlider(parent: Node, w: number, value: number, onChange: (v: number) => void): { node: Node; set(v: number): void } {
+    const h = 56;
+    const n = uiNode('Slider', parent, w + 40, h);
+    const g = n.addComponent(Graphics);
+    let v = value;
+    const draw = () => {
+        g.clear();
+        g.fillColor = UI.creamDim;
+        g.roundRect(-w / 2, -8, w, 16, 8);
+        g.fill();
+        g.fillColor = UI.accent;
+        g.roundRect(-w / 2, -8, w * v, 16, 8);
+        g.fill();
+        g.fillColor = UI.brown;
+        g.circle(-w / 2 + w * v, 0, 20);
+        g.fill();
+        g.strokeColor = UI.cream;
+        g.lineWidth = 4;
+        g.circle(-w / 2 + w * v, 0, 20);
+        g.stroke();
+    };
+    const ut = n.getComponent(UITransform)!;
+    const pick = (e: EventTouch) => {
+        const loc = e.getUILocation();
+        _p.set(loc.x, loc.y, 0);
+        ut.convertToNodeSpaceAR(_p, _p);
+        v = Math.max(0, Math.min(1, (_p.x + w / 2) / w));
+        draw();
+        onChange(v);
+    };
+    n.on(Node.EventType.TOUCH_START, pick);
+    n.on(Node.EventType.TOUCH_MOVE, pick);
+    draw();
+    return { node: n, set: (x: number) => { v = x; draw(); } };
+}
+
+/** Công tắc bật/tắt. */
+export function uiToggle(parent: Node, value: boolean, onChange: (v: boolean) => void): { node: Node; set(v: boolean): void } {
+    const w = 120, h = 56;
+    const n = uiNode('Toggle', parent, w, h);
+    const g = n.addComponent(Graphics);
+    const label = uiLabel(n, '', 24, Color.WHITE);
+    let v = value;
+    const draw = () => {
+        g.clear();
+        g.fillColor = v ? UI.green : UI.creamDim;
+        g.roundRect(-w / 2, -h / 2, w, h, h / 2);
+        g.fill();
+        g.fillColor = UI.cream;
+        g.strokeColor = UI.brown;
+        g.lineWidth = 4;
+        const x = v ? w / 2 - h / 2 : -w / 2 + h / 2;
+        g.circle(x, 0, h / 2 - 6);
+        g.fill();
+        g.stroke();
+        setText(label, v ? 'BẬT' : 'TẮT');
+        label.color = v ? Color.WHITE : UI.text;
+        label.node.setPosition(v ? -18 : 18, 0, 0);
+    };
+    n.on(Node.EventType.TOUCH_END, () => {
+        v = !v;
+        draw();
+        onChange(v);
+    });
+    draw();
+    return { node: n, set: (x: boolean) => { v = x; draw(); } };
+}

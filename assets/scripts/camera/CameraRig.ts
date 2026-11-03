@@ -2,6 +2,7 @@ import { _decorator, Component, Node, UITransform, Vec2 } from 'cc';
 import { EDITOR } from 'cc/env';
 import { clamp } from '../core/Box';
 import { PlatformerBody } from '../core/PlatformerBody';
+import { Settings } from '../core/Settings';
 import { ParallaxLayer } from './ParallaxLayer';
 const { ccclass, property, executeInEditMode } = _decorator;
 
@@ -48,7 +49,7 @@ export class CameraRig extends Component {
         if (this._editorPreview) this.applyEditorPreview();
     }
 
-    @property({ type: Node, tooltip: 'Nhân vật cần bám theo (nằm trong lớp Gameplay)' })
+    @property({ type: Node, tooltip: 'Nhân vật cần bám theo (nằm trong lớp Gameplay). Khi chơi, GameManager đổi sang bám một hoặc cả hai con mèo' })
     target: Node | null = null;
 
     @property({ tooltip: 'Phóng to: lớn hơn 1 là gần hơn, nhỏ hơn 1 là thấy rộng hơn. HUD không bị ảnh hưởng' })
@@ -93,6 +94,8 @@ export class CameraRig extends Component {
     private anchorY = 0;
     private snapped = false;
     private targetBody: PlatformerBody | null = null;
+    private targets: Node[] = [];
+    private readonly bodies = new Map<Node, PlatformerBody | null>();
     private shakeAmount = 0;
     private shakeTime = 0;
     private shakeDuration = 0;
@@ -108,6 +111,7 @@ export class CameraRig extends Component {
 
     /** Rung màn hình amount đơn vị trong time giây, nhỏ dần về 0 (dùng khi chém trúng, bị đánh...). */
     shake(amount: number, time: number) {
+        if (!Settings.shake) return; // người chơi tắt rung màn hình trong Cài đặt
         if (amount < this.shakeAmount * (this.shakeTime / Math.max(0.001, this.shakeDuration))) return;
         this.shakeAmount = amount;
         this.shakeTime = this.shakeDuration = time;
@@ -120,21 +124,28 @@ export class CameraRig extends Component {
             else for (const layer of ParallaxLayer.all) layer.captureBase();
             return;
         }
-        if (!this.target) return;
-        if (!this.targetBody) this.targetBody = this.target.getComponent(PlatformerBody);
+        // Bám một con (chơi 1 người) hoặc điểm giữa hai con (chơi 2 người)
+        const list = this.targets.length > 0 ? this.targets : (this.target ? [this.target] : []);
+        if (list.length === 0) return;
+        if (!this.targetBody || this.targetBody.node !== list[0]) this.targetBody = list[0].getComponent(PlatformerBody);
 
-        const vx = this.targetBody?.velocity.x ?? 0;
+        let cx = 0, vx = 0;
+        for (const n of list) {
+            cx += n.position.x;
+            vx += this.bodyOf(n)?.velocity.x ?? 0;
+        }
+        cx /= list.length;
+        vx /= list.length;
         if (Math.abs(vx) > 60) {
             this.look += (Math.sign(vx) * this.lookAhead - this.look) * (1 - Math.exp(-2.5 * dt));
         }
 
         const zoom = Math.max(0.1, this.zoom);
         const halfW = this.frameWidth() / 2 / zoom;
-        const tp = this.target.position;
         const desiredX = this.maxX - this.minX > halfW * 2
-            ? clamp(tp.x + this.look + this.offset.x, this.minX + halfW, this.maxX - halfW)
+            ? clamp(cx + this.look + this.offset.x, this.minX + halfW, this.maxX - halfW)
             : (this.minX + this.maxX) / 2;
-        const desiredY = clamp(this.trackY(tp.y), this.minY, this.maxY) + this.offset.y;
+        const desiredY = clamp(this.trackY(list[0].position.y), this.minY, this.maxY) + this.offset.y;
 
         if (this.snapped) {
             this.position.x += (desiredX - this.position.x) * (1 - Math.exp(-this.dampingX * dt));
@@ -151,6 +162,21 @@ export class CameraRig extends Component {
             cam = this.shaken.set(this.position.x + (Math.random() * 2 - 1) * k, this.position.y + (Math.random() * 2 - 1) * k);
         }
         for (const layer of ParallaxLayer.all) layer.apply(cam, zoom);
+    }
+
+    /** Đổi nhân vật cần bám theo (một hoặc nhiều node trong lớp Gameplay). */
+    setTargets(nodes: Node[]) {
+        this.targets = nodes.slice();
+        this.targetBody = null;
+    }
+
+    private bodyOf(n: Node): PlatformerBody | null {
+        let b = this.bodies.get(n);
+        if (b === undefined) {
+            b = n.getComponent(PlatformerBody);
+            this.bodies.set(n, b);
+        }
+        return b;
     }
 
     private frameWidth(): number {

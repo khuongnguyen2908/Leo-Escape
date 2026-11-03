@@ -34,6 +34,12 @@ export class PlayerVisual extends Component {
     @property({ group: 'Hình', tooltip: 'Hình gốc vẽ quay mặt sang phải?' })
     artFacesRight = true;
 
+    @property({ group: 'Hình', tooltip: 'Màu nhuộm hình. Trắng = giữ nguyên (Angelo tạm dùng hình Leo nhuộm xám xanh)' })
+    tint = new Color(255, 255, 255, 255);
+
+    @property({ group: 'Hình', tooltip: 'Bóp ngang hình: 1 = giữ nguyên, nhỏ hơn 1 = gầy hơn (Angelo tạm 0.78)' })
+    widthScale = 1;
+
     @property({ group: 'Chuyển động' })
     runBobHeight = 12;
 
@@ -62,6 +68,10 @@ export class PlayerVisual extends Component {
     private vy = 0;
     private facing = 1;
     private blinking = false;
+    private downed = false;
+    private hidden = false;
+    private downTime = 0;
+    private readonly dim = new Color();
 
     onLoad() {
         this.sprite = this.getComponent(Sprite);
@@ -80,7 +90,21 @@ export class PlayerVisual extends Component {
         const ref = this.idleFrame ?? this.sprite?.spriteFrame;
         this.baseScale = ref ? this.targetHeight / ref.rect.height : 1;
         this.setFrame(this.idleFrame);
-        this.node.setScale(this.baseScale * (this.artFacesRight ? 1 : -1), this.baseScale, 1);
+        this.node.setScale(this.baseScale * this.widthScale * (this.artFacesRight ? 1 : -1), this.baseScale, 1);
+        if (this.sprite) this.sprite.color = this.tint;
+    }
+
+    /** Ẩn hình (đang hoá linh hồn bay đi). */
+    setHidden(on: boolean) {
+        this.hidden = on;
+    }
+
+    /** Nằm gục (hết tim) hoặc đứng dậy. */
+    setDowned(on: boolean) {
+        this.downed = on;
+        this.downTime = 0;
+        this.squash = on ? 0.3 : -0.2;
+        this.squashVel = 0;
     }
 
     sync(grounded: boolean, runRatio: number, vy: number, facing: number, blinking: boolean) {
@@ -146,20 +170,36 @@ export class PlayerVisual extends Component {
             angle -= this.facing * 14 * (this.attackLean / 0.2);
         }
 
+        if (this.downed) {
+            // Nằm nghiêng xuống đất, thở chậm; nâng lên nửa bề ngang để không lún xuống nền
+            this.downTime += dt;
+            const lie = Math.min(1, this.downTime / 0.25);
+            angle = this.facing * 90 * lie;
+            sx = 1;
+            sy = 1 + 0.03 * Math.sin(this.time * 2);
+            const ref = this.idleFrame ?? this.sprite?.spriteFrame;
+            y = ref ? ref.rect.width * this.baseScale * this.widthScale * 0.5 * lie * 0.8 : 0;
+        }
+
         sx += this.squash;
         sy -= this.squash;
         const flip = this.facing * (this.artFacesRight ? 1 : -1);
-        this.node.setScale(this.baseScale * sx * flip, this.baseScale * sy, 1);
+        this.node.setScale(this.baseScale * this.widthScale * sx * flip, this.baseScale * sy, 1);
         this.node.setPosition(0, y, 0);
         this.node.angle = angle;
 
         if (this.opacity) {
-            this.opacity.opacity = this.blinking && Math.floor(this.time * 18) % 2 === 0 ? 90 : 255;
+            this.opacity.opacity = this.hidden ? 0 : this.blinking && Math.floor(this.time * 18) % 2 === 0 ? 90 : 255;
         }
         if (this.sprite) {
             this.hurtFlash -= dt;
-            this.sprite.color = this.hurtFlash > 0 ? HURT_TINT : Color.WHITE;
+            this.sprite.color = this.hurtFlash > 0 ? HURT_TINT : this.downed ? this.dimTint() : this.tint;
         }
+    }
+
+    private dimTint(): Color {
+        const t = this.tint;
+        return this.dim.set(t.r * 0.6, t.g * 0.6, t.b * 0.6, t.a);
     }
 
     private showRun() {

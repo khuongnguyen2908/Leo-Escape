@@ -1,4 +1,4 @@
-import { _decorator, assetManager, Color, Component, Node, resources, Size, Sprite, SpriteFrame, sys, UITransform, Vec2, view, Widget } from 'cc';
+import { _decorator, assetManager, BlockInputEvents, Color, Component, instantiate, Label, Node, resources, Size, Sprite, SpriteFrame, sys, TTFFont, UITransform, Vec2, view, Widget } from 'cc';
 import { EDITOR } from 'cc/env';
 import { CameraRig } from '../camera/CameraRig';
 import { ParallaxLayer } from '../camera/ParallaxLayer';
@@ -13,7 +13,9 @@ import { BossHealthBar } from '../ui/BossHealthBar';
 import { CoinCounter } from '../ui/CoinCounter';
 import { EnergyBar } from '../ui/EnergyBar';
 import { HeartsHUD } from '../ui/HeartsHUD';
+import { LandingScreen } from '../ui/LandingScreen';
 import { Letterbox } from '../ui/Letterbox';
+import { PauseMenu } from '../ui/PauseMenu';
 import { TouchControls } from '../ui/TouchControls';
 import { Checkpoint } from './Checkpoint';
 import { CoinGlow } from './CoinGlow';
@@ -48,7 +50,11 @@ const RAISED = 370;      // độ cao bậc đá
 const TILE_FOOT = 60 / 285; // chỗ đặt chân trên ảnh MG_tile, tính từ đỉnh ảnh (tỉ lệ chiều cao)
 const HUD_LEFT = 33;     // HUD cách mép trái / trên khung hình (đo theo ảnh demo)
 const HUD_TOP = 30;
-const BUILT_LAYERS = ['Sky', 'BG', 'Light_Far', 'MG', 'Light', 'Gameplay', 'FR', 'FR_Top', 'HUD', 'BossBar', 'TouchControls'];
+const BUILT_LAYERS = ['Sky', 'BG', 'Light_Far', 'MG', 'Light', 'Gameplay', 'FR', 'FR_Top', 'HUD', 'HUD_Angelo', 'BossBar', 'TouchControls'];
+// Angelo tạm dùng hình Leo: nhuộm xám xanh, bóp gầy, cao hơn một chút
+const ANGELO_TINT = new Color(150, 176, 210, 255);
+const ANGELO_WIDTH = 0.78;
+const ANGELO_HEIGHT = 1.06;
 
 // Hệ số parallax của từng lớp
 const BG_F = 0.12;
@@ -114,48 +120,35 @@ function artKey(path: string): string {
  * MG_char_idle, MG_tile_2, FR_cotduong...). Ảnh nào chưa có thì hiện khối màu kèm tên để biết còn thiếu.
  * Mọi ảnh giữ đúng tỉ lệ gốc bạn vẽ (nhân chung hệ số ART).
  *
- * Cách dùng trong editor:
- * - "▶ Dựng màn vào scene": tạo các node trong Hierarchy để tự sắp xếp (chỉ khi scene chưa có màn).
- * - "⟳ Xoá màn cũ và dựng lại": xoá các lớp đã dựng rồi dựng lại từ đầu.
- * Nhớ Ctrl+S sau khi dựng. Nếu scene chưa dựng sẵn, bấm Play thì màn được dựng bằng code mỗi lần chạy.
+ * Cách dùng trong editor (3 nút):
+ * - "⚙ Cập nhật": thêm những gì còn thiếu (ánh sáng, màn mở đầu, ghim băng rôn, ảnh nút) và áp bản sửa mới.
+ *   Không dời, không xoá gì bạn đã xếp. Bấm bao nhiêu lần cũng vậy.
+ * - "📐 Xếp lại theo ảnh demo": đặt lại vị trí, kích thước mọi đồ vật theo 4 ảnh demo (mất phần đã tự kéo).
+ * - "⟳ Dựng màn từ đầu": scene trống thì dựng ngay; đã có màn thì phải tích "Cho phép xoá màn đang có" trước.
+ * Nhớ Ctrl+S sau khi bấm. Nếu scene chưa dựng sẵn, bấm Play thì màn được dựng bằng code mỗi lần chạy.
  */
 @ccclass('DemoLevelBuilder')
 export class DemoLevelBuilder extends Component {
-    @property({ displayName: '▶ Dựng màn vào scene', tooltip: 'Tạo toàn bộ màn thành node trong scene để tự sắp xếp' })
-    get buildInScene() { return false; }
-    set buildInScene(v: boolean) {
-        if (v && EDITOR) this.buildInEditor(false);
-    }
-
-    @property({ displayName: '⚙ Cập nhật không xoá', tooltip: 'Áp các bản sửa mới nhất lên màn đang có. Giữ nguyên vị trí, kích thước và mọi thứ bạn đã tự sắp xếp' })
+    @property({ displayName: '⚙ Cập nhật (giữ phần bạn xếp)', tooltip: 'Thêm ánh sáng, màn mở đầu, ghim băng rôn, ảnh nút nếu còn thiếu và áp bản sửa mới nhất. Không dời, không xoá gì bạn đã xếp' })
     get applyFixes() { return false; }
     set applyFixes(v: boolean) {
         if (v && EDITOR) this.applyFixesInEditor();
     }
 
-    @property({ displayName: '✨ Thêm ánh sáng', tooltip: 'Chỉ thêm tia nắng, sương sáng, bụi sáng và hào quang cá. Không sửa, không xoá gì trong màn đang có' })
-    get addLighting() { return false; }
-    set addLighting(v: boolean) {
-        if (v && EDITOR) this.addLightingInEditor();
-    }
-
-    @property({ displayName: '📌 Ghim băng rôn sát mép trên', tooltip: 'Mọi hình trong lớp FR_Top (băng rôn, cờ) được ghim mép trên sát mép khung hình, không còn hở trời. Không đổi vị trí ngang' })
-    get pinBanners() { return false; }
-    set pinBanners(v: boolean) {
-        if (v && EDITOR) this.pinBannersInEditor();
-    }
-
-    @property({ displayName: '📐 Xếp theo ảnh demo', tooltip: 'Đặt lại vị trí, kích thước các đồ vật, chim, boss, mèo, nền đá và độ cao camera cho khớp 4 ảnh demo. Không tạo, không xoá node nào' })
+    @property({ displayName: '📐 Xếp lại theo ảnh demo', tooltip: 'CẢNH BÁO: đặt lại vị trí, kích thước mọi đồ vật, chim, boss, mèo, nền đá và độ cao camera theo 4 ảnh demo. Phần bạn đã tự kéo sẽ mất. Không tạo, không xoá node' })
     get applyDemoLayout() { return false; }
     set applyDemoLayout(v: boolean) {
         if (v && EDITOR) this.applyDemoLayoutInEditor();
     }
 
-    @property({ displayName: '⟳ Xoá màn cũ và dựng lại', tooltip: 'Xoá Sky, BG, MG, Gameplay, FR, FR_Top, HUD, TouchControls rồi dựng lại. Phần đã tự sắp xếp sẽ mất' })
+    @property({ displayName: '⟳ Dựng màn từ đầu', tooltip: 'Scene trống thì dựng màn ngay. Đã có màn thì phải tích "Cho phép xoá màn đang có" trước: các lớp cũ bị xoá, phần đã tự sắp xếp sẽ mất' })
     get rebuildInScene() { return false; }
     set rebuildInScene(v: boolean) {
-        if (v && EDITOR) this.buildInEditor(true);
+        if (v && EDITOR) this.rebuildFromScratch();
     }
+
+    @property({ displayName: 'Cho phép xoá màn đang có', tooltip: 'Khoá an toàn cho nút ⟳. Tự tắt lại sau khi dựng' })
+    allowRebuild = false;
 
     @property({ tooltip: 'Thư mục ảnh nằm trong assets/resources' })
     artFolder = 'art';
@@ -180,6 +173,7 @@ export class DemoLevelBuilder extends Component {
 
     onLoad() {
         if (this.lockAspect && !EDITOR) this.lockFrame();
+        if (!EDITOR) this.ensureMenu();
 
         // Màn đã được dựng sẵn trong scene thì không dựng lại
         const play = this.node.getChildByName('Gameplay');
@@ -216,7 +210,10 @@ export class DemoLevelBuilder extends Component {
             this.placeTouchNode(touch.node);
             return;
         }
-        resources.load(`${this.artFolder}/MG_joystick/spriteFrame`, SpriteFrame, (err, sf) => {
+        const load = (name: string) => new Promise<SpriteFrame | null>((resolve) => {
+            resources.load(`${this.artFolder}/${name}/spriteFrame`, SpriteFrame, (err, sf) => resolve(err ? null : sf));
+        });
+        Promise.all(['MG_joystick', 'Button_jump', 'Button_attack'].map(load)).then(([joystick, jump, attack]) => {
             if (!this.isValid) return;
             const n = this.mk('TouchControls', this.node);
             const d = view.getDesignResolutionSize();
@@ -224,7 +221,9 @@ export class DemoLevelBuilder extends Component {
             this.placeTouchNode(n);
             const t = n.addComponent(TouchControls);
             t.showOnDesktop = true;
-            if (!err && sf) t.joystickFrame = sf;
+            t.joystickFrame = joystick;
+            t.jumpFrame = jump;
+            t.attackFrame = attack;
         });
     }
 
@@ -257,24 +256,37 @@ export class DemoLevelBuilder extends Component {
             if (w) w.enabled = false;
             hud.setPosition(-d.width / 2 + HUD_LEFT, d.height / 2 - HUD_TOP, 0);
         }
+        // HUD của Angelo: lật ngang, bám góc trên phải
+        this.node.getChildByName('HUD_Angelo')?.setPosition(d.width / 2 - HUD_LEFT, d.height / 2 - HUD_TOP, 0);
+    }
+
+    /** Menu tạm dừng (Esc / nút bánh răng): tạo khi chơi, không lưu vào scene. */
+    private ensureMenu() {
+        if (this.node.getComponentInChildren(PauseMenu)) return;
+        const d = view.getDesignResolutionSize();
+        const n = this.mk('Menu', this.node);
+        n.addComponent(UITransform).setContentSize(d.width, d.height);
+        n.addComponent(PauseMenu);
     }
 
     /**
      * Sửa trên các node đang có, không xoá hay tạo lại gì, để giữ phần người dùng đã tự sắp xếp.
      * Mỗi khi sửa lỗi cách dựng màn, thêm một bước tương ứng vào đây.
      */
-    private applyFixesInEditor() {
+    private async applyFixesInEditor() {
         const play = this.node.getChildByName('Gameplay');
         if (!play) {
-            console.warn('[DemoLevelBuilder] Scene chưa có màn (node Gameplay). Hãy dùng "▶ Dựng màn vào scene" trước.');
+            console.warn('[DemoLevelBuilder] Scene chưa có màn (node Gameplay). Hãy dùng "⟳ Dựng màn từ đầu" trước.');
             return;
         }
         const done: string[] = [];
 
-        // 1. Nền đá: nâng ảnh mép đá để chân đồ vật nằm giữa mặt đá như ảnh demo
+        // 1. Nền đá: nâng ảnh mép đá để chân đồ vật nằm giữa mặt đá như ảnh demo.
+        //    Khối nào đã có số đo từ ảnh demo (DemoLayout) thì dùng đúng số đó, để không ghi đè kết quả "📐 Xếp theo ảnh demo"
+        const demoSink = new Map(DEMO_GROUNDS.map((e) => [e.id, e.sink]));
         let grounds = 0;
         for (const g of play.getComponentsInChildren(GroundBlock)) {
-            const want = g.tileHeight * TILE_FOOT;
+            const want = demoSink.get(g.node.uuid) ?? g.tileHeight * TILE_FOOT;
             if (g.tileFrame && Math.abs(g.sink - want) > 0.5) {
                 g.sink = want;
                 grounds++;
@@ -301,11 +313,14 @@ export class DemoLevelBuilder extends Component {
         if (pickups) done.push(`${pickups} chai nước: đứng yên trên mặt đường`);
 
         // 3. Thứ tự vẽ: chim, boss, cá nằm trên đồ vật; mèo nằm trên cùng
+        const orderBefore = play.children.map((n) => n.uuid).join();
         const movers = play.children.filter((n) => n.getComponent(EnemyPatrol) || n.getComponent(CoinPickup));
         for (const n of movers) n.setSiblingIndex(play.children.length - 1);
-        const player = play.children.find((n) => n.getComponent(PlayerController));
-        if (player) player.setSiblingIndex(play.children.length - 1);
-        done.push(`${movers.length} chim/boss/cá đưa lên trên đồ vật, mèo trên cùng`);
+        // Hai con mèo trên cùng, Leo vẽ sau cùng (đứng trước Angelo)
+        const cats = play.children.filter((n) => n.getComponent(PlayerController));
+        cats.sort((a, b) => (a.getComponent(PlayerController)!.catName === 'Leo' ? 1 : 0) - (b.getComponent(PlayerController)!.catName === 'Leo' ? 1 : 0));
+        for (const n of cats) n.setSiblingIndex(play.children.length - 1);
+        if (play.children.map((n) => n.uuid).join() !== orderBefore) done.push('chim/boss/cá đưa lên trên đồ vật, mèo trên cùng');
 
         // 4. Khung va chạm hiện trong editor để canh chỉnh
         if (!play.getComponent(ColliderDebug)) {
@@ -317,8 +332,224 @@ export class DemoLevelBuilder extends Component {
         const rays = this.raiseRaysForCamera();
         if (rays) done.push(`${rays} tia nắng: nâng đỉnh cho khớp camera`);
 
+        // 6. Ảnh thanh năng lượng, nút đánh, nút nhảy (chỉ gắn vào ô đang trống)
+        try {
+            await this.loadArtInEditor();
+            done.push(...this.applyUiArt());
+        } catch (e) {
+            console.warn('[DemoLevelBuilder] Không nạp được ảnh nút và thanh năng lượng:', e);
+        }
+
+        // 7. Hào quang của con cá đã bị xoá: xoá luôn cho khỏi lơ lửng một mình trong editor
+        const orphans = play.getComponentsInChildren(CoinGlow).filter((c) => !c.target || !c.target.isValid);
+        for (const c of orphans) {
+            c.node.removeFromParent();
+            c.node.destroy();
+        }
+        if (orphans.length) done.push(`${orphans.length} hào quang không còn cá: đã xoá`);
+
+        // 8. Ánh sáng còn thiếu: sương sáng, tia nắng, hào quang cho cá mới (có rồi thì để yên)
+        const d = view.getDesignResolutionSize();
+        this.W = d.width;
+        this.H = d.height;
+        done.push(...this.buildLighting(play));
+
+        // 9. Băng rôn, cờ trong FR_Top: ghim mép trên sát mép khung hình (đã ghim thì để yên)
+        const pinned = this.pinBanners();
+        if (pinned) done.push(`${pinned} băng rôn/cờ: ghim sát mép trên`);
+
+        // 10. Màn mở đầu (node Landing) nếu chưa có
+        if (!this.node.getChildByName('Landing')) {
+            try {
+                this.buildLanding(await this.loadFontInEditor());
+                done.push('thêm màn mở đầu (node Landing: logo + nút START)');
+            } catch (e) {
+                console.warn('[DemoLevelBuilder] Không thêm được màn mở đầu:', e);
+            }
+        }
+
+        // 11. Angelo (hình tạm: Leo nhuộm xám xanh, bóp gầy) và HUD của Angelo ở góc trên phải (có rồi thì để yên)
+        done.push(...this.ensureAngelo(play));
+
         try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
-        console.log(`[DemoLevelBuilder] Đã cập nhật, giữ nguyên phần bạn sắp xếp:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu.`);
+        console.log(done.length
+            ? `[DemoLevelBuilder] Đã cập nhật, giữ nguyên phần bạn sắp xếp:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu.`
+            : '[DemoLevelBuilder] Màn đã đủ và mới nhất, không đổi gì.');
+    }
+
+    /**
+     * Thêm Angelo nếu chưa có: nhân bản Leo (giữ mọi thông số chạy nhảy), đặt sau lưng Leo, nhuộm xám xanh, bóp gầy,
+     * hộp va chạm hẹp hơn. Thêm HUD_Angelo (tim + thanh năng lượng) lật ngang ở góc trên phải. Gắn cả hai vào GameManager.
+     */
+    private ensureAngelo(play: Node): string[] {
+        const done: string[] = [];
+        const gm = this.getComponent(GameManager);
+        const cats = play.getComponentsInChildren(PlayerController);
+        const leo = gm?.player ?? cats.find((c) => c.catName !== 'Angelo') ?? null;
+        if (!gm || !leo) return done;
+
+        let angelo = gm.partner ?? cats.find((c) => c !== leo && c.catName === 'Angelo') ?? null;
+        if (!angelo) {
+            const n = instantiate(leo.node);
+            n.name = 'Angelo';
+            play.addChild(n);
+            n.setSiblingIndex(leo.node.getSiblingIndex()); // ngay trước Leo, nên vẽ sau lưng Leo
+            const p = leo.node.position;
+            n.setPosition(p.x - 170, p.y, p.z);
+            angelo = n.getComponent(PlayerController)!;
+            angelo.catName = 'Angelo';
+            const vis = angelo.visual;
+            if (vis) {
+                vis.tint = ANGELO_TINT.clone();
+                vis.widthScale = ANGELO_WIDTH;
+                vis.targetHeight = Math.round(vis.targetHeight * ANGELO_HEIGHT);
+                vis.refresh();
+            }
+            const body = n.getComponent(PlatformerBody);
+            if (body) body.size = new Size(Math.round(body.size.width * 0.8), body.size.height);
+            done.push('thêm Angelo sau lưng Leo (hình tạm: Leo nhuộm xám xanh, gầy hơn)');
+        }
+        if (gm.partner !== angelo) gm.partner = angelo;
+
+        let hud2 = this.node.getChildByName('HUD_Angelo');
+        if (!hud2 && gm.hud) {
+            const src = gm.hud;
+            hud2 = this.mk('HUD_Angelo', this.node);
+            hud2.setSiblingIndex(src.node.getSiblingIndex() + 1);
+            hud2.setPosition(this.W / 2 - HUD_LEFT, this.H / 2 - HUD_TOP, 0);
+            hud2.setScale(-1, 1, 1); // lật ngang: avatar sát mép phải, tim chạy vào giữa
+            hud2.addComponent(UITransform).setAnchorPoint(0, 1);
+            const h = hud2.addComponent(HeartsHUD);
+            h.heartFrame = src.heartFrame;
+            h.heartEmptyFrame = src.heartEmptyFrame;
+            h.avatarFrame = src.avatarFrame;
+            h.avatarRadius = src.avatarRadius;
+            h.drawAvatarCircle = src.drawAvatarCircle;
+            h.heartSize = src.heartSize;
+            h.spacing = src.spacing;
+            h.avatarTint = ANGELO_TINT.clone();
+            const srcBar = src.node.getComponentInChildren(EnergyBar);
+            const e = this.mk('Energy', hud2);
+            const bp = srcBar?.node.position;
+            e.setPosition(bp?.x ?? 394, bp?.y ?? -111, 0);
+            const bar = e.addComponent(EnergyBar);
+            bar.frameFrame = srcBar?.frameFrame ?? null;
+            bar.fillFrame = srcBar?.fillFrame ?? null;
+            done.push('thêm HUD của Angelo ở góc trên phải (tim + thanh năng lượng)');
+        }
+        const h2 = hud2?.getComponent(HeartsHUD) ?? null;
+        if (h2 && gm.partnerHud !== h2) gm.partnerHud = h2;
+        const bar2 = hud2?.getComponentInChildren(EnergyBar);
+        if (bar2 && bar2.target !== angelo) bar2.target = angelo;
+        return done;
+    }
+
+    /** Gắn PinToScreenTop cho các hình trong FR_Top chưa được ghim. Trả về số hình vừa ghim. */
+    private pinBanners(): number {
+        const frTop = this.node.getChildByName('FR_Top');
+        if (!frTop) return 0;
+        let added = 0;
+        for (const n of frTop.children) {
+            if (!n.getComponent(Sprite) || n.getComponent(PinToScreenTop)) continue;
+            n.addComponent(PinToScreenTop).pin();
+            added++;
+        }
+        return added;
+    }
+
+    /** Gắn ảnh MG_energy_gauge/fill vào thanh năng lượng, Button_jump/attack vào nút cảm ứng, chỉ ở ô còn trống. */
+    private applyUiArt(): string[] {
+        const done: string[] = [];
+        const lost = new Set<string>();
+        const pick = (name: string) => {
+            const sf = this.frame(name);
+            if (!sf) lost.add(name);
+            return sf;
+        };
+        for (const bar of this.node.getComponentsInChildren(EnergyBar)) {
+            const before = [bar.frameFrame, bar.fillFrame];
+            if (!bar.frameFrame) bar.frameFrame = pick('MG_energy_gauge');
+            if (!bar.fillFrame) bar.fillFrame = pick('MG_energy_fill');
+            if (bar.frameFrame !== before[0] || bar.fillFrame !== before[1]) done.push('thanh năng lượng: dùng ảnh MG_energy_gauge, MG_energy_fill');
+        }
+        for (const touch of this.node.getComponentsInChildren(TouchControls)) {
+            const before = [touch.jumpFrame, touch.attackFrame];
+            if (!touch.jumpFrame) touch.jumpFrame = pick('Button_jump');
+            if (!touch.attackFrame) touch.attackFrame = pick('Button_attack');
+            if (touch.jumpFrame !== before[0] || touch.attackFrame !== before[1]) done.push('nút cảm ứng: dùng ảnh Button_jump, Button_attack');
+        }
+        if (lost.size > 0) {
+            console.warn(`[DemoLevelBuilder] Chưa thấy ảnh: ${Array.from(lost).join(', ')}. `
+                + 'Kiểm tra ảnh nằm trong assets/resources/art và ở Inspector có Type = sprite-frame (đổi xong bấm Apply).');
+        }
+        return done;
+    }
+
+
+
+    private async loadFontInEditor(): Promise<TTFFont | null> {
+        const info: any = await Editor.Message.request('asset-db', 'query-asset-info', 'db://assets/resources/fonts/SuperBouncer.ttf');
+        if (!info?.uuid) return null;
+        return new Promise((resolve) => {
+            assetManager.loadAny(info.uuid, (err: Error | null, f: TTFFont) => resolve(err ? null : f));
+        });
+    }
+
+    private buildLanding(font: TTFFont | null) {
+        const d = view.getDesignResolutionSize();
+        const root = this.mk('Landing', this.node);
+        root.addComponent(UITransform).setContentSize(d.width, d.height);
+        root.addComponent(BlockInputEvents);
+        const landing = root.addComponent(LandingScreen);
+        landing.artFolder = this.artFolder;
+
+        // Logo: chỗ đặt đo theo ảnh mẫu (tâm logo cách đỉnh khung ~285)
+        const logo = this.mk('Logo', root);
+        logo.setPosition(0, d.height / 2 - 285, 0);
+        logo.addComponent(UITransform).setContentSize(740, 440);
+        const logoFrame = this.frame('MG_logo');
+        if (logoFrame) {
+            landing.logoFrame = logoFrame;
+            this.mk('Pic', logo).addComponent(Sprite).spriteFrame = logoFrame;
+        } else {
+            const text = this.mk('Text', logo).addComponent(Label);
+            text.string = 'LEO\nESCAPE';
+            text.fontSize = 170;
+            text.lineHeight = 165;
+            text.color = new Color(246, 195, 91, 255);
+            text.enableOutline = true;
+            text.outlineWidth = 10;
+            text.outlineColor = new Color(90, 58, 42, 255);
+            this.setFont(text, font);
+        }
+
+        // Nút START: ảnh Button_start, chữ START 90, viền 7px #3b7113 (tâm nút cách đáy khung ~218)
+        const start = this.mk('Start', root);
+        start.setPosition(0, -d.height / 2 + 218, 0);
+        const btnFrame = this.frame('Button_start');
+        if (btnFrame) start.addComponent(Sprite).spriteFrame = btnFrame;
+        else {
+            start.addComponent(UITransform).setContentSize(386, 194);
+            console.warn('[DemoLevelBuilder] Chưa thấy ảnh Button_start (kiểm tra Type = sprite-frame). Nút START tạm chỉ có chữ.');
+        }
+        const label = this.mk('Text', start);
+        label.setPosition(0, -8, 0);
+        const t = label.addComponent(Label);
+        t.string = 'START';
+        t.fontSize = 90;
+        t.lineHeight = 100;
+        t.color = Color.WHITE;
+        t.enableOutline = true;
+        t.outlineWidth = 7;
+        t.outlineColor = new Color(0x3b, 0x71, 0x13, 255);
+        this.setFont(t, font);
+    }
+
+    private setFont(label: Label, font: TTFFont | null) {
+        if (!font) return;
+        label.useSystemFont = false;
+        label.font = font;
+        label.isBold = false;
     }
 
     /** Camera dời lên thì lớp tia nắng trôi xuống theo: nâng đỉnh tia để vẫn nhú khỏi mép trên. Trả về số tia đã nâng. */
@@ -366,7 +597,9 @@ export class DemoLevelBuilder extends Component {
                 const n = find(e.id, e.name);
                 if (!n) continue;
                 const p = n.position, s = n.scale;
-                n.setPosition(e.x ?? p.x, e.y ?? p.y, p.z);
+                // Băng rôn đã ghim sát mép trên thì giữ độ cao do ghim đặt, không giằng co với ghim
+                const pinned = !!n.getComponent(PinToScreenTop);
+                n.setPosition(e.x ?? p.x, pinned ? p.y : (e.y ?? p.y), p.z);
                 n.setScale(e.sx ?? s.x, e.sy ?? s.y, s.z);
                 moved++;
             }
@@ -463,45 +696,20 @@ export class DemoLevelBuilder extends Component {
         return best;
     }
 
-    /** Thêm ánh sáng vào màn đang có, không động vào node nào khác. */
-    private addLightingInEditor() {
-        const play = this.node.getChildByName('Gameplay');
-        if (!play) {
-            console.warn('[DemoLevelBuilder] Scene chưa có màn (node Gameplay). Hãy dùng "▶ Dựng màn vào scene" trước.');
-            return;
-        }
-        try {
-            const d = view.getDesignResolutionSize();
-            this.W = d.width;
-            this.H = d.height;
-            const done = this.removeImageLighting(play);
-            done.push(...this.buildLighting(play));
-            try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
-            console.log(done.length
-                ? `[DemoLevelBuilder] Đã thêm ánh sáng, không đổi gì khác:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu.`
-                : '[DemoLevelBuilder] Ánh sáng đã có sẵn, không thêm gì. Muốn làm lại thì xoá Light, Light_Far và các node HaoQuang rồi bấm lại.');
-        } catch (e) {
-            console.error('[DemoLevelBuilder] Không thêm được ánh sáng:', e);
-        }
-    }
 
-    /** Gắn PinToScreenTop cho các hình trong FR_Top, chỉ đổi độ cao của chúng. */
-    private pinBannersInEditor() {
-        const frTop = this.node.getChildByName('FR_Top');
-        if (!frTop) {
-            console.warn('[DemoLevelBuilder] Scene chưa có lớp FR_Top.');
+
+
+
+    /** Nút ⟳: scene trống thì dựng; đã có màn thì chỉ dựng lại khi đã tích "Cho phép xoá màn đang có". */
+    private rebuildFromScratch() {
+        const hasLevel = BUILT_LAYERS.some((name) => !!this.node.getChildByName(name));
+        if (hasLevel && !this.allowRebuild) {
+            console.warn('[DemoLevelBuilder] Scene đã có màn. Muốn xoá màn cũ và dựng lại từ đầu thì tích '
+                + '"Cho phép xoá màn đang có" trước rồi bấm ⟳. Chỉ muốn thêm phần còn thiếu thì dùng ⚙ Cập nhật.');
             return;
         }
-        let added = 0;
-        for (const n of frTop.children) {
-            if (!n.getComponent(Sprite) || n.getComponent(PinToScreenTop)) continue;
-            n.addComponent(PinToScreenTop).pin();
-            added++;
-        }
-        try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
-        console.log(added
-            ? `[DemoLevelBuilder] Đã ghim ${added} băng rôn/cờ sát mép trên khung hình. Nhấn Ctrl+S để lưu.`
-            : '[DemoLevelBuilder] Băng rôn trong FR_Top đã được ghim sẵn.');
+        this.allowRebuild = false;
+        this.buildInEditor(hasLevel);
     }
 
     private async buildInEditor(clearOld: boolean) {
@@ -509,8 +717,7 @@ export class DemoLevelBuilder extends Component {
             .map((name) => this.node.getChildByName(name))
             .filter((n): n is Node => !!n);
         if (existing.length > 0 && !clearOld) {
-            console.warn(`[DemoLevelBuilder] Scene đã có màn (${existing.map((n) => n.name).join(', ')}). `
-                + 'Muốn dựng lại từ đầu thì tích "⟳ Xoá màn cũ và dựng lại".');
+            console.warn(`[DemoLevelBuilder] Scene đã có màn (${existing.map((n) => n.name).join(', ')}).`);
             return;
         }
         try {
@@ -589,10 +796,12 @@ export class DemoLevelBuilder extends Component {
         hud.heartSize = 70;
         hud.spacing = 23;
 
-        // Thanh năng lượng dưới hàng tim (vẽ tạm, kéo ảnh vào ô Frame của EnergyBar để thay)
+        // Thanh năng lượng dưới hàng tim (chưa có ảnh thì vẽ tạm)
         const energyNode = this.mk('Energy', hudNode);
         energyNode.setPosition(394, -111, 0);
-        energyNode.addComponent(EnergyBar);
+        const energy = energyNode.addComponent(EnergyBar);
+        energy.frameFrame = this.frame('MG_energy_gauge');
+        energy.fillFrame = this.frame('MG_energy_fill');
 
         const coinsNode = this.mk('Coins', hudNode);
         coinsNode.setPosition(946, -49, 0);
@@ -613,6 +822,8 @@ export class DemoLevelBuilder extends Component {
         const touch = touchNode.addComponent(TouchControls);
         touch.showOnDesktop = this.touchOnDesktop;
         touch.joystickFrame = this.frame('mg_joystick');
+        touch.jumpFrame = this.frame('Button_jump');
+        touch.attackFrame = this.frame('Button_attack');
 
         const gm = this.getComponent(GameManager) ?? this.addComponent(GameManager);
         gm.player = player;
@@ -797,22 +1008,7 @@ export class DemoLevelBuilder extends Component {
         return done;
     }
 
-    /** Bản ánh sáng trước dùng ảnh FX_*: gỡ đi để thay bằng bản vẽ code. */
-    private removeImageLighting(play: Node): string[] {
-        const old: Node[] = [];
-        for (const name of ['Light', 'Light_Far']) {
-            const layer = this.node.getChildByName(name);
-            if (layer && layer.getComponentsInChildren(Sprite).length > 0) old.push(layer);
-        }
-        for (const g of play.getComponentsInChildren(CoinGlow)) {
-            if (g.getComponent(Sprite)) old.push(g.node);
-        }
-        for (const n of old) {
-            n.removeFromParent();
-            n.destroy();
-        }
-        return old.length ? ['gỡ bản ánh sáng dùng ảnh trước đó'] : [];
-    }
+
 
     private buildGameplay(play: Node): PlayerController {
         const x = (frame: number, px: number) => demoX(frame, px);

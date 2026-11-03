@@ -12,8 +12,16 @@ let failed = false;
 let loading = false;
 const waiting: Label[] = [];
 
+/** Label đã chuyển sang font hệ thống (chữ có dấu tiếng Việt): font game tải xong muộn cũng không gắn đè. */
+const systemOnly = new WeakSet<Label>();
+
+export function keepSystemFont(label: Label, on: boolean) {
+    if (on) systemOnly.add(label);
+    else systemOnly.delete(label);
+}
+
 function apply(label: Label, f: TTFFont) {
-    if (!label.isValid) return;
+    if (!label.isValid || systemOnly.has(label)) return;
     label.useSystemFont = false;
     label.font = f;
     label.isBold = false; // font đã đậm sẵn, in đậm thêm sẽ bị nhoè

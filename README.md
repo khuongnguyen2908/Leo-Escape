@@ -34,7 +34,7 @@ Tuỳ chọn trên DemoLevelBuilder:
 
 ## 4. Đưa màn vào editor để tự sắp xếp
 
-1. Chọn node **Canvas**, ở ô DemoLevelBuilder **tích vào "▶ Dựng màn vào scene"**.
+1. Chọn node **Canvas**, ở ô DemoLevelBuilder **tích vào "⟳ Dựng màn từ đầu"** (scene còn trống thì dựng ngay).
 2. Hierarchy sẽ hiện các node `Sky`, `BG`, `MG`, `Gameplay`, `FR`, `HUD`, `TouchControls`. Mở ra là thấy từng món đồ.
 3. Kéo thả, đổi kích thước, xoá hoặc nhân bản (Ctrl+D) tuỳ ý. **Nhấn Ctrl+S** để lưu.
 4. Lần sau bấm Play, game dùng đúng màn bạn đã xếp và không dựng lại nữa.
@@ -44,36 +44,69 @@ Lưu ý khi sắp xếp:
 - Đồ đứng lên được có component **Solid**. Kích thước vùng va chạm (`Size`) không tự đổi theo khi bạn scale hình, nhớ chỉnh lại Size.
   Bật `Debug Colliders` rồi Play để thấy khung va chạm.
 - Lớp `MG`, `BG`, `FR` trôi theo parallax nên trong editor nhìn lệch so với lúc chơi. Đó là bình thường.
-- **Scene là bản chính.** Khi code dựng màn có bản sửa mới, tích **"⚙ Cập nhật không xoá"**: chỉ sửa đúng chỗ cần sửa
-  trên các node đang có, giữ nguyên mọi thứ bạn đã tự sắp xếp. Danh sách những gì đã sửa hiện trong Console.
-- **"✨ Thêm ánh sáng"** chỉ thêm node mới, không sửa node nào đang có:
-  - lớp `Light_Far` có sương sáng nền xa;
-  - lớp `Light` có tia nắng (`TiaNang`) và bụi sáng (`BuiSang`);
-  - node `HaoQuang` sau mỗi con cá.
+- **Scene là bản chính.** DemoLevelBuilder có 3 nút:
+  - **"⚙ Cập nhật (giữ phần bạn xếp)"**: nút dùng hằng ngày. Áp bản sửa mới của code và thêm những gì còn thiếu,
+    không dời, không xoá gì bạn đã xếp. Bấm bao nhiêu lần cũng vậy. Danh sách việc đã làm hiện trong Console. Nút này lo:
+    - ánh sáng: lớp `Light_Far` (sương sáng nền xa), lớp `Light` (tia nắng `TiaNang`, bụi sáng `BuiSang`), node `HaoQuang` sau mỗi con cá mới;
+    - xoá hào quang của cá đã bị xoá;
+    - ghim băng rôn, cờ mới thêm vào `FR_Top` sát mép trên;
+    - màn mở đầu (node `Landing`) nếu chưa có;
+    - ảnh thanh năng lượng, nút nhảy, nút đánh nếu ô ảnh còn trống;
+    - độ lún mép đá theo số đo ảnh demo, chai nước đứng trên mặt đường, chim/boss/cá vẽ trên đồ vật;
+    - Angelo (nhân bản từ Leo, đặt sau lưng Leo) và HUD của Angelo ở góc trên phải, nếu chưa có.
+  - **"📐 Xếp lại theo ảnh demo"**: đặt lại vị trí, kích thước của đồ vật, cây, chim, boss, mèo, nền đá và độ cao camera
+    cho khớp 4 ảnh demo. **Phần bạn đã tự kéo sẽ mất.** Số liệu nằm trong `DemoLayout.ts`, đo bằng cách dò từng ảnh gốc
+    trên ảnh demo (ảnh demo vẽ mọi thứ đúng cỡ gốc, tỉ lệ 1). Băng rôn đã ghim thì giữ độ cao của ghim.
+    Không tạo, không xoá node, chỉ thêm node `DemoRef` nếu chưa có.
+  - **"⟳ Dựng màn từ đầu"**: scene trống thì dựng ngay. Đã có màn thì phải tích **"Cho phép xoá màn đang có"** trước:
+    các lớp cũ bị xoá và dựng lại, phần đã tự sắp xếp sẽ mất. **Commit scene lên Git trước** để lỡ tay còn lấy lại được.
 
   Ánh sáng vẽ hoàn toàn bằng code, không dùng ảnh. Tia nắng chỉnh trong component **LightRays**: Length, Angle, Spread, Shafts, Color (alpha là độ sáng).
   Sương và hào quang chỉnh trong **SoftGlow**: Size, Color. Bụi sáng chỉnh trong **DustMotes**.
-- Chỉ khi muốn làm lại từ đầu mới tích **"⟳ Xoá màn cũ và dựng lại"**: các lớp cũ bị xoá và dựng lại theo 4 khung ảnh demo,
-  phần bạn đã tự sắp xếp sẽ mất. **Commit scene lên Git trước** để lỡ tay còn lấy lại được.
 - Vị trí đồ vật trong màn mẫu đo theo 4 ảnh demo 1280×720 (1px = 1.5 đơn vị game), xem hàm `demoX` trong `DemoLevelBuilder.ts`.
-- **"📐 Xếp theo ảnh demo"** đặt lại vị trí, kích thước của đồ vật, cây, chim, boss, mèo, nền đá và độ cao camera
-  cho khớp 4 ảnh demo. Số liệu nằm trong `DemoLayout.ts`, đo bằng cách dò từng ảnh gốc trên ảnh demo. Ảnh demo vẽ mọi thứ
-  đúng cỡ gốc (tỉ lệ 1). Nút này không tạo, không xoá node, chỉ thêm node `DemoRef` nếu chưa có.
 - **So với ảnh demo:** chọn node `DemoRef`, tích **Hiện ảnh demo**, kéo **Khung** 1–4 (camera xem trước tự nhảy tới đúng chỗ),
   chỉnh **Độ đậm**. Ảnh nằm ở `assets/ref/`, chỉ hiện trong editor và không vào bản build.
 - Nếu Ctrl+S không lưu (tên scene không có dấu `*`), kéo nhẹ một node bất kỳ rồi lưu lại.
 
+## Vào game: 1 người hay 2 người
+
+Màn mở đầu → bấm **START** → chọn **1 NGƯỜI** hoặc **2 NGƯỜI** (điện thoại vào thẳng 1 người).
+- **1 người:** điều khiển Leo. Bấm **Đổi mèo** (Tab, hoặc nút hai mũi tên trên điện thoại) để chuyển sang Angelo: một linh hồn
+  phát sáng (màu của con được chọn) bay vòng từ con cũ sang con mới (`SoulWisp.ts`). Bấm bộ phím của Người 1 hay Người 2 đều được.
+  Con không được điều khiển **tự đi theo** sau lưng, tự nhảy lên bục / qua hố, tự chém địch ở gần, nhưng không lướt, không dùng kỹ năng,
+  không kéo dậy (`FollowerAI.ts`). Nó bị đánh nhưng luôn còn ít nhất 1 tim; kẹt, rơi vực hoặc tụt lại quá xa thì hoá linh hồn bay tới.
+- **2 người:** màn chọn mèo. Mỗi người bấm trái/phải để đưa thẻ (N1, N2) tới dưới con mèo muốn chơi, bấm **Nhảy** để chốt, **Xuống** để bỏ chọn.
+  Hai người chốt xong thì đếm 3-2-1 rồi vào game. Hai con không đi xa nhau quá một màn hình (`Max Gap` trên GameManager).
+- Mỗi con một dãy tim và một thanh năng lượng (Leo góc trên trái, Angelo góc trên phải). Hết tim thì **gục**;
+  con kia tới gần, **giữ phím Tương tác 1 giây** để kéo dậy (còn 2 tim). Cả hai cùng gục thì thua.
+- Thua rồi chơi lại thì giữ nguyên số người và mèo đã chọn. Menu → **Về màn hình chính** thì chọn lại từ đầu.
+- **Angelo tạm** là Leo nhuộm xám xanh, bóp gầy (ô *Tint*, *Width Scale* trên PlayerVisual của node `Angelo`). Kỹ năng riêng làm ở bước sau.
+
 ## Điều khiển
 
-| Phím | Tác dụng |
-|---|---|
-| A / D, ← / → | Chạy |
-| Space | Nhảy (giữ lâu nhảy cao, nhả sớm nhảy thấp). Tốn năng lượng |
-| W / ↑ | Đi lên bục một chiều ngay phía trên (bàn, thùng, ghế...) |
-| S / ↓ | Xuống khỏi bục một chiều |
-| J / X | Chém. Bấm liên tục ra combo 3 nhát, nhát 3 mạnh và xa nhất. Chém được cả khi đang nhảy. Tốn năng lượng |
-| Giữ J | Lướt chém: lướt xuyên qua kẻ địch, mỗi con trên đường mất 2 máu, không bị đánh khi lướt. Tốn nhiều năng lượng |
-| Cảm ứng | Joystick trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục; nút J để chém (giữ để lướt), nút SPACE để nhảy. Trên máy tính bật **Touch On Desktop** (Canvas) để thấy nút, nút có ghi phím tương ứng |
+Phím mặc định (đổi được trong menu **Esc → Cài đặt → Bàn phím**, lưu trên máy):
+
+| Hành động | Người 1 | Người 2 |
+|---|---|---|
+| Chạy | A / D | ← / → |
+| Đi lên bục một chiều ngay phía trên | W | ↑ |
+| Xuống khỏi bục một chiều | S | ↓ |
+| Nhảy (giữ lâu nhảy cao, nhả sớm nhảy thấp). Tốn năng lượng | Space | Num 0 |
+| Chém: bấm liên tục ra combo 3 nhát. Giữ để **lướt chém** xuyên qua kẻ địch | J | Num 1 |
+| Kỹ năng riêng (chưa có, bước 2) | K | Num 2 |
+| Tương tác: kéo đồng đội dậy (sau này: bê, ném...) | L | Num 3 |
+| Đổi mèo (chơi 1 người) | Tab | — |
+| Menu tạm dừng | Esc | Esc |
+
+Cảm ứng: joystick trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục; nút J để chém (giữ để lướt), nút SPACE để nhảy,
+nút hai mũi tên để đổi mèo. Trên máy tính bật **Touch On Desktop** (Canvas) để thấy nút, nút có ghi phím tương ứng.
+
+## Menu (Esc hoặc nút bánh răng góc trên phải)
+
+Mở menu thì game dừng. **Tiếp tục** · **Cài đặt** · **Về màn hình chính**.
+Cài đặt: âm lượng nhạc nền, tiếng hiệu ứng, toàn màn hình, rung màn hình, bàn phím (bấm vào ô rồi bấm phím mới;
+phím đang dùng chỗ khác thì hai phím đổi chỗ; có nút Trả về mặc định). Mọi cài đặt lưu trên máy (`Settings.ts`).
+Menu và màn chọn vẽ tạm bằng code (`UiKit.ts`). Chữ có dấu tiếng Việt dùng font hệ thống vì font Super Bouncer thiếu nhiều chữ có dấu.
 
 **Năng lượng** (thanh xanh dưới hàng tim): nhảy tốn 10, chém tốn 12, lướt tốn 35 trên 100. Vừa dùng thì chờ 0.6 giây mới hồi lại.
 Không đủ năng lượng thì không làm được và thanh nháy đỏ. Chỉnh trong PlayerController, nhóm "Năng lượng".
@@ -150,7 +183,7 @@ assets/scripts/
   `FR_Top` chứa đồ treo trên cao (băng rôn): Factor là (1.35, 0), tức trôi ngang nhưng đứng yên theo chiều dọc,
   để mép trên không bị hở khi camera lên xuống. Đồ nào cần dính mép trên màn hình thì đặt vào lớp này.
   Băng rôn, cờ trong lớp này có component **PinToScreenTop**: mép trên luôn sát mép khung hình, kéo ngang được còn độ cao do component giữ.
-  Muốn cao hay thấp thì đổi **Overlap**. Băng rôn mới thêm vào thì bấm "📌 Ghim băng rôn sát mép trên" trên Canvas để ghim.
+  Muốn cao hay thấp thì đổi **Overlap**. Băng rôn mới thêm vào thì bấm "⚙ Cập nhật" trên Canvas để ghim.
   Mọi thứ có va chạm (Solid, PlatformerBody, trigger) phải là **con trực tiếp của lớp Gameplay**.
 - **Gốc nhân vật và đồ vật ở chân** (anchor 0.5, 0). Hộp va chạm của nhân vật đặt `offset.y = size.height / 2`.
 - Camera không di chuyển Camera thật mà dịch các lớp ngược lại, vì vậy HUD luôn đứng yên.

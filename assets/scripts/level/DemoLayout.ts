@@ -1,6 +1,6 @@
 /**
  * Vị trí, kích thước đo từ 4 ảnh demo (1280×720, 1px = 1.5 đơn vị game) bằng cách dò từng ảnh gốc trên ảnh demo.
- * Dùng bởi nút "📐 Xếp theo ảnh demo" của DemoLevelBuilder. Node được tìm theo uuid nên đổi tên vẫn không sao.
+ * Dùng bởi nút "📐 Xếp lại theo ảnh demo" của DemoLevelBuilder (nút ⚙ cũng lấy độ lún mép đá ở đây). Node được tìm theo uuid nên đổi tên vẫn không sao.
  * Ảnh gốc giữ đúng cỡ vẽ (tỉ lệ 1), trừ vài món demo vẽ nhỏ hơn (bàn hồng, tủ điện).
  */
 export const DEMO_CAMERA_OFFSET_Y = 46;

@@ -1,40 +1,95 @@
-import { EventKeyboard, Input, input, KeyCode } from 'cc';
+import { EventKeyboard, Input, input } from 'cc';
+import { Action, ACTIONS, Settings } from '../core/Settings';
 
-export type TouchButton = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack';
+export type TouchButton = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'swap';
 
-const keys = new Set<KeyCode>();
-const touch: Record<TouchButton, boolean> = { left: false, right: false, up: false, down: false, jump: false, attack: false };
-let jumpQueued = false;
-let attackQueued = false;
-let upQueued = false;
-let downQueued = false;
+/** Bộ điều khiển của một con mèo: đọc phím của một hoặc nhiều người chơi. */
+export interface Controls {
+    readonly left: boolean;
+    readonly right: boolean;
+    readonly down: boolean;
+    readonly jumpHeld: boolean;
+    /** Đang giữ nút đánh (giữ đủ lâu thì lướt). */
+    readonly attackHeld: boolean;
+    readonly interactHeld: boolean;
+    /** Mỗi hàm consume trả về true một lần cho mỗi lần bấm. */
+    consumeJump(): boolean;
+    consumeAttack(): boolean;
+    consumeUp(): boolean;
+    consumeDown(): boolean;
+    consumeSkill(): boolean;
+    consumeInteract(): boolean;
+    consumeSwap(): boolean;
+}
+
+const keys = new Set<number>();
+const touch = new Set<Action>(); // nút cảm ứng luôn thuộc Người 1
+const queued = [new Set<Action>(), new Set<Action>()];
 let listening = false;
+let capture: ((code: number) => void) | null = null;
 
-const LEFT = [KeyCode.KEY_A, KeyCode.ARROW_LEFT];
-const RIGHT = [KeyCode.KEY_D, KeyCode.ARROW_RIGHT];
-const UP = [KeyCode.KEY_W, KeyCode.ARROW_UP];
-const DOWN = [KeyCode.KEY_S, KeyCode.ARROW_DOWN];
-const JUMP = [KeyCode.SPACE];
-const ATTACK = [KeyCode.KEY_J, KeyCode.KEY_X];
-
-const anyKey = (list: KeyCode[]) => list.some((k) => keys.has(k));
+function held(p: number, a: Action): boolean {
+    const k = Settings.key(p, a);
+    return (k > 0 && keys.has(k)) || (p === 0 && touch.has(a));
+}
 
 function onKeyDown(e: EventKeyboard) {
+    if (capture) {
+        const cb = capture;
+        capture = null;
+        cb(e.keyCode);
+        return;
+    }
     if (keys.has(e.keyCode)) return; // bỏ qua lặp phím khi giữ
     keys.add(e.keyCode);
-    if (JUMP.indexOf(e.keyCode) >= 0) jumpQueued = true;
-    if (ATTACK.indexOf(e.keyCode) >= 0) attackQueued = true;
-    if (UP.indexOf(e.keyCode) >= 0) upQueued = true;
-    if (DOWN.indexOf(e.keyCode) >= 0) downQueued = true;
+    for (let p = 0; p < 2; p++) {
+        for (const a of ACTIONS) if (Settings.key(p, a) === e.keyCode) queued[p].add(a);
+    }
 }
 
 function onKeyUp(e: EventKeyboard) {
     keys.delete(e.keyCode);
 }
 
+/** Điều khiển ghép từ phím của các người chơi trong danh sách (rỗng = không điều khiển gì). */
+class PlayerControls implements Controls {
+    constructor(private readonly players: number[]) {}
+
+    private held(a: Action) { return this.players.some((p) => held(p, a)); }
+
+    private consume(a: Action): boolean {
+        let hit = false;
+        for (const p of this.players) {
+            if (queued[p].has(a)) {
+                queued[p].delete(a);
+                hit = true;
+            }
+        }
+        return hit;
+    }
+
+    get left() { return this.held('left'); }
+    get right() { return this.held('right'); }
+    get down() { return this.held('down'); }
+    get jumpHeld() { return this.held('jump'); }
+    get attackHeld() { return this.held('attack'); }
+    get interactHeld() { return this.held('interact'); }
+    consumeJump() { return this.consume('jump'); }
+    consumeAttack() { return this.consume('attack'); }
+    consumeUp() { return this.consume('up'); }
+    consumeDown() { return this.consume('down'); }
+    consumeSkill() { return this.consume('skill'); }
+    consumeInteract() { return this.consume('interact'); }
+    consumeSwap() { return this.consume('swap'); }
+}
+
+const single = [new PlayerControls([0]), new PlayerControls([1])];
+const merged = new PlayerControls([0, 1]);
+const none = new PlayerControls([]);
+
 /**
- * Gom input bàn phím và nút cảm ứng về một chỗ.
- * Space = nhảy · W / ↑ = đi lên bục phía trên · S / ↓ = xuống khỏi bục · J / X = chém (giữ để lướt).
+ * Gom bàn phím và nút cảm ứng, chia theo người chơi. Phím của từng người đặt trong Settings (menu → Cài đặt → Bàn phím).
+ * Chơi 1 người thì con mèo đang điều khiển nhận phím của cả hai người (merged), nên bấm bộ phím nào cũng được.
  */
 export const PlayerInput = {
     init() {
@@ -46,52 +101,41 @@ export const PlayerInput = {
 
     reset() {
         keys.clear();
-        touch.left = touch.right = touch.up = touch.down = touch.jump = touch.attack = false;
-        jumpQueued = attackQueued = upQueued = downQueued = false;
+        touch.clear();
+        this.clearQueues();
     },
 
-    get left() { return touch.left || anyKey(LEFT); },
-    get right() { return touch.right || anyKey(RIGHT); },
-    get down() { return touch.down || anyKey(DOWN); },
-    get jumpHeld() { return touch.jump || anyKey(JUMP); },
-    /** Đang giữ nút chém (giữ đủ lâu thì lướt). */
-    get attackHeld() { return touch.attack || anyKey(ATTACK); },
-
-    /** Trả về true một lần cho mỗi lần bấm nhảy. */
-    consumeJump(): boolean {
-        const j = jumpQueued;
-        jumpQueued = false;
-        return j;
+    /** Bỏ các lần bấm chưa dùng (ví dụ bấm trong lúc mở menu). */
+    clearQueues() {
+        queued[0].clear();
+        queued[1].clear();
     },
 
-    /** Trả về true một lần cho mỗi lần bấm chém. */
-    consumeAttack(): boolean {
-        const a = attackQueued;
-        attackQueued = false;
-        return a;
+    /** Điều khiển của Người 1 (0) hoặc Người 2 (1). */
+    player(p: number): Controls {
+        return single[p === 1 ? 1 : 0];
     },
 
-    /** Trả về true một lần cho mỗi lần bấm đi lên (W / ↑ / đẩy joystick lên). */
-    consumeUp(): boolean {
-        const u = upQueued;
-        upQueued = false;
-        return u;
+    /** Phím của cả hai người chơi. */
+    get merged(): Controls { return merged; },
+
+    /** Không điều khiển gì (mèo đứng chờ). */
+    get none(): Controls { return none; },
+
+    /** Lần bấm phím kế tiếp không điều khiển game mà gửi cho cb (dùng khi đổi phím trong menu). */
+    captureNextKey(cb: (code: number) => void) {
+        capture = cb;
     },
 
-    /** Trả về true một lần cho mỗi lần bấm xuống (S / ↓ / kéo joystick xuống). */
-    consumeDown(): boolean {
-        const d = downQueued;
-        downQueued = false;
-        return d;
+    cancelCapture() {
+        capture = null;
     },
+
+    get capturing() { return capture !== null; },
 
     setTouch(button: TouchButton, pressed: boolean) {
-        if (pressed && !touch[button]) {
-            if (button === 'jump') jumpQueued = true;
-            if (button === 'attack') attackQueued = true;
-            if (button === 'up') upQueued = true;
-            if (button === 'down') downQueued = true;
-        }
-        touch[button] = pressed;
+        if (pressed && !touch.has(button)) queued[0].add(button);
+        if (pressed) touch.add(button);
+        else touch.delete(button);
     },
 };

@@ -27,6 +27,9 @@ export class HeartsHUD extends Component {
     @property({ tooltip: 'Vẽ vòng tròn nền sau avatar. Tắt khi ảnh avatar đã có sẵn khung tròn (MG_avatar)' })
     drawAvatarCircle = true;
 
+    @property({ tooltip: 'Màu nhuộm ảnh avatar. Trắng = giữ nguyên (Angelo tạm dùng avatar Leo nhuộm xám xanh)' })
+    avatarTint = new Color(255, 255, 255, 255);
+
     @property
     heartSize = 56;
 
@@ -86,7 +89,9 @@ export class HeartsHUD extends Component {
         }
         if (this.avatarFrame) {
             const pic = this.child('Pic', avatar);
-            pic.addComponent(Sprite).spriteFrame = this.avatarFrame;
+            const sp = pic.addComponent(Sprite);
+            sp.spriteFrame = this.avatarFrame;
+            sp.color = this.avatarTint;
             const fit = this.drawAvatarCircle ? 1.9 : 2;
             const s = (r * fit) / Math.max(this.avatarFrame.rect.width, this.avatarFrame.rect.height);
             pic.setScale(s, s, 1);

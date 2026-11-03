@@ -2,10 +2,11 @@ import { _decorator, Component, Rect, Size, tween, UIOpacity, Vec2, Vec3 } from 
 import { EDITOR } from 'cc/env';
 import { computeBox } from '../core/Box';
 import { GameManager } from '../game/GameManager';
+import { PlayerController } from '../player/PlayerController';
 const { ccclass, property } = _decorator;
 
 /**
- * Nền chung cho HealPickup, Hazard, Checkpoint, Goal: kiểm tra mèo chạm hộp (size, offset) mỗi frame.
+ * Nền chung cho HealPickup, Hazard, Checkpoint, Goal, CoinPickup: kiểm tra con mèo nào chạm hộp (size, offset) mỗi frame.
  * Size = 0 thì lấy theo UITransform. Không gắn trực tiếp component này.
  */
 @ccclass('PlayerTrigger')
@@ -26,13 +27,19 @@ export abstract class PlayerTrigger extends Component {
     update(dt: number) {
         if (EDITOR) return;
         const gm = GameManager.instance;
-        if (gm && !this.used && gm.playerOverlaps(this.node, this.size, this.offset)) this.onPlayerEnter(gm);
+        if (gm && !this.used) {
+            for (const cat of gm.catsOverlapping(this.node, this.size, this.offset)) {
+                this.onPlayerEnter(gm, cat);
+                if (this.used) break;
+            }
+        }
         this.tick(dt);
     }
 
     protected tick(_dt: number) {}
 
-    protected abstract onPlayerEnter(gm: GameManager): void;
+    /** Mèo cat vừa chạm vào (gọi mỗi frame khi còn chạm, cho từng con mèo). */
+    protected abstract onPlayerEnter(gm: GameManager, cat: PlayerController): void;
 
     protected popAndDestroy() {
         this.used = true;

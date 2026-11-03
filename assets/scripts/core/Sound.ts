@@ -82,6 +82,13 @@ export const Sound = {
         b.play();
     },
 
+    /** Áp âm lượng mới ngay (khi kéo thanh trượt trong Cài đặt). */
+    setVolumes(music: number, sfx: number) {
+        this.musicVolume = music;
+        this.sfxVolume = sfx;
+        if (bgm && bgm.isValid) bgm.volume = music;
+    },
+
     stopMusic() {
         wantedMusic = null;
         bgm?.stop();

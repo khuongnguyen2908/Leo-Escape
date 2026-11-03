@@ -1,5 +1,6 @@
 import { _decorator, Color, Component, Graphics, Node, Size, Sprite, SpriteFrame } from 'cc';
 import { GameManager } from '../game/GameManager';
+import { PlayerController } from '../player/PlayerController';
 const { ccclass, property } = _decorator;
 
 const OUTLINE = new Color(60, 42, 40, 255);
@@ -11,7 +12,7 @@ const WARN = new Color(232, 84, 72, 255);
 /**
  * Thanh năng lượng dưới hàng tim, đọc năng lượng của mèo mỗi frame. Nhảy, chém, lướt đều tốn năng lượng;
  * bấm mà không đủ thì thanh nháy đỏ và rung.
- * Chưa có ảnh thì tự vẽ; kéo ảnh khung + ảnh thanh vào là tự đổi sang dùng ảnh.
+ * Chưa có ảnh thì tự vẽ; kéo ảnh khung + ảnh thanh vào là tự đổi sang dùng ảnh (MG_energy_gauge, MG_energy_fill).
  */
 @ccclass('EnergyBar')
 export class EnergyBar extends Component {
@@ -24,8 +25,12 @@ export class EnergyBar extends Component {
     @property({ tooltip: 'Kích thước thanh khi tự vẽ' })
     size = new Size(450, 27);
 
+    @property({ type: PlayerController, tooltip: 'Con mèo của thanh này. Để trống = Leo' })
+    target: PlayerController | null = null;
+
     private fillSprite: Sprite | null = null;
     private fillGfx: Graphics | null = null;
+    private warnGfx: Graphics | null = null;
     private shown = 1;
     private warn = false;
     private baseX = NaN;
@@ -41,6 +46,17 @@ export class EnergyBar extends Component {
             sp.fillRange = 1;
             this.fillSprite = sp;
         }
+        if (this.frameFrame || this.fillFrame) {
+            // Viền đỏ quanh khung ảnh, chỉ hiện lúc không đủ năng lượng
+            const r = (this.frameFrame ?? this.fillFrame)!.rect;
+            const g = this.child('Warn').addComponent(Graphics);
+            g.strokeColor = WARN;
+            g.lineWidth = 5;
+            g.roundRect(-r.width / 2 - 4, -r.height / 2 - 4, r.width + 8, r.height + 8, r.height / 2 + 4);
+            g.stroke();
+            g.node.active = false;
+            this.warnGfx = g;
+        }
         if (!this.frameFrame && !this.fillFrame) {
             const { width: w, height: h } = this.size;
             const g = this.child('Back').addComponent(Graphics);
@@ -55,7 +71,7 @@ export class EnergyBar extends Component {
     }
 
     update(dt: number) {
-        const p = GameManager.instance?.player;
+        const p = this.target ?? GameManager.instance?.player;
         const ratio = p ? Math.max(0, Math.min(1, p.energy / p.maxEnergy)) : 1;
         this.shown += (ratio - this.shown) * Math.min(1, dt * 10);
         // Không đủ năng lượng: nháy đỏ + rung ngang
@@ -69,6 +85,7 @@ export class EnergyBar extends Component {
             this.fillSprite.fillRange = this.shown;
             this.fillSprite.color = this.warn ? WARN : Color.WHITE;
         }
+        if (this.warnGfx) this.warnGfx.node.active = this.warn;
         if (this.fillGfx) this.drawFill(this.fillGfx, this.shown);
     }
 
