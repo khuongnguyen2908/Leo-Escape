@@ -4,6 +4,8 @@ import { Solid } from './Solid';
 const { ccclass, property } = _decorator;
 
 const EPS = 0.01;
+/** Chân lún vào mặt bục trong khoảng này vẫn được tính là đứng trên bục */
+const SINK_TOLERANCE = 12;
 const _self = new Rect();
 const _other = new Rect();
 
@@ -83,8 +85,9 @@ export class PlatformerBody extends Component {
             if (r.xMin >= o.xMax - EPS || r.xMax <= o.xMin + EPS) continue;
             if (dy <= 0) {
                 if (s.oneWay && this.dropTimer > 0) continue;
-                // Chân phải đang ở trên mặt bục thì mới đáp được (bục một chiều cũng vậy)
-                if (o.yMax <= r.yMin + EPS && o.yMax - r.yMin >= dy) {
+                // Chân phải đang ở trên mặt bục thì mới đáp được (bục một chiều cũng vậy).
+                // Chân lún nhẹ vào mặt bục (chỉnh Offset lệch một chút) thì đẩy lên đứng trên mặt, không rơi xuyên qua
+                if (o.yMax <= r.yMin + SINK_TOLERANCE && o.yMax - r.yMin >= dy) {
                     dy = o.yMax - r.yMin;
                     this.grounded = true;
                     this.groundSolid = s;
@@ -101,6 +104,22 @@ export class PlatformerBody extends Component {
     }
 
     /** Có mặt đất (bục bất kỳ) ngay tại điểm (x, y) không — dùng để kẻ địch quay đầu ở mép vực. */
+    /**
+     * Mặt bục một chiều thấp nhất nằm phía trên chân (cao hơn chân trong khoảng maxRise), có chiều ngang
+     * phủ qua tâm hộp r. Dùng cho phím W để đi lên bục. Không có thì trả về null.
+     */
+    static platformAbove(r: Rect, maxRise: number): number | null {
+        const cx = r.x + r.width / 2;
+        let best: number | null = null;
+        for (const s of Solid.all) {
+            if (!s.oneWay) continue;
+            const o = s.getRect(_other);
+            const rise = o.yMax - r.yMin;
+            if (cx > o.xMin && cx < o.xMax && rise > 10 && rise <= maxRise && (best === null || o.yMax < best)) best = o.yMax;
+        }
+        return best;
+    }
+
     static hasGroundAt(x: number, y: number): boolean {
         for (const s of Solid.all) {
             const o = s.getRect(_other);

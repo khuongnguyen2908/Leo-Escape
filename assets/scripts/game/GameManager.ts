@@ -1,5 +1,6 @@
 import { _decorator, Component, director, Node, Rect, Size, Vec2, Vec3 } from 'cc';
 import { computeBox, overlaps } from '../core/Box';
+import { Sound } from '../core/Sound';
 import { PlayerController } from '../player/PlayerController';
 import { PlayerInput } from '../player/PlayerInput';
 import { CoinCounter } from '../ui/CoinCounter';
@@ -29,6 +30,15 @@ export class GameManager extends Component {
     @property({ tooltip: 'Rơi thấp hơn độ cao này (toạ độ lớp Gameplay) là rơi xuống vực' })
     killY = -600;
 
+    @property({ group: 'Âm thanh', tooltip: 'Tên file nhạc nền trong assets/resources/sounds (để trống = không có nhạc)' })
+    music = 'bgm';
+
+    @property({ group: 'Âm thanh', tooltip: 'Âm lượng nhạc nền 0..1', range: [0, 1, 0.05], slide: true })
+    musicVolume = 0.35;
+
+    @property({ group: 'Âm thanh', tooltip: 'Âm lượng tiếng hiệu ứng 0..1', range: [0, 1, 0.05], slide: true })
+    sfxVolume = 0.8;
+
     hp = 3;
     coins = 0;
     readonly respawnPoint = new Vec3();
@@ -40,6 +50,10 @@ export class GameManager extends Component {
     }
 
     start() {
+        Sound.sfxVolume = this.sfxVolume;
+        Sound.musicVolume = this.musicVolume;
+        Sound.preload();
+        if (this.music) Sound.music(this.music);
         this.hp = this.maxHp;
         if (this.player) this.respawnPoint.set(this.player.node.position);
         this.hud?.setHp(this.hp, this.maxHp);
@@ -65,15 +79,20 @@ export class GameManager extends Component {
     damage(amount: number) {
         this.hp = Math.max(0, this.hp - amount);
         this.hud?.setHp(this.hp, this.maxHp);
-        if (this.hp <= 0) this.end('Thử lại nhé!', 2);
+        if (this.hp <= 0) {
+            Sound.play('lose');
+            this.end('Try again!', 2);
+        }
     }
 
     heal(amount: number) {
+        Sound.play('heal');
         this.hp = Math.min(this.maxHp, this.hp + amount);
         this.hud?.setHp(this.hp, this.maxHp);
     }
 
     addCoins(amount: number) {
+        Sound.play('coin', 0.7);
         this.coins += amount;
         this.coinCounter?.setValue(this.coins);
     }
@@ -83,7 +102,8 @@ export class GameManager extends Component {
     }
 
     win() {
-        this.end('Về đích rồi!', 3);
+        Sound.play('win');
+        this.end('You made it!', 3);
     }
 
     /** Hộp (size, offset) của node có chạm mèo không. Node phải nằm trong lớp Gameplay. */

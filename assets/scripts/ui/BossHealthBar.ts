@@ -1,4 +1,5 @@
 import { _decorator, Color, Component, Label, Node, Sprite, SpriteFrame, UIOpacity } from 'cc';
+import { useGameFont } from './GameFont';
 import { EnemyPatrol } from '../enemy/EnemyPatrol';
 import { GameManager } from '../game/GameManager';
 const { ccclass, property } = _decorator;
@@ -54,6 +55,7 @@ export class BossHealthBar extends Component {
         this.label.lineHeight = 32;
         this.label.isBold = true;
         this.label.color = TEXT;
+        useGameFont(this.label);
     }
 
     update(dt: number) {

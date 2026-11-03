@@ -1,4 +1,4 @@
-import { _decorator, assetManager, Color, Component, Node, resources, Size, Sprite, SpriteFrame, UITransform, Vec2, view, Widget } from 'cc';
+import { _decorator, assetManager, Color, Component, Node, resources, Size, Sprite, SpriteFrame, sys, UITransform, Vec2, view, Widget } from 'cc';
 import { EDITOR } from 'cc/env';
 import { CameraRig } from '../camera/CameraRig';
 import { ParallaxLayer } from '../camera/ParallaxLayer';
@@ -16,14 +16,21 @@ import { HeartsHUD } from '../ui/HeartsHUD';
 import { Letterbox } from '../ui/Letterbox';
 import { TouchControls } from '../ui/TouchControls';
 import { Checkpoint } from './Checkpoint';
+import { CoinGlow } from './CoinGlow';
 import { CoinPickup } from './CoinPickup';
+import { DEMO_CAMERA_OFFSET_Y, DEMO_ENEMIES, DEMO_GROUNDS, DEMO_LAYERS, DEMO_NODES, DEMO_PLAYER, DEMO_SPRITES } from './DemoLayout';
+import { DemoReference } from './DemoReference';
+import { DustMotes } from './DustMotes';
 import { Goal } from './Goal';
 import { GroundBlock } from './GroundBlock';
 import { Hazard } from './Hazard';
 import { HealPickup } from './HealPickup';
 import { LeafCanopy } from './LeafCanopy';
+import { LightRays } from './LightRays';
+import { PinToScreenTop } from './PinToScreenTop';
 import { PlaceholderBox } from './PlaceholderBox';
 import { SkyGradient } from './SkyGradient';
+import { SoftGlow } from './SoftGlow';
 const { ccclass, property } = _decorator;
 
 // API của editor Cocos, chỉ tồn tại khi chạy trong Creator
@@ -38,14 +45,16 @@ const ART = 0.87;
 const LEVEL_START = -300;
 const LEVEL_END = 7900;
 const RAISED = 370;      // độ cao bậc đá
+const TILE_FOOT = 60 / 285; // chỗ đặt chân trên ảnh MG_tile, tính từ đỉnh ảnh (tỉ lệ chiều cao)
 const HUD_LEFT = 33;     // HUD cách mép trái / trên khung hình (đo theo ảnh demo)
 const HUD_TOP = 30;
-const BUILT_LAYERS = ['Sky', 'BG', 'MG', 'Gameplay', 'FR', 'FR_Top', 'HUD', 'BossBar', 'TouchControls'];
+const BUILT_LAYERS = ['Sky', 'BG', 'Light_Far', 'MG', 'Light', 'Gameplay', 'FR', 'FR_Top', 'HUD', 'BossBar', 'TouchControls'];
 
 // Hệ số parallax của từng lớp
 const BG_F = 0.12;
 const MG_F = 0.8;
 const FR_F = 1.35;
+const LIGHT_F = 0.9;  // tia nắng: trôi giữa nhà cây (MG) và lớp chơi
 
 /**
  * Vị trí đo trên 4 ảnh demo (1280×720): 1px ảnh = 1.5 đơn vị game (1920×1080).
@@ -71,6 +80,11 @@ const PH_HOUSE = new Color(220, 200, 165, 255);
 const PH_PLAYER = new Color(245, 180, 90, 255);
 const PH_ENEMY = new Color(235, 235, 235, 255);
 const PH_FR = new Color(60, 62, 75, 255);
+const RAY_TINT = new Color(255, 246, 214, 120);
+const HAZE_TINT = new Color(238, 252, 240, 105);
+const GLOW_TINT = new Color(255, 226, 120, 170);
+/** Chỗ có tia nắng trong từng khung demo: [khung, x trên ảnh demo] */
+const RAY_SPOTS: [number, number][] = [[1, 760], [2, 700], [3, 690], [4, 560]];
 
 type PropOpts = { flip?: boolean; tint?: Color; ph?: [number, number]; phColor?: Color };
 type PlatformOpts = PropOpts & { oneWay?: boolean; widthFrac?: number; topInset?: number };
@@ -113,6 +127,30 @@ export class DemoLevelBuilder extends Component {
         if (v && EDITOR) this.buildInEditor(false);
     }
 
+    @property({ displayName: '⚙ Cập nhật không xoá', tooltip: 'Áp các bản sửa mới nhất lên màn đang có. Giữ nguyên vị trí, kích thước và mọi thứ bạn đã tự sắp xếp' })
+    get applyFixes() { return false; }
+    set applyFixes(v: boolean) {
+        if (v && EDITOR) this.applyFixesInEditor();
+    }
+
+    @property({ displayName: '✨ Thêm ánh sáng', tooltip: 'Chỉ thêm tia nắng, sương sáng, bụi sáng và hào quang cá. Không sửa, không xoá gì trong màn đang có' })
+    get addLighting() { return false; }
+    set addLighting(v: boolean) {
+        if (v && EDITOR) this.addLightingInEditor();
+    }
+
+    @property({ displayName: '📌 Ghim băng rôn sát mép trên', tooltip: 'Mọi hình trong lớp FR_Top (băng rôn, cờ) được ghim mép trên sát mép khung hình, không còn hở trời. Không đổi vị trí ngang' })
+    get pinBanners() { return false; }
+    set pinBanners(v: boolean) {
+        if (v && EDITOR) this.pinBannersInEditor();
+    }
+
+    @property({ displayName: '📐 Xếp theo ảnh demo', tooltip: 'Đặt lại vị trí, kích thước các đồ vật, chim, boss, mèo, nền đá và độ cao camera cho khớp 4 ảnh demo. Không tạo, không xoá node nào' })
+    get applyDemoLayout() { return false; }
+    set applyDemoLayout(v: boolean) {
+        if (v && EDITOR) this.applyDemoLayoutInEditor();
+    }
+
     @property({ displayName: '⟳ Xoá màn cũ và dựng lại', tooltip: 'Xoá Sky, BG, MG, Gameplay, FR, FR_Top, HUD, TouchControls rồi dựng lại. Phần đã tự sắp xếp sẽ mất' })
     get rebuildInScene() { return false; }
     set rebuildInScene(v: boolean) {
@@ -146,7 +184,9 @@ export class DemoLevelBuilder extends Component {
         // Màn đã được dựng sẵn trong scene thì không dựng lại
         const play = this.node.getChildByName('Gameplay');
         if (play) {
-            if (this.debugColliders && !play.getComponent(ColliderDebug)) play.addComponent(ColliderDebug);
+            const dbg = play.getComponent(ColliderDebug) ?? (this.debugColliders ? play.addComponent(ColliderDebug) : null);
+            if (dbg) dbg.showInGame = this.debugColliders;
+            this.ensureTouchControls();
             return;
         }
         const infos = resources.getDirWithPath(this.artFolder, SpriteFrame);
@@ -162,6 +202,40 @@ export class DemoLevelBuilder extends Component {
             });
             this.build();
         });
+    }
+
+    /**
+     * Nút cảm ứng phải nằm ngay dưới Canvas để đứng yên trên màn hình. Lỡ bị kéo vào lớp khác thì đưa về,
+     * lỡ bị xoá thì tạo lại (chỉ lúc chơi, không đổi scene). Ô "Touch On Desktop" ở đây cũng bật nút trên máy tính.
+     */
+    private ensureTouchControls() {
+        if (!sys.isMobile && !this.touchOnDesktop) return;
+        const touch = this.node.getComponentInChildren(TouchControls);
+        if (touch) {
+            touch.showOnDesktop = true;
+            this.placeTouchNode(touch.node);
+            return;
+        }
+        resources.load(`${this.artFolder}/MG_joystick/spriteFrame`, SpriteFrame, (err, sf) => {
+            if (!this.isValid) return;
+            const n = this.mk('TouchControls', this.node);
+            const d = view.getDesignResolutionSize();
+            n.addComponent(UITransform).setContentSize(d.width, d.height);
+            this.placeTouchNode(n);
+            const t = n.addComponent(TouchControls);
+            t.showOnDesktop = true;
+            if (!err && sf) t.joystickFrame = sf;
+        });
+    }
+
+    /** Đặt node nút cảm ứng dưới Canvas, giữa khung hình, ngay trên HUD và thanh máu boss. */
+    private placeTouchNode(n: Node) {
+        if (n.parent !== this.node) n.setParent(this.node);
+        n.setPosition(0, 0, 0);
+        const above = ['BossBar', 'HUD']
+            .map((name) => this.node.getChildByName(name))
+            .find((c): c is Node => !!c);
+        if (above) n.setSiblingIndex(above.getSiblingIndex() + 1);
     }
 
     /**
@@ -183,6 +257,251 @@ export class DemoLevelBuilder extends Component {
             if (w) w.enabled = false;
             hud.setPosition(-d.width / 2 + HUD_LEFT, d.height / 2 - HUD_TOP, 0);
         }
+    }
+
+    /**
+     * Sửa trên các node đang có, không xoá hay tạo lại gì, để giữ phần người dùng đã tự sắp xếp.
+     * Mỗi khi sửa lỗi cách dựng màn, thêm một bước tương ứng vào đây.
+     */
+    private applyFixesInEditor() {
+        const play = this.node.getChildByName('Gameplay');
+        if (!play) {
+            console.warn('[DemoLevelBuilder] Scene chưa có màn (node Gameplay). Hãy dùng "▶ Dựng màn vào scene" trước.');
+            return;
+        }
+        const done: string[] = [];
+
+        // 1. Nền đá: nâng ảnh mép đá để chân đồ vật nằm giữa mặt đá như ảnh demo
+        let grounds = 0;
+        for (const g of play.getComponentsInChildren(GroundBlock)) {
+            const want = g.tileHeight * TILE_FOOT;
+            if (g.tileFrame && Math.abs(g.sink - want) > 0.5) {
+                g.sink = want;
+                grounds++;
+            }
+        }
+        if (grounds) done.push(`${grounds} khối nền đá: chỉnh độ lún`);
+
+        // 2. Chai nước hồi máu: đứng yên, đặt sát mặt đường (chỉ khi đang lơ lửng gần mặt đường)
+        let pickups = 0;
+        for (const h of play.getComponentsInChildren(HealPickup)) {
+            let changed = false;
+            if (h.bob) {
+                h.bob = false;
+                changed = true;
+            }
+            const p = h.node.position;
+            const top = this.groundTopAt(play, p.x, p.y);
+            if (top !== null && p.y > top && p.y - top < 60) {
+                h.node.setPosition(p.x, top, p.z);
+                changed = true;
+            }
+            if (changed) pickups++;
+        }
+        if (pickups) done.push(`${pickups} chai nước: đứng yên trên mặt đường`);
+
+        // 3. Thứ tự vẽ: chim, boss, cá nằm trên đồ vật; mèo nằm trên cùng
+        const movers = play.children.filter((n) => n.getComponent(EnemyPatrol) || n.getComponent(CoinPickup));
+        for (const n of movers) n.setSiblingIndex(play.children.length - 1);
+        const player = play.children.find((n) => n.getComponent(PlayerController));
+        if (player) player.setSiblingIndex(play.children.length - 1);
+        done.push(`${movers.length} chim/boss/cá đưa lên trên đồ vật, mèo trên cùng`);
+
+        // 4. Khung va chạm hiện trong editor để canh chỉnh
+        if (!play.getComponent(ColliderDebug)) {
+            play.addComponent(ColliderDebug).showInGame = this.debugColliders;
+            done.push('bật hiển thị khung va chạm trong editor');
+        }
+
+        // 5. Tia nắng nhú khỏi mép trên dù camera đang dời lên bao nhiêu (độ cao camera do "📐 Xếp theo ảnh demo" đặt)
+        const rays = this.raiseRaysForCamera();
+        if (rays) done.push(`${rays} tia nắng: nâng đỉnh cho khớp camera`);
+
+        try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
+        console.log(`[DemoLevelBuilder] Đã cập nhật, giữ nguyên phần bạn sắp xếp:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu.`);
+    }
+
+    /** Camera dời lên thì lớp tia nắng trôi xuống theo: nâng đỉnh tia để vẫn nhú khỏi mép trên. Trả về số tia đã nâng. */
+    private raiseRaysForCamera(): number {
+        const rig = this.getComponent(CameraRig);
+        const light = this.node.getChildByName('Light');
+        if (!rig || !light) return 0;
+        const fy = light.getComponent(ParallaxLayer)?.factor.y ?? 0;
+        const need = this.H - this.groundFromBottom + fy * rig.offset.y + 30;
+        let rays = 0;
+        for (const r of light.getComponentsInChildren(LightRays)) {
+            const p = r.node.position;
+            if (p.y < need) {
+                r.length += need - p.y;
+                r.node.setPosition(p.x, need, p.z);
+                rays++;
+            }
+        }
+        return rays;
+    }
+
+    /**
+     * Xếp lại các node có sẵn cho khớp 4 ảnh demo (số liệu trong DemoLayout.ts): vị trí, tỉ lệ, ảnh,
+     * chiều cao chim/boss/mèo, nền đá, độ cao camera. Không tạo, không xoá node nào.
+     */
+    private async applyDemoLayoutInEditor() {
+        try {
+            await this.loadArtInEditor();
+            const byId = new Map<string, Node>();
+            const walk = (n: Node) => {
+                byId.set(n.uuid, n);
+                n.children.forEach(walk);
+            };
+            walk(this.node);
+            const lost: string[] = [];
+            const find = (id: string, name: string) => {
+                const n = byId.get(id);
+                if (!n) lost.push(name);
+                return n;
+            };
+            const done: string[] = [];
+
+            let moved = 0;
+            for (const e of DEMO_NODES) {
+                const n = find(e.id, e.name);
+                if (!n) continue;
+                const p = n.position, s = n.scale;
+                n.setPosition(e.x ?? p.x, e.y ?? p.y, p.z);
+                n.setScale(e.sx ?? s.x, e.sy ?? s.y, s.z);
+                moved++;
+            }
+            // Thứ tự vẽ: node có "above" nằm ngay trên node kia nếu đang bị che
+            for (const e of DEMO_NODES) {
+                const n = e.above ? byId.get(e.id) : undefined;
+                const under = e.above ? byId.get(e.above) : undefined;
+                if (n && under && n.parent === under.parent && n.getSiblingIndex() < under.getSiblingIndex()) {
+                    n.setSiblingIndex(under.getSiblingIndex());
+                    done.push(`${n.name} vẽ đè lên ${under.name}`);
+                }
+            }
+            done.push(`${moved} node: đặt lại vị trí và kích thước`);
+
+            for (const e of DEMO_SPRITES) {
+                const sp = find(e.id, e.art)?.getComponent(Sprite);
+                const sf = this.frame(e.art);
+                if (sp && sf) {
+                    sp.spriteFrame = sf;
+                    done.push(`${sp.node.name}: đổi ảnh thành ${e.art}`);
+                }
+            }
+
+            for (const e of DEMO_ENEMIES) {
+                const enemy = find(e.id, 'chim/boss')?.getComponent(EnemyPatrol);
+                if (!enemy) continue;
+                enemy.targetHeight = e.targetHeight;
+                enemy.artFacesRight = e.artFacesRight;
+                const sf = e.walkFrame ? this.frame(e.walkFrame) : null;
+                if (sf) enemy.walkFrames = [sf];
+                enemy.refresh();
+                done.push(`${enemy.node.name}: cao ${e.targetHeight}, quay mặt như demo${sf ? `, ảnh ${e.walkFrame}` : ''}`);
+            }
+
+            for (const e of DEMO_PLAYER) {
+                const visual = find(e.id, 'mèo')?.getComponent(PlayerVisual);
+                if (!visual) continue;
+                visual.targetHeight = e.targetHeight;
+                visual.refresh();
+                done.push(`mèo: cao ${e.targetHeight}`);
+            }
+
+            let grounds = 0;
+            for (const e of DEMO_GROUNDS) {
+                const g = find(e.id, 'Ground')?.getComponent(GroundBlock);
+                if (!g) continue;
+                if (e.width !== undefined) g.width = e.width;
+                g.tileHeight = e.tileHeight;
+                g.sink = e.sink;
+                grounds++;
+            }
+            done.push(`${grounds} khối nền đá: mép đá cỡ gốc, chân đứng như demo`);
+
+            for (const e of DEMO_LAYERS) {
+                const layer = find(e.id, 'lớp')?.getComponent(ParallaxLayer);
+                if (!layer) continue;
+                layer.factor = new Vec2(e.fx, layer.factor.y);
+                done.push(`lớp ${layer.node.name}: trôi ngang ${e.fx}`);
+            }
+
+            const rig = this.getComponent(CameraRig);
+            if (rig) {
+                rig.offset = new Vec2(rig.offset.x, DEMO_CAMERA_OFFSET_Y);
+                done.push(`camera: Offset Y = ${DEMO_CAMERA_OFFSET_Y}`);
+            }
+            const rays = this.raiseRaysForCamera();
+            if (rays) done.push(`${rays} tia nắng: nâng đỉnh cho khớp camera`);
+
+            // Ảnh demo phủ lên trên cùng để bật/tắt so sánh
+            if (!this.node.getComponentInChildren(DemoReference)) {
+                const ref = this.mk('DemoRef', this.node);
+                ref.addComponent(DemoReference);
+                ref.setSiblingIndex(this.node.children.length - 1);
+                done.push('thêm node DemoRef (ảnh demo để so)');
+            }
+
+            if (lost.length) done.push(`không thấy ${lost.length} node (đã xoá?): ${lost.join(', ')}`);
+            try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
+            console.log(`[DemoLevelBuilder] Đã xếp theo ảnh demo:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu. `
+                + 'So bằng node DemoRef: tích "Hiện ảnh demo" rồi chọn Khung 1–4.');
+        } catch (e) {
+            console.error('[DemoLevelBuilder] Không xếp được theo ảnh demo:', e);
+        }
+    }
+
+    /** Mặt nền đá cao nhất nằm dưới điểm (x, y) trong lớp Gameplay, null nếu không có. */
+    private groundTopAt(play: Node, x: number, y: number): number | null {
+        let best: number | null = null;
+        for (const g of play.getComponentsInChildren(GroundBlock)) {
+            const gx = g.node.position.x;
+            const top = g.node.position.y;
+            if (x >= gx && x <= gx + g.width && top <= y + 1 && (best === null || top > best)) best = top;
+        }
+        return best;
+    }
+
+    /** Thêm ánh sáng vào màn đang có, không động vào node nào khác. */
+    private addLightingInEditor() {
+        const play = this.node.getChildByName('Gameplay');
+        if (!play) {
+            console.warn('[DemoLevelBuilder] Scene chưa có màn (node Gameplay). Hãy dùng "▶ Dựng màn vào scene" trước.');
+            return;
+        }
+        try {
+            const d = view.getDesignResolutionSize();
+            this.W = d.width;
+            this.H = d.height;
+            const done = this.removeImageLighting(play);
+            done.push(...this.buildLighting(play));
+            try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
+            console.log(done.length
+                ? `[DemoLevelBuilder] Đã thêm ánh sáng, không đổi gì khác:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu.`
+                : '[DemoLevelBuilder] Ánh sáng đã có sẵn, không thêm gì. Muốn làm lại thì xoá Light, Light_Far và các node HaoQuang rồi bấm lại.');
+        } catch (e) {
+            console.error('[DemoLevelBuilder] Không thêm được ánh sáng:', e);
+        }
+    }
+
+    /** Gắn PinToScreenTop cho các hình trong FR_Top, chỉ đổi độ cao của chúng. */
+    private pinBannersInEditor() {
+        const frTop = this.node.getChildByName('FR_Top');
+        if (!frTop) {
+            console.warn('[DemoLevelBuilder] Scene chưa có lớp FR_Top.');
+            return;
+        }
+        let added = 0;
+        for (const n of frTop.children) {
+            if (!n.getComponent(Sprite) || n.getComponent(PinToScreenTop)) continue;
+            n.addComponent(PinToScreenTop).pin();
+            added++;
+        }
+        try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
+        console.log(added
+            ? `[DemoLevelBuilder] Đã ghim ${added} băng rôn/cờ sát mép trên khung hình. Nhấn Ctrl+S để lưu.`
+            : '[DemoLevelBuilder] Băng rôn trong FR_Top đã được ghim sẵn.');
     }
 
     private async buildInEditor(clearOld: boolean) {
@@ -248,6 +567,7 @@ export class DemoLevelBuilder extends Component {
         this.buildMidground(mg);
         const player = this.buildGameplay(play);
         this.buildForeground(fr, frTop);
+        this.buildLighting(play);
 
         // HUD ở góc trên trái khung hình. Khi không khoá khung thì dùng Widget để bám mép màn hình
         const hudNode = this.mk('HUD', this.node);
@@ -315,7 +635,8 @@ export class DemoLevelBuilder extends Component {
         cam.viewWidth = this.lockAspect ? this.W : 0;
         if (this.lockAspect && !EDITOR) this.lockFrame();
 
-        if (this.debugColliders && !EDITOR) play.addComponent(ColliderDebug);
+        // Khung va chạm luôn hiện trong editor để canh chỉnh; khi chơi chỉ hiện nếu bật Debug Colliders
+        play.addComponent(ColliderDebug).showInGame = this.debugColliders;
         if (this.missing.size > 0) {
             console.warn(`[DemoLevelBuilder] Thiếu ${this.missing.size} ảnh (đang dùng khối màu): ${Array.from(this.missing).join(', ')}`);
         }
@@ -400,18 +721,98 @@ export class DemoLevelBuilder extends Component {
             leaf.redraw();
         }
 
-        // Băng rôn: mép trên cách đỉnh màn hình ~130, mỗi chỗ treo 2 dây nối nhau
+        // Băng rôn: ghim mép trên sát mép khung hình, mỗi chỗ treo 2 dây nối nhau
         const flagH = this.artHeight('fr_co', 1) || 120;
         const flagW = (this.frame('fr_co')?.rect.width ?? 500) * ART;
         const flagY = this.H - this.groundFromBottom - 130 - flagH;
         for (const fx of [x(1, 950), x(2, 680), x(3, 600), x(4, 640), 10300]) {
             for (const dx of [-flagW / 2, flagW / 2]) {
-                this.prop(frTop, 'fr_co', fx + dx, flagY, 1, { tint: FLAG_TINT, phColor: PH_FR, ph: [flagW, flagH] });
+                const flag = this.prop(frTop, 'fr_co', fx + dx, flagY, 1, { tint: FLAG_TINT, phColor: PH_FR, ph: [flagW, flagH] });
+                if (flag.node.getComponent(Sprite)) flag.node.addComponent(PinToScreenTop).pin();
             }
         }
     }
 
     // ───────────────────────── Màn chơi ─────────────────────────
+
+    /**
+     * Ánh sáng như ảnh demo, vẽ hoàn toàn bằng code (không cần ảnh): sương sáng nền xa,
+     * tia nắng xiên kèm bụi sáng, hào quang sau cá vàng.
+     * Chỉ thêm node mới; phần nào đã có thì bỏ qua, nên bấm lại cũng không bị trùng.
+     */
+    private buildLighting(play: Node): string[] {
+        const done: string[] = [];
+        const groundY = -this.H / 2 + this.groundFromBottom;
+
+        // Sương sáng sau nhà cửa: đứng yên giữa khung hình, làm nền xa nhạt và sáng như có nắng
+        if (!this.node.getChildByName('Light_Far')) {
+            const far = this.insertLayer('Light_Far', 0, 0, groundY, 'BG');
+            const haze = this.mk('SuongSang', far).addComponent(SoftGlow);
+            haze.node.setPosition(0, 420, 0);
+            haze.size = new Size(2800, 1300);
+            haze.color = HAZE_TINT.clone();
+            haze.rings = 18;
+            haze.redraw();
+            done.push('sương sáng ở nền xa (lớp Light_Far)');
+        }
+
+        // Tia nắng xiên và bụi sáng: trước nhà cây (MG), sau mèo và đồ vật
+        if (!this.node.getChildByName('Light')) {
+            const light = this.insertLayer('Light', LIGHT_F, 0.6, groundY, 'MG');
+            const top = this.H - this.groundFromBottom + 40; // nhú lên trên mép khung hình một chút
+            RAY_SPOTS.forEach(([frame, px], i) => {
+                const x = demoX(frame, px, LIGHT_F);
+                // Tia nghiêng sang trái khi đi xuống, nên đặt đỉnh lệch phải để thân tia nằm đúng chỗ
+                const ray = this.mk('TiaNang', light).addComponent(LightRays);
+                ray.node.setPosition(x + 140, top, 0);
+                ray.length = top; // chạm tới mặt đường
+                ray.color = RAY_TINT.clone();
+                ray.seed = i + 1;
+                ray.redraw();
+
+                const dust = this.mk('BuiSang', light);
+                dust.setPosition(x - 40, 380, 0);
+                dust.addComponent(DustMotes).seed = i + 1;
+            });
+            done.push(`${RAY_SPOTS.length} tia nắng kèm bụi sáng (lớp Light)`);
+        }
+
+        // Hào quang ngay sau mỗi con cá vàng
+        const has = new Set(play.getComponentsInChildren(CoinGlow).map((g) => g.target));
+        let added = 0;
+        for (const coin of play.getComponentsInChildren(CoinPickup)) {
+            const parent = coin.node.parent;
+            if (has.has(coin.node) || !parent) continue;
+            const n = this.mk('HaoQuang', parent);
+            n.setSiblingIndex(coin.node.getSiblingIndex()); // ngay trước cá, nên vẽ phía sau cá
+            const glow = n.addComponent(SoftGlow);
+            glow.color = GLOW_TINT.clone();
+            glow.redraw();
+            const g = n.addComponent(CoinGlow);
+            g.target = coin.node;
+            g.lateUpdate(0); // đặt đúng chỗ ngay
+            added++;
+        }
+        if (added) done.push(`${added} hào quang sau cá vàng`);
+        return done;
+    }
+
+    /** Bản ánh sáng trước dùng ảnh FX_*: gỡ đi để thay bằng bản vẽ code. */
+    private removeImageLighting(play: Node): string[] {
+        const old: Node[] = [];
+        for (const name of ['Light', 'Light_Far']) {
+            const layer = this.node.getChildByName(name);
+            if (layer && layer.getComponentsInChildren(Sprite).length > 0) old.push(layer);
+        }
+        for (const g of play.getComponentsInChildren(CoinGlow)) {
+            if (g.getComponent(Sprite)) old.push(g.node);
+        }
+        for (const n of old) {
+            n.removeFromParent();
+            n.destroy();
+        }
+        return old.length ? ['gỡ bản ánh sáng dùng ảnh trước đó'] : [];
+    }
 
     private buildGameplay(play: Node): PlayerController {
         const x = (frame: number, px: number) => demoX(frame, px);
@@ -457,7 +858,7 @@ export class DemoLevelBuilder extends Component {
         this.checkpoint(play, x(2, 840), RAISED);
         this.prop(play, 'mg_hangrao_1', x(2, 900), RAISED, 1);
         this.prop(play, 'mg_cottenduong', x(2, 975), RAISED, 1);
-        this.pickup(play, 'mg_nuocgiaikhat', x(2, 1050), RAISED + 10);
+        this.pickup(play, 'mg_nuocgiaikhat', x(2, 1050), RAISED);
         this.enemy(play, x(2, 1170), RAISED, { body: [115, 150] });
 
         // ── Khung 3: hàng rào + chậu cây + thùng xốp trên bậc đá, thùng rác, cột biển, ghế đá, chim, chậu quất
@@ -475,7 +876,7 @@ export class DemoLevelBuilder extends Component {
         // ── Khung 4: biển quán, cột biển, tủ điện, hàng rào, thùng giấy, boss chó trên bậc đá
         this.prop(play, 'mg_banghieu', x(4, 105), 0, 1);
         this.checkpoint(play, x(4, 230), 0);
-        this.pickup(play, 'mg_nuocgiaikhat', x(4, 280), 20);
+        this.pickup(play, 'mg_nuocgiaikhat', x(4, 280), 0);
         this.prop(play, 'mg_hangrao_1', x(4, 600), 0, 1);
         this.prop(play, 'mg_cottenduong', x(4, 365), 0, 1);
         this.platform(play, 'mg_thungdien', x(4, 485), 0, 1, lid);
@@ -483,7 +884,7 @@ export class DemoLevelBuilder extends Component {
         this.hazard(play, 'mg_cone', x(4, 857), RAISED);
         this.boss = this.enemy(play, x(4, 1040), RAISED, {
             // Thân va chạm thấp hơn hình để nhảy từ bậc đá (cao 300) vẫn đạp được lên lưng
-            name: 'Boss', frames: ['mg_boss'], hp: 3, speed: 150, body: [230, 220],
+            name: 'Boss', frames: ['mg_boss'], hp: 10, speed: 150, body: [230, 220],
         });
 
         // ── Đích ở cuối bậc đá, sau boss
@@ -501,6 +902,11 @@ export class DemoLevelBuilder extends Component {
         for (const [frame, px, y] of [[1, 1180, 20], [2, 300, 230], [2, 1050, RAISED + 120], [3, 400, RAISED + 330], [4, 200, 150]]) {
             this.coin(play, x(frame, px), y);
         }
+
+        // Kẻ địch và cá đi qua lại giữa các khung, nên đưa xuống cuối lớp để luôn vẽ đè lên đồ vật.
+        // Mèo tạo sau cùng nên nằm trên tất cả.
+        const movers = play.children.filter((n) => n.getComponent(EnemyPatrol) || n.getComponent(CoinPickup));
+        for (const n of movers) n.setSiblingIndex(play.children.length - 1);
 
         return this.player(play, x(1, 395), 0);
     }
@@ -554,7 +960,7 @@ export class DemoLevelBuilder extends Component {
         e.walkFrames = frames;
         e.targetHeight = h;
         e.patrolRange = o.range ?? 0;
-        e.hp = o.hp ?? 1;
+        e.hp = o.hp ?? 3; // gà cần chém 3 nhát
         e.speed = o.speed ?? 110;
         e.refresh();
         return e;
@@ -569,7 +975,9 @@ export class DemoLevelBuilder extends Component {
         block._depth = top + this.groundFromBottom + 200;
         block._tileFrame = sf;
         block._tileHeight = sf ? sf.rect.height * ART : 240;
-        block._sink = 22;
+        // Mặt đá sáng trên ảnh MG_tile nằm từ px 20 đến 95 (cao 285). Như ảnh demo, chân đồ vật đứng
+        // ở khoảng giữa mặt đá (px ~60), nên nâng ảnh lên để mặt va chạm (y = 0) rơi vào đó.
+        block._sink = block._tileHeight * TILE_FOOT;
         block.redraw();
     }
 
@@ -597,9 +1005,11 @@ export class DemoLevelBuilder extends Component {
         hz.offset = new Vec2(0, b.h * 0.4);
     }
 
+    /** Chai lọ hồi máu đặt trên mặt đất: đứng yên (không nhấp nhô như cá), chỉ phập phồng nhẹ. */
     private pickup(parent: Node, names: string, x: number, y: number) {
         const b = this.prop(parent, names, x, y, 1, { phColor: new Color(120, 200, 230, 255) });
         const p = b.node.addComponent(HealPickup);
+        p.bob = false;
         p.size = new Size(b.w, b.h);
         p.offset = new Vec2(0, b.h / 2);
     }
@@ -681,6 +1091,14 @@ export class DemoLevelBuilder extends Component {
         const n = this.mk(name, this.node);
         n.setPosition(0, y, 0);
         n.addComponent(ParallaxLayer).factor = new Vec2(fx, fy);
+        return n;
+    }
+
+    /** Tạo lớp mới nằm ngay trên lớp after (nếu có). */
+    private insertLayer(name: string, fx: number, fy: number, y: number, after: string): Node {
+        const n = this.layer(name, fx, fy, y);
+        const ref = this.node.getChildByName(after);
+        if (ref) n.setSiblingIndex(ref.getSiblingIndex() + 1);
         return n;
     }
 

@@ -1,5 +1,6 @@
-import { _decorator, Component, Size, tween, UIOpacity, Vec2, Vec3 } from 'cc';
+import { _decorator, Component, Rect, Size, tween, UIOpacity, Vec2, Vec3 } from 'cc';
 import { EDITOR } from 'cc/env';
+import { computeBox } from '../core/Box';
 import { GameManager } from '../game/GameManager';
 const { ccclass, property } = _decorator;
 
@@ -16,6 +17,11 @@ export abstract class PlayerTrigger extends Component {
     offset = new Vec2(0, 0);
 
     protected used = false;
+
+    /** Vùng chạm trong không gian node cha (dùng cho ColliderDebug). */
+    getRect(out: Rect): Rect {
+        return computeBox(this.node, this.size, this.offset, out);
+    }
 
     update(dt: number) {
         if (EDITOR) return;

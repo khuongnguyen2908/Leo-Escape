@@ -1,20 +1,27 @@
-import { _decorator, Color, Component, Graphics, Node, Rect, Tween, tween, UIOpacity, Vec3 } from 'cc';
-import { moveTowards, overlaps } from '../core/Box';
-import { Hittables } from '../core/Hittable';
+import { _decorator, Color, Component, Node, Rect, Sprite, tween, UIOpacity, Vec3 } from 'cc';
+import { CameraRig } from '../camera/CameraRig';
+import { clamp, moveTowards, overlaps } from '../core/Box';
+import { Hittable, Hittables } from '../core/Hittable';
+import { HitStop } from '../core/HitStop';
 import { PlatformerBody } from '../core/PlatformerBody';
+import { Sound } from '../core/Sound';
+import { DashFx } from './DashFx';
+import { HitSpark } from './HitSpark';
 import { PlayerInput } from './PlayerInput';
 import { PlayerVisual } from './PlayerVisual';
+import { SlashFx } from './SlashFx';
 const { ccclass, property, requireComponent } = _decorator;
 
-const CLAW = new Color(255, 245, 225, 255);
+const GHOST_TINT = new Color(255, 236, 200, 255);
 const _self = new Rect();
 const _hit = new Rect();
 const _other = new Rect();
 
 /**
- * Điều khiển mèo: chạy có tăng/giảm tốc, nhảy với coyote time, jump buffer,
- * nhả nút sớm thì nhảy thấp, rơi nhanh hơn lúc lên. Giữ ↓ + nhảy để xuống bục một chiều.
- * J / X (hoặc nút tấn công) để vả móng, tốn năng lượng, năng lượng tự hồi.
+ * Điều khiển mèo: chạy có tăng/giảm tốc, Space nhảy (coyote time, jump buffer, nhả sớm thì nhảy thấp).
+ * W / ↑ để đi lên bục một chiều ngay phía trên, S / ↓ để xuống khỏi bục.
+ * J / X để chém: bấm liên tục ra combo 3 nhát, nhát thứ 3 mạnh nhất. Giữ J để lướt chém xuyên qua kẻ địch.
+ * Nhảy, chém, lướt đều tốn năng lượng (thanh xanh dưới hàng tim); hết năng lượng thì phải chờ hồi.
  */
 @ccclass('PlayerController')
 @requireComponent(PlatformerBody)
@@ -49,26 +56,44 @@ export class PlayerController extends Component {
     @property({ group: 'Nhảy', tooltip: 'Trọng lực nhân thêm khi đang rơi' })
     fallGravityMultiplier = 1.6;
 
-    @property({ group: 'Nhảy', tooltip: 'Độ nảy sau khi đạp đầu kẻ địch' })
-    stompBounce = 900;
-
     @property({ group: 'Bị đánh' })
     invincibleTime = 1.2;
 
     @property({ group: 'Bị đánh' })
     knockbackSpeed = 420;
 
-    @property({ group: 'Tấn công', tooltip: 'Tầm vả móng phía trước mặt' })
+    @property({ group: 'Tấn công', tooltip: 'Tầm chém phía trước mặt (nhát 3 xa hơn 25%)' })
     attackRange = 170;
 
-    @property({ group: 'Tấn công', tooltip: 'Chiều cao vùng vả' })
+    @property({ group: 'Tấn công', tooltip: 'Chiều cao vùng chém' })
     attackHeight = 150;
 
-    @property({ group: 'Tấn công', tooltip: 'Thời gian chờ giữa 2 lần vả (giây)' })
-    attackCooldown = 0.35;
+    @property({ group: 'Tấn công', tooltip: 'Khoảng cách giữa 2 nhát chém (giây)' })
+    slashInterval = 0.22;
 
-    @property({ group: 'Tấn công', tooltip: 'Năng lượng tốn cho mỗi lần vả' })
-    attackCost = 20;
+    @property({ group: 'Tấn công', tooltip: 'Nghỉ thêm sau nhát thứ 3 của combo (giây)' })
+    finisherPause = 0.2;
+
+    @property({ group: 'Tấn công', tooltip: 'Bấm tiếp trong khoảng này sau một nhát thì ra nhát kế của combo' })
+    comboWindow = 0.35;
+
+    @property({ group: 'Tấn công', tooltip: 'Tốc độ lướt tới khi chém trên mặt đất (lướt trong 0.08 giây)' })
+    slashLunge = 420;
+
+    @property({ group: 'Lướt chém (giữ J)', tooltip: 'Giữ J bao lâu (giây) thì lướt' })
+    dashHoldTime = 0.25;
+
+    @property({ group: 'Lướt chém (giữ J)', tooltip: 'Lướt xa bao nhiêu' })
+    dashDistance = 560;
+
+    @property({ group: 'Lướt chém (giữ J)', tooltip: 'Thời gian lướt (giây), càng nhỏ càng nhanh' })
+    dashTime = 0.2;
+
+    @property({ group: 'Lướt chém (giữ J)', tooltip: 'Mỗi kẻ địch bị lướt qua mất bao nhiêu máu' })
+    dashDamage = 2;
+
+    @property({ group: 'Đi lên (W)', tooltip: 'Bục một chiều cao hơn chân trong khoảng này thì bấm W là lên được' })
+    climbHeight = 420;
 
     @property({ group: 'Năng lượng' })
     maxEnergy = 100;
@@ -76,11 +101,25 @@ export class PlayerController extends Component {
     @property({ group: 'Năng lượng', tooltip: 'Hồi bao nhiêu năng lượng mỗi giây' })
     energyRegen = 18;
 
+    @property({ group: 'Năng lượng', tooltip: 'Vừa dùng năng lượng thì chờ bao lâu (giây) mới bắt đầu hồi' })
+    regenDelay = 0.6;
+
+    @property({ group: 'Năng lượng', tooltip: 'Tốn mỗi lần nhảy' })
+    jumpEnergy = 10;
+
+    @property({ group: 'Năng lượng', tooltip: 'Tốn mỗi nhát chém' })
+    slashEnergy = 12;
+
+    @property({ group: 'Năng lượng', tooltip: 'Tốn mỗi lần lướt chém' })
+    dashEnergy = 35;
+
     body!: PlatformerBody;
     facing = 1;
     controlEnabled = true;
     invincible = 0;
     energy = 100;
+    /** Còn > 0 khi vừa bấm mà không đủ năng lượng (thanh năng lượng nháy đỏ). */
+    energyWarn = 0;
 
     private coyote = 0;
     private buffer = 0;
@@ -88,8 +127,19 @@ export class PlayerController extends Component {
     private wasGrounded = true;
     private hurtLock = 0;
     private attackTimer = 0;
-    private swipe: Graphics | null = null;
-    private swipeFade: UIOpacity | null = null;
+    private attackQueued = 0;
+    private comboTimer = 0;
+    private comboStep = 0;
+    private lunge = 0;
+    private slashFx: SlashFx | null = null;
+    private dashTimer = 0;
+    private dashGrace = 0;
+    private holdTime = 0;
+    private dashedThisHold = false;
+    private regenWait = 0;
+    private ghostTimer = 0;
+    private dashFx: DashFx | null = null;
+    private readonly dashHits = new Set<Hittable>();
 
     onLoad() {
         this.body = this.getComponent(PlatformerBody)!;
@@ -98,19 +148,53 @@ export class PlayerController extends Component {
     }
 
     update(dt: number) {
+        if (HitStop.frozen) return;
         const b = this.body;
         const v = b.velocity;
         if (this.hurtLock > 0) this.hurtLock -= dt;
         if (this.invincible > 0) this.invincible -= dt;
         const canControl = this.controlEnabled && this.hurtLock <= 0;
 
+        // Năng lượng: vừa dùng thì chờ một chút rồi mới hồi
+        if (this.energyWarn > 0) this.energyWarn -= dt;
+        if (this.regenWait > 0) this.regenWait -= dt;
+        else this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegen * dt);
+
+        // Đang lướt chém thì bỏ qua chạy/nhảy/chém thường
+        if (this.dashGrace > 0) this.dashGrace -= dt;
+        if (this.dashTimer > 0) {
+            this.updateDash(dt);
+            return;
+        }
+
         // Chạy
         const dir = canControl ? (PlayerInput.right ? 1 : 0) - (PlayerInput.left ? 1 : 0) : 0;
-        if (this.hurtLock <= 0) {
+        if (this.lunge > 0) this.lunge -= dt;
+        if (this.hurtLock <= 0 && this.lunge <= 0) {
             const accel = b.grounded ? (dir !== 0 ? this.groundAccel : this.groundDecel) : this.airAccel;
             v.x = moveTowards(v.x, dir * this.moveSpeed, accel * dt);
         }
         if (dir !== 0) this.facing = dir;
+
+        // Bấm xuống khi đang đứng trên bục một chiều (bàn, thùng, ghế...) thì rơi xuyên xuống
+        if (PlayerInput.consumeDown() && canControl && b.grounded && b.groundSolid?.oneWay) {
+            b.dropThrough();
+            this.coyote = 0;
+            Sound.play('drop', 0.6);
+        }
+
+        // W / ↑: nhảy vừa đủ cao để lên bục một chiều ngay phía trên (không tốn năng lượng)
+        if (PlayerInput.consumeUp() && canControl && b.grounded) {
+            const r = b.getRect(_self);
+            const top = PlatformerBody.platformAbove(r, this.climbHeight);
+            if (top !== null) {
+                v.y = Math.sqrt(2 * b.gravity * (top - r.yMin + 30));
+                this.jumping = false;
+                this.coyote = this.buffer = 0;
+                this.visual?.playJump();
+                Sound.play('jump', 0.5);
+            }
+        }
 
         // Nhảy
         this.coyote = b.grounded ? this.coyoteTime : this.coyote - dt;
@@ -121,10 +205,14 @@ export class PlayerController extends Component {
                 b.dropThrough();
                 this.buffer = this.coyote = 0;
             } else if (this.coyote > 0) {
-                v.y = this.jumpSpeed;
-                this.buffer = this.coyote = 0;
-                this.jumping = true;
-                this.visual?.playJump();
+                this.buffer = 0;
+                if (this.spend(this.jumpEnergy)) {
+                    v.y = this.jumpSpeed;
+                    this.coyote = 0;
+                    this.jumping = true;
+                    this.visual?.playJump();
+                    Sound.play('jump', 0.6);
+                }
             }
         }
         if (this.jumping && v.y > 0 && !PlayerInput.jumpHeld) {
@@ -133,82 +221,202 @@ export class PlayerController extends Component {
         }
         if (v.y <= 0) this.jumping = false;
 
-        // Vả móng + năng lượng
-        this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegen * dt);
+        // Chém. Bấm sớm một chút trước khi hết nhịp vẫn được tính (cho combo dễ ra)
         if (this.attackTimer > 0) this.attackTimer -= dt;
-        if (PlayerInput.consumeAttack() && canControl) this.attack();
+        if (this.comboTimer > 0) this.comboTimer -= dt;
+        this.attackQueued = PlayerInput.consumeAttack() ? 0.15 : this.attackQueued - dt;
+        if (this.attackQueued > 0 && this.attackTimer <= 0 && canControl) {
+            this.attackQueued = 0;
+            if (this.spend(this.slashEnergy)) this.slash();
+        }
+
+        // Giữ J đủ lâu thì lướt chém (mỗi lần giữ chỉ lướt một lần, thả ra rồi giữ lại để lướt tiếp)
+        if (PlayerInput.attackHeld && canControl) {
+            this.holdTime += dt;
+            if (!this.dashedThisHold && this.holdTime >= this.dashHoldTime) {
+                this.dashedThisHold = true;
+                if (this.spend(this.dashEnergy)) this.startDash();
+            }
+        } else {
+            this.holdTime = 0;
+            this.dashedThisHold = false;
+        }
 
         b.gravityScale = v.y < 0 ? this.fallGravityMultiplier : 1;
         const fallSpeed = -v.y;
         b.move(dt);
 
-        if (b.grounded && !this.wasGrounded) this.visual?.playLand(fallSpeed / b.maxFallSpeed);
+        if (b.grounded && !this.wasGrounded) {
+            const impact = fallSpeed / b.maxFallSpeed;
+            this.visual?.playLand(impact);
+            if (impact > 0.3) Sound.play('land', Math.min(1, impact));
+        }
         this.wasGrounded = b.grounded;
         this.visual?.sync(b.grounded, v.x / this.moveSpeed, v.y, this.facing, this.invincible > 0);
     }
 
     /** Bị đánh từ vị trí fromX. Trả về false nếu đang bất tử. */
     hurt(fromX: number): boolean {
-        if (this.invincible > 0) return false;
+        // Đang lướt và một chút sau khi lướt (lỡ dừng ngay chỗ kẻ địch) thì không bị đánh
+        if (this.invincible > 0 || this.dashTimer > 0 || this.dashGrace > 0) return false;
         this.invincible = this.invincibleTime;
         this.hurtLock = 0.3;
         const away = this.node.position.x >= fromX ? 1 : -1;
         this.body.velocity.set(away * this.knockbackSpeed, 520);
         this.jumping = false;
         this.visual?.playHurt();
+        Sound.play('hurt');
+        CameraRig.instance?.shake(10, 0.2);
         return true;
     }
 
-    /** Nảy lên sau khi đạp đầu kẻ địch; giữ nút nhảy thì nảy cao hơn. */
-    bounce() {
-        const held = PlayerInput.jumpHeld;
-        this.body.velocity.y = held ? this.jumpSpeed : this.stompBounce;
-        this.jumping = held;
-        this.visual?.playJump();
-    }
+    /** Chém về phía trước: trúng kẻ địch nào trong tầm thì nó mất 1 máu và bị đẩy lùi. */
+    private slash() {
+        this.comboStep = this.comboTimer > 0 ? (this.comboStep + 1) % 3 : 0;
+        const finisher = this.comboStep === 2;
+        this.attackTimer = this.slashInterval + (finisher ? this.finisherPause : 0);
+        this.comboTimer = this.slashInterval + this.comboWindow;
 
-    /** Vả móng về phía trước: trúng kẻ địch nào trong tầm thì nó mất 1 máu. */
-    private attack() {
-        if (this.attackTimer > 0 || this.energy < this.attackCost) return;
-        this.energy -= this.attackCost;
-        this.attackTimer = this.attackCooldown;
+        const v = this.body.velocity;
+        if (this.body.grounded) {
+            // Lướt tới một chút (không chậm hơn tốc độ đang chạy)
+            v.x = this.facing * Math.max(this.slashLunge * (finisher ? 1.5 : 1), this.facing * v.x);
+            this.lunge = 0.08;
+        } else if (v.y < 0) {
+            v.y *= 0.3; // chém trên không thì khựng lơ lửng một nhịp
+        }
         this.visual?.playAttack();
-        this.showSwipe();
+        this.fx().play(this.facing, this.comboStep);
+        Sound.play(`slash${this.comboStep + 1}`, 0.7);
 
         const r = this.body.getRect(_self);
         const cx = r.x + r.width / 2;
-        _hit.set(this.facing > 0 ? cx : cx - this.attackRange, r.y, this.attackRange, this.attackHeight);
+        const range = this.attackRange * (finisher ? 1.25 : 1);
+        const height = this.attackHeight * (finisher ? 1.2 : 1);
+        const back = 30; // trúng cả thứ sát sau lưng một chút
+        _hit.set(this.facing > 0 ? cx - back : cx - range, r.y - (height - this.attackHeight) / 2, range + back, height);
+
+        let hits = 0;
         for (const h of Hittables.slice()) {
-            if (h.canBeHit && overlaps(_hit, h.getHitRect(_other))) h.takeHit(this.node.position.x);
+            if (!h.canBeHit || !overlaps(_hit, h.getHitRect(_other))) continue;
+            h.takeHit(this.node.position.x, finisher ? 1.6 : 1);
+            hits++;
+            // Tia lửa ở chỗ lưỡi chém chạm vào kẻ địch
+            const sx = clamp(_other.x + _other.width / 2, _hit.x, _hit.x + _hit.width);
+            const sy = clamp(_other.y + _other.height / 2, _hit.y, _hit.y + _hit.height);
+            if (this.node.parent) HitSpark.spawn(this.node.parent, sx, sy, this.facing, finisher);
+        }
+        if (hits > 0) {
+            Sound.play('hit', finisher ? 1 : 0.8);
+            HitStop.trigger(finisher ? 90 : 55);
+            CameraRig.instance?.shake(finisher ? 14 : 7, finisher ? 0.22 : 0.12);
         }
     }
 
-    /** Hiệu ứng tạm: 3 vệt cào màu kem phía trước mặt, mờ dần. */
-    private showSwipe() {
-        if (!this.swipe) {
-            const n = new Node('Swipe');
+    /** Trừ năng lượng nếu đủ; không đủ thì báo (thanh nháy đỏ) và trả về false. */
+    private spend(cost: number): boolean {
+        if (this.energy < cost) {
+            this.energyWarn = 0.45;
+            return false;
+        }
+        this.energy -= cost;
+        this.regenWait = this.regenDelay;
+        return true;
+    }
+
+    /** Bắt đầu lướt chém về hướng đang quay mặt. */
+    private startDash() {
+        this.dashTimer = this.dashTime;
+        this.dashHits.clear();
+        this.ghostTimer = 0;
+        this.attackQueued = 0;
+        this.jumping = false;
+        this.visual?.playAttack();
+        Sound.play('dash');
+        CameraRig.instance?.shake(5, 0.1);
+        const parent = this.node.parent;
+        if (parent) {
+            const p = this.node.position;
+            this.dashFx = DashFx.spawn(parent, p.x, p.y + this.body.size.height * 0.5, this.facing);
+        }
+    }
+
+    private updateDash(dt: number) {
+        const b = this.body;
+        b.velocity.set(this.facing * this.dashDistance / this.dashTime, 0);
+        b.gravityScale = 0;
+        b.move(dt);
+        this.dashTimer -= dt;
+
+        // Chém mọi kẻ địch chạm vào trên đường lướt, mỗi con một lần
+        const r = b.getRect(_self);
+        _hit.set(r.x - 20, r.y - 20, r.width + 40, r.height + 40);
+        for (const h of Hittables.slice()) {
+            if (this.dashHits.has(h) || !h.canBeHit || !overlaps(_hit, h.getHitRect(_other))) continue;
+            this.dashHits.add(h);
+            h.takeHit(this.node.position.x - this.facing * 200, 1.4, this.dashDamage);
+            const sx = _other.x + _other.width / 2;
+            const sy = clamp(_other.y + _other.height / 2, _hit.y, _hit.y + _hit.height);
+            if (this.node.parent) HitSpark.spawn(this.node.parent, sx, sy, this.facing, true);
+            Sound.play('hit');
+            HitStop.trigger(45);
+            CameraRig.instance?.shake(10, 0.15);
+        }
+
+        // Bóng mờ đuổi theo sau
+        this.ghostTimer -= dt;
+        if (this.ghostTimer <= 0) {
+            this.ghostTimer = 0.035;
+            this.spawnGhost();
+        }
+        const p = this.node.position;
+        this.dashFx?.extendTo(p.x);
+
+        // Hết thời gian hoặc đâm vào tường thì dừng, kết thúc bằng một nhát vung rộng
+        if (this.dashTimer <= 0 || b.hitLeft || b.hitRight) {
+            this.dashTimer = 0;
+            this.dashGrace = 0.3;
+            b.velocity.set(this.facing * this.moveSpeed * 0.5, 0);
+            b.gravityScale = 1;
+            this.dashFx?.release();
+            this.dashFx = null;
+            this.fx().play(this.facing, 2);
+            Sound.play('slash3', 0.7);
+        }
+        this.visual?.sync(b.grounded, this.facing, 0, this.facing, false);
+    }
+
+    /** Bóng mờ của mèo tại chỗ đang đứng, mờ dần rồi tự xoá. */
+    private spawnGhost() {
+        const vis = this.visual?.node;
+        const sp = vis?.getComponent(Sprite);
+        const parent = this.node.parent;
+        if (!vis || !sp || !sp.spriteFrame || !parent) return;
+        const g = new Node('Ghost');
+        g.layer = this.node.layer;
+        parent.addChild(g);
+        g.setSiblingIndex(this.node.getSiblingIndex()); // ngay sau lưng mèo
+        const p = this.node.position;
+        const vp = vis.position;
+        g.setPosition(p.x + vp.x, p.y + vp.y, 0);
+        g.setScale(vis.scale.x, vis.scale.y, 1);
+        g.angle = vis.angle;
+        const gs = g.addComponent(Sprite);
+        gs.spriteFrame = sp.spriteFrame;
+        gs.color = GHOST_TINT;
+        const op = g.addComponent(UIOpacity);
+        op.opacity = 150;
+        tween(op).to(0.22, { opacity: 0 }).call(() => g.destroy()).start();
+    }
+
+    private fx(): SlashFx {
+        if (!this.slashFx || !this.slashFx.isValid) {
+            const n = new Node('Slash');
             n.layer = this.node.layer;
             this.node.addChild(n);
-            this.swipe = n.addComponent(Graphics);
-            this.swipeFade = n.addComponent(UIOpacity);
+            this.slashFx = n.addComponent(SlashFx);
         }
-        const g = this.swipe;
-        const f = this.facing;
-        g.clear();
-        g.lineWidth = 9;
-        g.strokeColor = CLAW;
-        for (let i = -1; i <= 1; i++) {
-            const cx = f * 40, cy = 80 + i * 26, rad = 85;
-            const a0 = f > 0 ? -0.75 : Math.PI - 0.75;
-            const a1 = a0 + 1.5;
-            g.moveTo(cx + Math.cos(a0) * rad, cy + Math.sin(a0) * rad);
-            g.arc(cx, cy, rad, a0, a1, true);
-            g.stroke();
-        }
-        const fade = this.swipeFade!;
-        Tween.stopAllByTarget(fade);
-        fade.opacity = 255;
-        tween(fade).to(0.2, { opacity: 0 }).start();
+        return this.slashFx;
     }
 
     respawn(pos: Readonly<Vec3>) {

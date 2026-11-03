@@ -44,9 +44,23 @@ Lưu ý khi sắp xếp:
 - Đồ đứng lên được có component **Solid**. Kích thước vùng va chạm (`Size`) không tự đổi theo khi bạn scale hình, nhớ chỉnh lại Size.
   Bật `Debug Colliders` rồi Play để thấy khung va chạm.
 - Lớp `MG`, `BG`, `FR` trôi theo parallax nên trong editor nhìn lệch so với lúc chơi. Đó là bình thường.
-- Muốn dựng lại từ đầu thì tích ô **"⟳ Xoá màn cũ và dựng lại"**: các lớp cũ bị xoá và màn được dựng lại theo 4 khung ảnh demo.
-  Phần bạn đã tự sắp xếp sẽ mất, nên sao lưu scene trước (chọn scene trong Assets → Ctrl+D).
+- **Scene là bản chính.** Khi code dựng màn có bản sửa mới, tích **"⚙ Cập nhật không xoá"**: chỉ sửa đúng chỗ cần sửa
+  trên các node đang có, giữ nguyên mọi thứ bạn đã tự sắp xếp. Danh sách những gì đã sửa hiện trong Console.
+- **"✨ Thêm ánh sáng"** chỉ thêm node mới, không sửa node nào đang có:
+  - lớp `Light_Far` có sương sáng nền xa;
+  - lớp `Light` có tia nắng (`TiaNang`) và bụi sáng (`BuiSang`);
+  - node `HaoQuang` sau mỗi con cá.
+
+  Ánh sáng vẽ hoàn toàn bằng code, không dùng ảnh. Tia nắng chỉnh trong component **LightRays**: Length, Angle, Spread, Shafts, Color (alpha là độ sáng).
+  Sương và hào quang chỉnh trong **SoftGlow**: Size, Color. Bụi sáng chỉnh trong **DustMotes**.
+- Chỉ khi muốn làm lại từ đầu mới tích **"⟳ Xoá màn cũ và dựng lại"**: các lớp cũ bị xoá và dựng lại theo 4 khung ảnh demo,
+  phần bạn đã tự sắp xếp sẽ mất. **Commit scene lên Git trước** để lỡ tay còn lấy lại được.
 - Vị trí đồ vật trong màn mẫu đo theo 4 ảnh demo 1280×720 (1px = 1.5 đơn vị game), xem hàm `demoX` trong `DemoLevelBuilder.ts`.
+- **"📐 Xếp theo ảnh demo"** đặt lại vị trí, kích thước của đồ vật, cây, chim, boss, mèo, nền đá và độ cao camera
+  cho khớp 4 ảnh demo. Số liệu nằm trong `DemoLayout.ts`, đo bằng cách dò từng ảnh gốc trên ảnh demo. Ảnh demo vẽ mọi thứ
+  đúng cỡ gốc (tỉ lệ 1). Nút này không tạo, không xoá node, chỉ thêm node `DemoRef` nếu chưa có.
+- **So với ảnh demo:** chọn node `DemoRef`, tích **Hiện ảnh demo**, kéo **Khung** 1–4 (camera xem trước tự nhảy tới đúng chỗ),
+  chỉnh **Độ đậm**. Ảnh nằm ở `assets/ref/`, chỉ hiện trong editor và không vào bản build.
 - Nếu Ctrl+S không lưu (tên scene không có dấu `*`), kéo nhẹ một node bất kỳ rồi lưu lại.
 
 ## Điều khiển
@@ -54,10 +68,32 @@ Lưu ý khi sắp xếp:
 | Phím | Tác dụng |
 |---|---|
 | A / D, ← / → | Chạy |
-| Space / W / ↑ / K | Nhảy (giữ lâu nhảy cao, nhả sớm nhảy thấp) |
-| ↓ + Nhảy | Xuống khỏi bục một chiều |
-| J / X | Vả móng (tốn năng lượng, năng lượng tự hồi) |
-| Đạp lên đầu | Hạ kẻ địch (giữ nút nhảy để nảy cao hơn) |
+| Space | Nhảy (giữ lâu nhảy cao, nhả sớm nhảy thấp). Tốn năng lượng |
+| W / ↑ | Đi lên bục một chiều ngay phía trên (bàn, thùng, ghế...) |
+| S / ↓ | Xuống khỏi bục một chiều |
+| J / X | Chém. Bấm liên tục ra combo 3 nhát, nhát 3 mạnh và xa nhất. Chém được cả khi đang nhảy. Tốn năng lượng |
+| Giữ J | Lướt chém: lướt xuyên qua kẻ địch, mỗi con trên đường mất 2 máu, không bị đánh khi lướt. Tốn nhiều năng lượng |
+| Cảm ứng | Joystick trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục; nút J để chém (giữ để lướt), nút SPACE để nhảy. Trên máy tính bật **Touch On Desktop** (Canvas) để thấy nút, nút có ghi phím tương ứng |
+
+**Năng lượng** (thanh xanh dưới hàng tim): nhảy tốn 10, chém tốn 12, lướt tốn 35 trên 100. Vừa dùng thì chờ 0.6 giây mới hồi lại.
+Không đủ năng lượng thì không làm được và thanh nháy đỏ. Chỉnh trong PlayerController, nhóm "Năng lượng".
+
+## Âm thanh
+
+Mọi tiếng nằm trong `assets/resources/sounds`. Hiện là tiếng tạm tổng hợp bằng code; muốn thay thì chép file mới
+(.wav, .mp3 hoặc .ogg) **đè lên với cùng tên**, không cần sửa code. Âm lượng và tên bài nhạc nền chỉnh ở GameManager (Canvas), nhóm "Âm thanh".
+
+| File | Khi nào phát |
+|---|---|
+| `bgm` | Nhạc nền, lặp liên tục |
+| `jump` / `land` / `drop` | Nhảy / đáp đất mạnh / xuống khỏi bục |
+| `slash1`, `slash2`, `slash3` | 3 nhát combo chém |
+| `hit` | Chém trúng kẻ địch |
+| `dash` | Lướt chém (giữ J) |
+| `hurt` | Mèo bị đánh |
+| `enemy_die` | Kẻ địch gục |
+| `coin` / `heal` / `checkpoint` | Nhặt cá / nhặt chai nước / chạm điểm hồi sinh |
+| `win` / `lose` | Về đích / hết máu |
 
 ## Cấu trúc code
 
@@ -67,18 +103,25 @@ assets/scripts/
 │  ├─ Box.ts              hàm tính hộp va chạm và tiện ích toán
 │  ├─ Solid.ts            vật cản (nền, thùng, bàn...), bật oneWay để thành bục một chiều
 │  ├─ PlatformerBody.ts   thân vật lý: trọng lực, va chạm quét tách trục X/Y
-│  └─ ColliderDebug.ts    vẽ khung va chạm
+│  ├─ ColliderDebug.ts    vẽ khung va chạm
+│  ├─ Hittable.ts         danh sách thứ chém trúng được
+│  ├─ Sound.ts            phát tiếng hiệu ứng và nhạc nền (assets/resources/sounds)
+│  └─ HitStop.ts          khựng hình ngắn khi chém trúng
 ├─ player/
 │  ├─ PlayerInput.ts      gom bàn phím và cảm ứng
-│  ├─ PlayerController.ts chạy, nhảy, bị đánh, nảy
-│  └─ PlayerVisual.ts     hoạt ảnh tween (nhún, nghiêng, bẹp khi đáp, dãn khi nhảy)
-├─ enemy/EnemyPatrol.ts   kẻ địch đi tuần, dùng cho cả boss
+│  ├─ PlayerController.ts chạy, nhảy, combo chém 3 nhát, bị đánh
+│  ├─ PlayerVisual.ts     hoạt ảnh tween (nhún, nghiêng, bẹp khi đáp, dãn khi nhảy)
+│  ├─ SlashFx.ts          vệt chém lưỡi liềm vẽ bằng code
+│  ├─ DashFx.ts           vệt chém dài khi lướt chém (giữ J)
+│  └─ HitSpark.ts         tia lửa khi chém trúng
+├─ enemy/EnemyPatrol.ts   kẻ địch đi tuần, bị chém thì văng lùi, dùng cho cả boss
 ├─ camera/
-│  ├─ CameraRig.ts        bám nhân vật, nhìn trước, giới hạn mép màn
+│  ├─ CameraRig.ts        bám nhân vật, nhìn trước, giới hạn mép màn, rung màn hình
 │  └─ ParallaxLayer.ts    lớp cảnh trôi theo hệ số
 ├─ game/GameManager.ts    máu, hồi sinh, thắng/thua, chơi lại
 ├─ ui/
 │  ├─ HeartsHUD.ts        trái tim (MG_heart, MG_heart_empty) và avatar (MG_avatar)
+│  ├─ GameFont.ts         font chung cho mọi chữ (assets/resources/fonts/SuperBouncer.ttf)
 │  ├─ CoinCounter.ts      bộ đếm cá vàng (MG_coin_backing)
 │  ├─ BossHealthBar.ts    thanh máu boss (MG_boss_hpgauge, MG_boss_hp, MG_icon_boss)
 │  └─ TouchControls.ts    joystick (MG_joystick) + nút nhảy
@@ -92,6 +135,10 @@ assets/scripts/
    ├─ Hazard.ts           vật gây sát thương
    ├─ Checkpoint.ts       điểm hồi sinh
    ├─ Goal.ts             đích
+   ├─ LightRays.ts        tia nắng xiên vẽ bằng code
+   ├─ SoftGlow.ts         quầng sáng mềm (sương sáng, hào quang cá)
+   ├─ CoinGlow.ts         hào quang bám theo cá vàng
+   ├─ DustMotes.ts        bụi sáng lấp lánh
    └─ DemoLevelBuilder.ts dựng màn mẫu bằng code
 ```
 
@@ -102,9 +149,25 @@ assets/scripts/
 - **Cấu trúc lớp** dưới Canvas: `BG` (0.12) → `MG` (0.5) → `Gameplay` (1) → `FR` (1.35) → `FR_Top` → `HUD`.
   `FR_Top` chứa đồ treo trên cao (băng rôn): Factor là (1.35, 0), tức trôi ngang nhưng đứng yên theo chiều dọc,
   để mép trên không bị hở khi camera lên xuống. Đồ nào cần dính mép trên màn hình thì đặt vào lớp này.
+  Băng rôn, cờ trong lớp này có component **PinToScreenTop**: mép trên luôn sát mép khung hình, kéo ngang được còn độ cao do component giữ.
+  Muốn cao hay thấp thì đổi **Overlap**. Băng rôn mới thêm vào thì bấm "📌 Ghim băng rôn sát mép trên" trên Canvas để ghim.
   Mọi thứ có va chạm (Solid, PlatformerBody, trigger) phải là **con trực tiếp của lớp Gameplay**.
 - **Gốc nhân vật và đồ vật ở chân** (anchor 0.5, 0). Hộp va chạm của nhân vật đặt `offset.y = size.height / 2`.
 - Camera không di chuyển Camera thật mà dịch các lớp ngược lại, vì vậy HUD luôn đứng yên.
+
+## Chỉnh khung va chạm
+
+Node `Gameplay` có component **ColliderDebug**, vẽ khung va chạm **ngay trong khung Scene của editor**:
+xanh lá là bục đặc, xanh dương là bục một chiều, hồng là nhân vật/kẻ địch, vàng là vùng chạm (cá, vật phẩm, nón, cờ).
+
+| Loại | Component | Chỉnh |
+|---|---|---|
+| Đồ đứng lên được | **Solid** | `Size` (rộng, cao), `Offset.y = Size.y / 2` để đáy hộp nằm ở chân đồ vật |
+| Mèo, chim, boss | **PlatformerBody** | `Size`, `Offset.y = Size.y / 2` |
+| Cá, chai nước, nón, cờ | **CoinPickup / HealPickup / Hazard / Checkpoint / Goal** | `Size`, `Offset` |
+
+`Size` tính theo đơn vị của lớp Gameplay, **không nhân theo Scale** của node. `Size = 0, 0` thì tự lấy theo khung hình.
+Muốn thấy khung cả khi chơi thì bật **Debug Colliders** trên DemoLevelBuilder.
 
 ## Chỉnh cảm giác chơi
 
@@ -157,9 +220,21 @@ Màn mẫu được dựng bằng code để thử nhanh. Khi làm màn thật:
 4. Player gồm `PlatformerBody`, `PlayerController` và node con `Visual` (Sprite + `PlayerVisual`).
 5. Gắn **GameManager** và **CameraRig** lên Canvas, rồi kéo Player vào các ô tham chiếu.
 
+## Đăng bản chơi thử lên itch.io (để dành, chưa làm)
+
+1. **Dọn scene:** Canvas → DemoLevelBuilder → bỏ tích **Debug Colliders**. Tắt node **`image 1465`** (ảnh demo tham khảo). Ctrl+S.
+2. **Build:** Project → Build → New Build Task → **Web Mobile**, Start Scene `Main`, bỏ tích Debug → Build.
+   Kết quả nằm ở `build/web-mobile` (đã nằm trong `.gitignore`).
+3. **Nén zip** sao cho `index.html` nằm ngay ngoài cùng file zip, không bọc trong thư mục `web-mobile`.
+4. **itch.io:** Upload new project → Kind: **HTML** → tải zip → tích *This file will be played in the browser* →
+   Embed **1280 × 720**, bật Fullscreen button + Mobile friendly (Landscape) →
+   Visibility: **Draft** để thử, **Restricted** hoặc đặt mật khẩu để chỉ bạn bè chơi.
+
+Không gửi zip để mở `index.html` trực tiếp từ ổ đĩa, vì game web cần chạy qua một trang web.
+
 ## Việc nên làm tiếp
 
 - Vẽ thêm 4–6 frame chạy, kéo vào `Run Frames` của PlayerVisual (flip-book tự chạy).
 - Vẽ hình trái tim cho HUD (`Heart Frame`, `Heart Empty Frame`).
-- Thêm âm thanh: nhảy, đáp, đạp chim, nhặt đồ.
+- Thêm âm thanh: nhảy, đáp, chém, chém trúng, nhặt đồ.
 - Thêm hành vi riêng cho boss (lao tới, nhảy).

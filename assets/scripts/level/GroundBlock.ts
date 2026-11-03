@@ -8,7 +8,9 @@ const WALL_LINE = new Color(60, 55, 66, 255);
 const LIP = new Color(176, 168, 156, 255);
 
 /**
- * Khối nền đá: mép trên lát ảnh MG_tile lặp ngang, thân tường vẽ bằng Graphics, kèm Solid.
+ * Khối nền đá: mép trên lát ảnh MG_tile thành hàng, thân tường vẽ bằng Graphics, kèm Solid.
+ * Các ô đá chồng lên nhau một đoạn (Overlap) để không lộ khe giữa 2 ô, và giãn nhẹ cho vừa khít
+ * bề dài khối, nên 2 đầu khối luôn là mép đá bo tròn chứ không bị cắt ngang giữa ô.
  * Gốc node là góc trên-trái mặt đất. Kéo node để đổi chỗ / độ cao, đổi Width để dài ngắn.
  */
 @ccclass('GroundBlock')
@@ -30,6 +32,9 @@ export class GroundBlock extends Component {
     @property
     _sink = 14;
 
+    @property
+    _overlap = 24;
+
     @property({ tooltip: 'Chiều dài khối' })
     get width() { return this._width; }
     set width(v: number) { this._width = Math.max(10, v); this.redraw(); }
@@ -49,6 +54,10 @@ export class GroundBlock extends Component {
     @property({ tooltip: 'Mép đá nhô cao hơn mặt va chạm bao nhiêu (cho chân "lún" vào)' })
     get sink() { return this._sink; }
     set sink(v: number) { this._sink = v; this.redraw(); }
+
+    @property({ tooltip: 'Hai ô đá cạnh nhau chồng lên nhau bao nhiêu (px trên ảnh gốc). Còn thấy khe thì tăng lên' })
+    get overlap() { return this._overlap; }
+    set overlap(v: number) { this._overlap = Math.max(0, v); this.redraw(); }
 
     onLoad() {
         this.redraw();
@@ -79,16 +88,12 @@ export class GroundBlock extends Component {
                 top.layer = this.node.layer;
                 this.node.addChild(top);
             }
-            const sp = top.getComponent(Sprite) ?? top.addComponent(Sprite);
-            sp.spriteFrame = frame;
-            sp.type = Sprite.Type.TILED;
-            sp.sizeMode = Sprite.SizeMode.CUSTOM;
-            const s = this._tileHeight / frame.rect.height;
-            const ui = top.getComponent(UITransform)!;
-            ui.setAnchorPoint(0, 1);
-            ui.setContentSize(w / s, frame.rect.height);
-            top.setScale(s, s, 1);
+            // Bản cũ lát bằng một Sprite TILED nằm ngay trên node Top, gỡ đi để thay bằng từng ô
+            const old = top.getComponent(Sprite);
+            if (old) old.destroy();
+            top.setScale(1, 1, 1);
             top.setPosition(0, this._sink, 0);
+            this.layTiles(top, frame, w);
         } else {
             if (top) top.destroy();
             g.fillColor = LIP;
@@ -99,5 +104,39 @@ export class GroundBlock extends Component {
         const solid = this.getComponent(Solid) ?? this.addComponent(Solid);
         solid.size = new Size(w, d);
         solid.offset = new Vec2(w / 2, -d / 2);
+    }
+
+    /** Xếp n ô đá chồng mép lên nhau, giãn ngang một chút để vừa khít bề dài w. */
+    private layTiles(top: Node, frame: SpriteFrame, w: number) {
+        const fw = frame.rect.width, fh = frame.rect.height;
+        const s = this._tileHeight / fh;
+        const tw = fw * s;
+        const ov = Math.min(this._overlap * s, tw * 0.5);
+        const n = Math.max(1, Math.round((w - ov) / (tw - ov)));
+        const width = (w + (n - 1) * ov) / n; // bề ngang mỗi ô sau khi giãn
+        const sx = width / fw;
+
+        const tiles = top.children.slice();
+        for (let i = 0; i < n; i++) {
+            let t = tiles[i];
+            if (!t) {
+                t = new Node('Tile');
+                t.layer = this.node.layer;
+                top.addChild(t);
+            }
+            const sp = t.getComponent(Sprite) ?? t.addComponent(Sprite);
+            sp.spriteFrame = frame;
+            sp.type = Sprite.Type.SIMPLE;
+            sp.sizeMode = Sprite.SizeMode.CUSTOM;
+            const ui = t.getComponent(UITransform)!;
+            ui.setAnchorPoint(0, 1);
+            ui.setContentSize(fw, fh);
+            t.setScale(sx, s, 1);
+            t.setPosition(i * (width - ov), 0, 0);
+        }
+        for (let i = n; i < tiles.length; i++) {
+            tiles[i].removeFromParent();
+            tiles[i].destroy();
+        }
     }
 }

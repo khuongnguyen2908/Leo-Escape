@@ -4,7 +4,11 @@ import { Rect } from 'cc';
 export interface Hittable {
     getHitRect(out: Rect): Rect;
     readonly canBeHit: boolean;
-    takeHit(fromX?: number): void;
+    /**
+     * fromX: chỗ đòn đánh tới (để bị đẩy lùi ra xa); power: độ mạnh đẩy lùi, nhát cuối combo mạnh hơn;
+     * damage: số máu bị trừ (mặc định 1).
+     */
+    takeHit(fromX?: number, power?: number, damage?: number): void;
 }
 
 export const Hittables: Hittable[] = [];

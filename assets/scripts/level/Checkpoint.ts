@@ -1,4 +1,5 @@
 import { _decorator, Color, Graphics, Sprite, tween, Vec3 } from 'cc';
+import { Sound } from '../core/Sound';
 import { GameManager } from '../game/GameManager';
 import { PlayerTrigger } from './PlayerTrigger';
 const { ccclass, executeInEditMode } = _decorator;
@@ -27,6 +28,7 @@ export class Checkpoint extends PlayerTrigger {
 
     protected onPlayerEnter(gm: GameManager) {
         this.used = true;
+        Sound.play('checkpoint');
         gm.setRespawn(this.node.position);
         const s = this.node.scale;
         tween(this.node)

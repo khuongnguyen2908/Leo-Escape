@@ -1,5 +1,6 @@
-import { _decorator, Color, Component, EventTouch, Graphics, Node, Sprite, SpriteFrame, sys, UITransform, Vec2, Vec3 } from 'cc';
+import { _decorator, Color, Component, EventTouch, Graphics, Label, Node, Sprite, SpriteFrame, sys, UITransform, Vec2, Vec3, view } from 'cc';
 import { PlayerInput, TouchButton } from '../player/PlayerInput';
+import { useGameFont } from './GameFont';
 const { ccclass, property } = _decorator;
 
 // Màu nút tự vẽ, theo tông nâu của joystick
@@ -7,12 +8,16 @@ const BTN = new Color(78, 60, 56, 225);
 const BTN_DOWN = new Color(105, 82, 76, 240);
 const RING = new Color(232, 218, 198, 255);
 const ICON = new Color(240, 228, 210, 255);
+const KEY_BG = new Color(250, 240, 222, 240);
+const KEY_EDGE = new Color(78, 60, 56, 255);
+const KEY_TEXT = new Color(70, 52, 48, 255);
 const _p = new Vec3();
 
 /**
- * Điều khiển cảm ứng: joystick góc dưới trái (kéo trái/phải để chạy, kéo xuống để xuống bục),
- * nút tấn công + nút nhảy góc dưới phải. Chưa có ảnh thì tự vẽ; kéo ảnh vào các ô Frame là tự đổi.
- * Gắn lên một node con của Canvas có UITransform bằng kích thước màn hình.
+ * Điều khiển cảm ứng: joystick góc dưới trái (kéo trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục),
+ * nút chém (giữ để lướt chém) + nút nhảy góc dưới phải. Chưa có ảnh thì tự vẽ; kéo ảnh vào các ô Frame là tự đổi.
+ * Gắn lên một node con của Canvas. Nút luôn bám góc khung hình 16:9, kể cả khi node bị kéo lệch.
+ * Chơi trên máy tính thì nút có thêm chữ phím (W A S D, J, SPACE) để người chơi biết bấm phím nào.
  */
 @ccclass('TouchControls')
 export class TouchControls extends Component {
@@ -46,12 +51,20 @@ export class TouchControls extends Component {
     @property
     margin = 60;
 
+    @property({ tooltip: 'Hiện chữ phím (W A S D, J, SPACE) trên nút khi chơi bằng máy tính' })
+    showKeyHints = true;
+
+    private hints = false;
+
     start() {
         if (!sys.isMobile && !this.showOnDesktop) return;
-        const ui = this.getComponent(UITransform)!;
-        const left = -ui.width / 2;
-        const right = ui.width / 2;
-        const bottom = -ui.height / 2;
+        this.hints = this.showKeyHints && !sys.isMobile;
+        // Tính theo khung thiết kế (gốc Canvas ở giữa), trừ đi chỗ node đang lệch
+        const d = view.getDesignResolutionSize();
+        const p = this.node.position;
+        const left = -d.width / 2 - p.x;
+        const right = d.width / 2 - p.x;
+        const bottom = -d.height / 2 - p.y;
 
         if (this.joystickFrame) {
             this.makeJoystick(left + this.joystickPos.x, bottom + this.joystickPos.y);
@@ -74,6 +87,13 @@ export class TouchControls extends Component {
 
         const pad = this.child('Pad', n);
         pad.addComponent(Sprite).spriteFrame = frame;
+        if (this.hints) {
+            const k = size * 0.36;
+            this.keyHint(n, 'W', 0, k);
+            this.keyHint(n, 'A', -k, 0);
+            this.keyHint(n, 'S', 0, -k);
+            this.keyHint(n, 'D', k, 0);
+        }
 
         const dead = size * 0.12;
         const steer = (e: EventTouch) => {
@@ -83,6 +103,8 @@ export class TouchControls extends Component {
             PlayerInput.setTouch('left', _p.x < -dead);
             PlayerInput.setTouch('right', _p.x > dead);
             PlayerInput.setTouch('down', _p.y < -size * 0.3);
+            // Đẩy lên = đi lên bục phía trên (như phím W)
+            PlayerInput.setTouch('up', _p.y > size * 0.3);
             // Hình nghiêng nhẹ theo hướng kéo
             const max = size * 0.08;
             pad.setPosition(Math.max(-max, Math.min(max, _p.x * 0.2)), Math.max(-max, Math.min(max, _p.y * 0.2)), 0);
@@ -91,6 +113,7 @@ export class TouchControls extends Component {
             PlayerInput.setTouch('left', false);
             PlayerInput.setTouch('right', false);
             PlayerInput.setTouch('down', false);
+            PlayerInput.setTouch('up', false);
             pad.setPosition(0, 0, 0);
         };
         n.on(Node.EventType.TOUCH_START, steer);
@@ -116,6 +139,10 @@ export class TouchControls extends Component {
             paint = (down) => this.paint(g, button, r, down);
         }
         paint(false);
+        if (this.hints) {
+            const text = { left: 'A', right: 'D', up: 'W', down: 'S', jump: 'SPACE', attack: 'J' }[button];
+            this.keyHint(n, text, 0, -r * 0.82);
+        }
 
         const press = () => { PlayerInput.setTouch(button, true); paint(true); };
         const release = () => { PlayerInput.setTouch(button, false); paint(false); };
@@ -162,6 +189,30 @@ export class TouchControls extends Component {
                 g.stroke();
             }
         }
+    }
+
+    /** Phím nhỏ màu kem có chữ, đặt tại (x, y) trong node cha. */
+    private keyHint(parent: Node, text: string, x: number, y: number) {
+        const n = this.child(`Key_${text}`, parent);
+        n.setPosition(x, y, 0);
+        const h = 46;
+        const w = Math.max(h, text.length * 20 + 22);
+        const g = n.addComponent(Graphics);
+        g.fillColor = KEY_BG;
+        g.roundRect(-w / 2, -h / 2, w, h, 10);
+        g.fill();
+        g.strokeColor = KEY_EDGE;
+        g.lineWidth = 3;
+        g.roundRect(-w / 2, -h / 2, w, h, 10);
+        g.stroke();
+
+        const t = this.child('Text', n);
+        const label = t.addComponent(Label);
+        label.string = text;
+        label.fontSize = text.length > 1 ? 24 : 30;
+        label.lineHeight = h;
+        label.color = KEY_TEXT;
+        useGameFont(label);
     }
 
     private child(name: string, parent: Node): Node {

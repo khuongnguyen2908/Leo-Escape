@@ -17,6 +17,8 @@ const { ccclass, property, executeInEditMode } = _decorator;
 @ccclass('CameraRig')
 @executeInEditMode
 export class CameraRig extends Component {
+    static instance: CameraRig | null = null;
+
     @property
     _editorPreview = false;
 
@@ -91,6 +93,25 @@ export class CameraRig extends Component {
     private anchorY = 0;
     private snapped = false;
     private targetBody: PlatformerBody | null = null;
+    private shakeAmount = 0;
+    private shakeTime = 0;
+    private shakeDuration = 0;
+    private readonly shaken = new Vec2();
+
+    onLoad() {
+        if (!EDITOR) CameraRig.instance = this;
+    }
+
+    onDestroy() {
+        if (CameraRig.instance === this) CameraRig.instance = null;
+    }
+
+    /** Rung màn hình amount đơn vị trong time giây, nhỏ dần về 0 (dùng khi chém trúng, bị đánh...). */
+    shake(amount: number, time: number) {
+        if (amount < this.shakeAmount * (this.shakeTime / Math.max(0.001, this.shakeDuration))) return;
+        this.shakeAmount = amount;
+        this.shakeTime = this.shakeDuration = time;
+    }
 
     lateUpdate(dt: number) {
         if (EDITOR) {
@@ -123,7 +144,13 @@ export class CameraRig extends Component {
             this.snapped = true;
         }
 
-        for (const layer of ParallaxLayer.all) layer.apply(this.position, zoom);
+        let cam: Vec2 = this.position;
+        if (this.shakeTime > 0) {
+            this.shakeTime -= dt;
+            const k = this.shakeAmount * Math.max(0, this.shakeTime / this.shakeDuration);
+            cam = this.shaken.set(this.position.x + (Math.random() * 2 - 1) * k, this.position.y + (Math.random() * 2 - 1) * k);
+        }
+        for (const layer of ParallaxLayer.all) layer.apply(cam, zoom);
     }
 
     private frameWidth(): number {

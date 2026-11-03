@@ -1,4 +1,5 @@
 import { _decorator, Color, Component, Graphics, Label, Node, Sprite, SpriteFrame, tween, UITransform, Vec3 } from 'cc';
+import { useGameFont } from './GameFont';
 const { ccclass, property } = _decorator;
 
 const HEART_RED = new Color(232, 72, 85, 255);
@@ -64,6 +65,7 @@ export class HeartsHUD extends Component {
         label.fontSize = 84;
         label.lineHeight = 100;
         label.color = new Color(255, 240, 210, 255);
+        useGameFont(label);
         box.setScale(0.6, 0.6, 1);
         tween(box).to(0.3, { scale: Vec3.ONE }, { easing: 'backOut' }).start();
     }

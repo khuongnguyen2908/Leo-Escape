@@ -1,4 +1,5 @@
 import { _decorator, Color, Component, Label, Node, Sprite, SpriteFrame, tween, Vec3 } from 'cc';
+import { useGameFont } from './GameFont';
 const { ccclass, property } = _decorator;
 
 const TEXT = new Color(255, 240, 215, 255);
@@ -51,6 +52,7 @@ export class CoinCounter extends Component {
         this.label.lineHeight = this.fontSize + 6;
         this.label.isBold = true;
         this.label.color = TEXT;
+        useGameFont(this.label);
     }
 
     private render() {
