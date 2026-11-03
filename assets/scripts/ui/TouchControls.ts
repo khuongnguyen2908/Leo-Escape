@@ -17,7 +17,7 @@ const _p = new Vec3();
 
 /**
  * Điều khiển cảm ứng: joystick góc dưới trái (kéo trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục),
- * nút chém (giữ để lướt chém) + nút nhảy góc dưới phải, nút đổi mèo phía trên (chơi 1 người). Chưa có ảnh thì tự vẽ; kéo ảnh vào các ô Frame là tự đổi.
+ * nút chém (giữ để lướt chém) + nút nhảy góc dưới phải, nút kỹ năng (K), nút tương tác (L), nút đổi mèo (chơi 1 người). Chưa có ảnh thì tự vẽ; kéo ảnh vào các ô Frame là tự đổi.
  * Gắn lên một node con của Canvas. Nút luôn bám góc khung hình 16:9, kể cả khi node bị kéo lệch.
  * Chơi trên máy tính thì nút có thêm chữ phím (W A S D, J, SPACE) để người chơi biết bấm phím nào.
  */
@@ -40,6 +40,18 @@ export class TouchControls extends Component {
 
     @property({ tooltip: 'Tâm nút đổi mèo cách mép phải và đáy màn hình (x, y)' })
     swapPos = new Vec2(300, 330);
+
+    @property({ type: SpriteFrame, tooltip: 'Không bắt buộc: ảnh nút kỹ năng (K)' })
+    skillFrame: SpriteFrame | null = null;
+
+    @property({ tooltip: 'Tâm nút kỹ năng cách mép phải và đáy màn hình (x, y)' })
+    skillPos = new Vec2(580, 130);
+
+    @property({ type: SpriteFrame, tooltip: 'Không bắt buộc: ảnh nút tương tác (L)' })
+    interactFrame: SpriteFrame | null = null;
+
+    @property({ tooltip: 'Tâm nút tương tác cách mép phải và đáy màn hình (x, y)' })
+    interactPos = new Vec2(130, 400);
 
     @property({ tooltip: 'Tâm joystick cách mép trái và đáy màn hình (x, y)' })
     joystickPos = new Vec2(217, 195);
@@ -83,6 +95,8 @@ export class TouchControls extends Component {
         }
         this.makeButton('attack', right - this.attackPos.x, bottom + this.attackPos.y, this.attackRadius, this.attackFrame);
         this.makeButton('jump', right - this.jumpPos.x, bottom + this.jumpPos.y, this.radius, this.jumpFrame);
+        this.makeButton('skill', right - this.skillPos.x, bottom + this.skillPos.y, this.attackRadius * 0.85, this.skillFrame);
+        this.makeButton('interact', right - this.interactPos.x, bottom + this.interactPos.y, this.attackRadius * 0.8, this.interactFrame);
         // Nút đổi mèo: chỉ khi có Angelo và chơi 1 người (điện thoại luôn chơi 1 người)
         if (GameManager.instance?.partner && GameSession.mode === 1) {
             this.makeButton('swap', right - this.swapPos.x, bottom + this.swapPos.y, this.attackRadius * 0.8, this.swapFrame);
@@ -152,7 +166,7 @@ export class TouchControls extends Component {
         }
         paint(false);
         if (this.hints) {
-            const text = { left: 'A', right: 'D', up: 'W', down: 'S', jump: 'SPACE', attack: 'J', swap: 'TAB' }[button];
+            const text = { left: 'A', right: 'D', up: 'W', down: 'S', jump: 'SPACE', attack: 'J', swap: 'TAB', skill: 'K', interact: 'L' }[button];
             this.keyHint(n, text, 0, -r * 0.82);
         }
 
@@ -191,6 +205,24 @@ export class TouchControls extends Component {
             g.moveTo(a * 0.95, a * 0.95); g.lineTo(a * 0.95, -a * 0.1); g.lineTo(-a * 0.1, a * 0.95);
             g.close();
             g.fill();
+        } else if (button === 'skill') {
+            // Ngôi sao 5 cánh
+            for (let i = 0; i < 10; i++) {
+                const ang = Math.PI / 2 + (i * Math.PI) / 5;
+                const rr = i % 2 === 0 ? a : a * 0.45;
+                if (i === 0) g.moveTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+                else g.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+            }
+            g.close();
+            g.fill();
+        } else if (button === 'interact') {
+            // Bàn tay: lòng bàn tay tròn + 3 ngón
+            g.circle(0, -a * 0.2, a * 0.5);
+            g.fill();
+            for (let i = -1; i <= 1; i++) {
+                g.roundRect(i * a * 0.32 - a * 0.12, a * 0.1, a * 0.24, a * 0.7, a * 0.12);
+                g.fill();
+            }
         } else if (button === 'swap') {
             // Hai mũi tên vòng ngược chiều nhau
             g.lineWidth = r * 0.12;

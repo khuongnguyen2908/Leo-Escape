@@ -7,6 +7,7 @@ import { PlatformerBody } from '../core/PlatformerBody';
 import { Sound } from '../core/Sound';
 import { DashFx } from './DashFx';
 import { HitSpark } from './HitSpark';
+import { CatSkills } from './CatSkills';
 import { Controls, PlayerInput } from './PlayerInput';
 import { PlayerVisual } from './PlayerVisual';
 import { SlashFx } from './SlashFx';
@@ -127,6 +128,10 @@ export class PlayerController extends Component {
     /** Hết tim: nằm gục chờ đồng đội kéo dậy. */
     downed = false;
     hp = 3;
+    /** Kỹ năng riêng (LeoSkills / AngeloSkills), GameManager gắn khi bắt đầu. */
+    skills: CatSkills | null = null;
+    /** Còn > 0 thì không tự đổi vận tốc ngang (vừa nhảy bật tường, vừa bị ném). */
+    pushLock = 0;
     invincible = 0;
     energy = 100;
     /** Còn > 0 khi vừa bấm mà không đủ năng lượng (thanh năng lượng nháy đỏ). */
@@ -178,10 +183,17 @@ export class PlayerController extends Component {
             return;
         }
 
+        // Kỹ năng đang tự lo di chuyển (đập bụng, nằm, bị bê, leo dây...)
+        if (this.skills && this.skills.control(dt, canControl)) {
+            this.wasGrounded = b.grounded;
+            return;
+        }
+
         // Chạy
         const dir = canControl ? (this.controls.right ? 1 : 0) - (this.controls.left ? 1 : 0) : 0;
         if (this.lunge > 0) this.lunge -= dt;
-        if (this.hurtLock <= 0 && this.lunge <= 0) {
+        if (this.pushLock > 0) this.pushLock -= dt;
+        if (this.hurtLock <= 0 && this.lunge <= 0 && this.pushLock <= 0) {
             const accel = b.grounded ? (dir !== 0 ? this.groundAccel : this.groundDecel) : this.airAccel;
             v.x = moveTowards(v.x, dir * this.moveSpeed, accel * dt);
         }
@@ -218,12 +230,11 @@ export class PlayerController extends Component {
             } else if (this.coyote > 0) {
                 this.buffer = 0;
                 if (this.spend(this.jumpEnergy)) {
-                    v.y = this.jumpSpeed;
                     this.coyote = 0;
-                    this.jumping = true;
-                    this.visual?.playJump();
-                    Sound.play('jump', 0.6);
+                    this.startJump(this.jumpSpeed);
                 }
+            } else if (this.skills?.airJump()) {
+                this.buffer = 0; // nhảy 2 lần / nhảy bật tường
             }
         }
         if (this.jumping && v.y > 0 && !this.controls.jumpHeld) {
@@ -238,11 +249,12 @@ export class PlayerController extends Component {
         this.attackQueued = this.controls.consumeAttack() ? 0.15 : this.attackQueued - dt;
         if (this.attackQueued > 0 && this.attackTimer <= 0 && canControl) {
             this.attackQueued = 0;
-            if (this.spend(this.slashEnergy)) this.slash();
+            if (this.skills?.attack()) this.attackTimer = this.slashInterval * 1.6;
+            else if (this.spend(this.slashEnergy)) this.slash();
         }
 
         // Giữ J đủ lâu thì lướt chém (mỗi lần giữ chỉ lướt một lần, thả ra rồi giữ lại để lướt tiếp)
-        if (this.controls.attackHeld && canControl) {
+        if (this.controls.attackHeld && canControl && (this.skills?.canDash ?? true)) {
             this.holdTime += dt;
             if (!this.dashedThisHold && this.holdTime >= this.dashHoldTime) {
                 this.dashedThisHold = true;
@@ -254,6 +266,7 @@ export class PlayerController extends Component {
         }
 
         b.gravityScale = v.y < 0 ? this.fallGravityMultiplier : 1;
+        this.skills?.beforeMove(dt);
         const fallSpeed = -v.y;
         b.move(dt);
 
@@ -273,6 +286,7 @@ export class PlayerController extends Component {
         if (this.idle || this.downed) return false;
         this.invincible = this.invincibleTime;
         this.hurtLock = 0.3;
+        this.skills?.interrupt();
         const away = this.node.position.x >= fromX ? 1 : -1;
         this.body.velocity.set(away * this.knockbackSpeed, 520);
         this.jumping = false;
@@ -431,6 +445,19 @@ export class PlayerController extends Component {
         return this.slashFx;
     }
 
+    /** Bật nhảy lên với vận tốc speed (nhả nút sớm thì nhảy thấp như nhảy thường). */
+    startJump(speed: number, volume = 0.6) {
+        this.body.velocity.y = speed;
+        this.jumping = true;
+        this.visual?.playJump();
+        Sound.play('jump', volume);
+    }
+
+    /** Trừ năng lượng nếu đủ; không đủ thì báo (thanh nháy đỏ) và trả về false. Kỹ năng dùng chung. */
+    useEnergy(cost: number): boolean {
+        return this.spend(cost);
+    }
+
     /** Gục xuống (hết tim) hoặc đứng dậy (được kéo dậy). */
     setDowned(on: boolean) {
         this.downed = on;
@@ -441,6 +468,7 @@ export class PlayerController extends Component {
             this.dashFx = null;
         }
         this.body.velocity.x = 0;
+        if (on) this.skills?.interrupt();
         this.visual?.setDowned(on);
         if (!on) this.invincible = 1.5;
     }

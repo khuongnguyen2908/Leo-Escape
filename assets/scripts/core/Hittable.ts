@@ -9,6 +9,8 @@ export interface Hittable {
      * damage: số máu bị trừ (mặc định 1).
      */
     takeHit(fromX?: number, power?: number, damage?: number): void;
+    /** Không bắt buộc: bị trói chân (Angelo), đứng yên trong seconds giây. */
+    bind?(seconds: number): void;
 }
 
 export const Hittables: Hittable[] = [];

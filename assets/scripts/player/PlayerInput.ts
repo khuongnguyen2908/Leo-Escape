@@ -1,17 +1,21 @@
 import { EventKeyboard, Input, input } from 'cc';
 import { Action, ACTIONS, Settings } from '../core/Settings';
 
-export type TouchButton = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'swap';
+export type TouchButton = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'swap' | 'skill' | 'interact';
 
 /** Bộ điều khiển của một con mèo: đọc phím của một hoặc nhiều người chơi. */
 export interface Controls {
     readonly left: boolean;
     readonly right: boolean;
     readonly down: boolean;
+    /** Đang giữ Lên (leo dây). */
+    readonly upHeld: boolean;
     readonly jumpHeld: boolean;
     /** Đang giữ nút đánh (giữ đủ lâu thì lướt). */
     readonly attackHeld: boolean;
     readonly interactHeld: boolean;
+    /** Đang giữ nút Kỹ năng (Angelo giữ để nằm lì). */
+    readonly skillHeld: boolean;
     /** Mỗi hàm consume trả về true một lần cho mỗi lần bấm. */
     consumeJump(): boolean;
     consumeAttack(): boolean;
@@ -71,9 +75,11 @@ class PlayerControls implements Controls {
     get left() { return this.held('left'); }
     get right() { return this.held('right'); }
     get down() { return this.held('down'); }
+    get upHeld() { return this.held('up'); }
     get jumpHeld() { return this.held('jump'); }
     get attackHeld() { return this.held('attack'); }
     get interactHeld() { return this.held('interact'); }
+    get skillHeld() { return this.held('skill'); }
     consumeJump() { return this.consume('jump'); }
     consumeAttack() { return this.consume('attack'); }
     consumeUp() { return this.consume('up'); }

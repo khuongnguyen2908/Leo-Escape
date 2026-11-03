@@ -73,6 +73,13 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Cách tránh lần sau: chữ trên màn hình có dấu tiếng Việt thì luôn đi qua `setText`, đừng gọi thẳng `useGameFont`.
   Muốn đồng bộ font thì tìm font có hỗ trợ tiếng Việt (ví dụ Baloo 2, Be Vietnam Pro).
 
+### Giới hạn tốc độ rơi (bám tường) nhưng vẫn rơi nhanh
+- Ngày: 04/11/2026 · Nhóm: code
+- Triệu chứng: Angelo bám tường mà vẫn trượt xuống nhanh (đo được 300 thay vì 170).
+- Nguyên nhân: giới hạn vận tốc ngay trước `b.move`, nhưng trong `move` trọng lực lại cộng thêm.
+- Cách tránh lần sau: muốn giữ tốc độ rơi cố định thì đặt `gravityScale = 0` trong frame đó và tự cộng gia tốc nhỏ.
+  Sửa vật lý xong thì đo vận tốc qua vài frame trong trình duyệt, đừng đoán.
+
 ### Hai `@ccclass` trong cùng một file
 - Ngày: trước 03/11/2026 · Nhóm: code
 - Triệu chứng: component không hiện hoặc không nhận đúng trong editor.
@@ -159,7 +166,14 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   chờ khoảng 20 giây cho game tải, rồi bấm bằng toạ độ. Đọc lỗi bằng `read_console_messages`, soi trạng thái bằng
   `javascript_tool` (`cc.director.getScene()`...).
 - Bẫy: Creator chỉ biên dịch lại script khi cửa sổ Creator được bấm vào. Sửa code xong mà trình duyệt vẫn chạy bản cũ
-  (soi bằng JS thấy chưa có thứ mới) thì nhờ người dùng bấm vào cửa sổ Creator một cái, rồi tải lại trang.
+  (soi bằng JS thấy chưa có thứ mới, ví dụ `cc.js.getClassByName('LeoSkills')` ra false) thì nhờ người dùng bấm vào cửa sổ Creator một cái, rồi tải lại trang.
+  Sau khi biên dịch, Creator tự tải lại trang vài lần; game có thể mất tới 1–2 phút mới hiện (khung trình duyệt bị ẩn thì chạy chậm). Cứ chờ rồi soi lại.
+- Mẹo bấm phím bằng JS: phát `KeyboardEvent` với `code` (ví dụ `'KeyJ'`, `'Space'`, `'Tab'`, `'ArrowRight'`) lên `document.getElementById('GameCanvas')`.
+  Muốn chụp đúng lúc thì gọi `cc.director.pause()` ngay sau khi bấm, chụp xong `cc.director.resume()`.
+  Đo kết quả bằng số (độ cao nhảy, máu địch, vận tốc) chứ đừng chỉ nhìn ảnh.
+- Bẫy: khung trình duyệt của app bị ẩn (`tabs_context` báo "hidden") thì trình duyệt gần như không cho game chạy khung hình nào,
+  số đo ra vô lý (vận tốc đứng yên, nhân vật không nhúc nhích). Cách đo đúng: `cc.game.pause()`, rồi tự chạy từng khung bằng
+  `cc.director.tick(1/60)` trong vòng lặp JS (phát phím trước khi tick), đo xong `cc.game.resume()`. Kết quả không phụ thuộc máy nhanh hay chậm.
 
 ### Kiểm tra lỗi TypeScript khi không mở được Creator
 - Ngày: 03/11/2026 · Nhóm: code

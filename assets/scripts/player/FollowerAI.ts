@@ -42,9 +42,11 @@ export class FollowerAI implements Controls {
     get left() { return this.dir < 0; }
     get right() { return this.dir > 0; }
     get down() { return false; }
+    get upHeld() { return false; }
     get jumpHeld() { return this.jumpHold > 0; }
     get attackHeld() { return false; }
     get interactHeld() { return false; }
+    get skillHeld() { return false; }
     consumeJump() { return this.take('jumpQueued'); }
     consumeAttack() { return this.take('attackQueued'); }
     consumeUp() { return this.take('upQueued'); }
@@ -68,6 +70,12 @@ export class FollowerAI implements Controls {
         this.attackCooldown -= dt;
         if (!leader || me.downed || !me.controlEnabled) {
             this.dir = 0;
+            return;
+        }
+        // Đang nằm lì / nằm làm đệm / giữ dây thì ở yên; đang bị bê, bị ném, leo dây thì để yên cho xong
+        if (me.skills?.staying || me.skills?.busy) {
+            this.dir = 0;
+            this.lastX = NaN;
             return;
         }
         const b = me.body;

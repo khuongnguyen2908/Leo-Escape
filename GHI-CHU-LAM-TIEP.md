@@ -20,6 +20,7 @@ Hướng dẫn dùng game và các nút trong editor nằm ở [README.md](READM
   màn chọn mèo cho 2 người, mỗi con một dãy tim, gục và kéo dậy, camera giữ khung và chặn hai con đi xa nhau,
   menu Esc (Tiếp tục, Cài đặt, Về màn hình chính) với âm lượng, toàn màn hình, rung, đổi phím (lưu trên máy).
   Kế hoạch bước 2–5 (kỹ năng Angelo/Leo, 3 câu đố, Chihuahua 3 giai đoạn, mọt con) xem `docs/thiet-ke-game.html` mục 11.
+- **Bước 2 (đang thử):** kỹ năng hai mèo (README mục "Kỹ năng hai con mèo"). Còn chừa: đu dây qua hố, sàn yếu để đập vỡ (bước 3).
 - DemoLevelBuilder giờ chỉ còn 3 nút: **⚙ Cập nhật** (dùng hằng ngày, không dời gì), **📐 Xếp lại theo ảnh demo**,
   **⟳ Dựng màn từ đầu** (có khoá an toàn). Chi tiết ở README mục 4.
 - Màn mở đầu (node `Landing`, `LandingScreen.ts`): logo chữ tạm + nút START, nền là màn chơi làm mờ.

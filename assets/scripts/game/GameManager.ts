@@ -3,7 +3,9 @@ import { CameraRig } from '../camera/CameraRig';
 import { computeBox, overlaps } from '../core/Box';
 import { keyName, Settings } from '../core/Settings';
 import { Sound } from '../core/Sound';
+import { AngeloSkills } from '../player/AngeloSkills';
 import { FollowerAI } from '../player/FollowerAI';
+import { LeoSkills } from '../player/LeoSkills';
 import { PlayerController } from '../player/PlayerController';
 import { SoulWisp } from '../player/SoulWisp';
 import { PlayerInput } from '../player/PlayerInput';
@@ -102,6 +104,7 @@ export class GameManager extends Component {
             c.hp = this.maxHp;
             c.controls = PlayerInput.none;
             c.idle = true; // chưa vào chơi thì chưa bị đánh
+            this.attachSkills(c);
             if (!c.getComponent(ReviveRing)) c.addComponent(ReviveRing);
             this.hudFor(c)?.setHp(c.hp, this.maxHp);
         }
@@ -152,6 +155,20 @@ export class GameManager extends Component {
         if (fx && prev && prev !== cat) this.spawnSoul(prev, cat);
     }
 
+    /** Gắn bộ kỹ năng riêng theo tên con mèo (Leo / Angelo). Không cần đặt trong scene. */
+    private attachSkills(cat: PlayerController) {
+        const other = () => this.cats.find((o) => o !== cat) ?? null;
+        if (cat.catName === 'Angelo') {
+            const s = cat.getComponent(AngeloSkills) ?? cat.addComponent(AngeloSkills);
+            s.setup(cat, other);
+            cat.skills = s;
+        } else {
+            const s = cat.getComponent(LeoSkills) ?? cat.addComponent(LeoSkills);
+            s.setup(cat, other);
+            cat.skills = s;
+        }
+    }
+
     private aiFor(cat: PlayerController): FollowerAI {
         let ai = this.ai.get(cat);
         if (!ai) {
@@ -176,6 +193,7 @@ export class GameManager extends Component {
         const leader = this.active;
         const parent = cat.node.parent;
         if (!leader || leader === cat || cat.downed || this.teleporting.has(cat) || !parent) return;
+        if (cat.skills?.staying || cat.skills?.busy) return;
         const from = cat.node.position;
         const fromX = from.x, fromY = from.y + this.chest(cat);
         _pos.set(leader.node.position.x - leader.facing * 120, leader.node.position.y + 20, 0);

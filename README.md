@@ -80,7 +80,22 @@ Màn mở đầu → bấm **START** → chọn **1 NGƯỜI** hoặc **2 NGƯ�
 - Mỗi con một dãy tim và một thanh năng lượng (Leo góc trên trái, Angelo góc trên phải). Hết tim thì **gục**;
   con kia tới gần, **giữ phím Tương tác 1 giây** để kéo dậy (còn 2 tim). Cả hai cùng gục thì thua.
 - Thua rồi chơi lại thì giữ nguyên số người và mèo đã chọn. Menu → **Về màn hình chính** thì chọn lại từ đầu.
-- **Angelo tạm** là Leo nhuộm xám xanh, bóp gầy (ô *Tint*, *Width Scale* trên PlayerVisual của node `Angelo`). Kỹ năng riêng làm ở bước sau.
+- **Angelo tạm** là Leo nhuộm xám xanh, bóp gầy (ô *Tint*, *Width Scale* trên PlayerVisual của node `Angelo`).
+
+## Kỹ năng hai con mèo
+
+| | Leo (`LeoSkills.ts`) | Angelo (`AngeloSkills.ts`) |
+|---|---|---|
+| Nhảy | Nhảy thường | **Nhảy thêm 1 lần** trên không. Đang bay đẩy vào tường thì **bám tường** trượt chậm, Nhảy để **bật tường** |
+| Đánh (J) | Chém combo, giữ để lướt chém | **Quất dây len**, tầm xa gấp đôi Leo |
+| Kỹ năng (K) | Đang bay: **đập bụng** lao xuống, sóng chấn đánh địch xung quanh. Dưới đất: **nằm ngửa làm đệm** (K lần nữa để dậy); Angelo rơi trúng bụng thì bật rất cao | Bấm: **trói chân** địch gần nhất 2 giây (boss ngắn hơn), địch đứng yên và không đánh ai. Giữ: **nằm lì** / đứng dậy |
+| Tương tác (L) | Cạnh Angelo: **bê** lên đầu, L lần nữa để **ném** | Ở mép bục cao, quay mặt ra ngoài: **thả dây len** xuống. L / Nhảy / đi để kéo dây lên |
+| Leo dây | **Giữ Lên** cạnh dây để leo, thả thì đu, Xuống để tụt, Nhảy để buông | — |
+| Bị bê / ném | — | Bị bê: bấm Nhảy để thoát. Bị ném: cuộn tròn bay, Nhảy giữa chừng để nhảy tiếp |
+
+Con đang nằm (Leo nằm làm đệm, Angelo nằm lì) hoặc đang giữ dây thì khi đổi mèo sẽ ở lại tại chỗ, con đi theo không tự đi.
+Hiệu ứng (dây len, sóng chấn, dây thả) vẽ tạm bằng code: `SkillFx.ts`, `YarnRope.ts`. Số liệu kỹ năng chỉnh ngay trong hai file kỹ năng.
+Đập bụng chạm đất sẽ báo cho `LeoSkills.poundListeners` (để dành cho sàn yếu ở bước câu đố).
 
 ## Điều khiển
 
@@ -93,13 +108,13 @@ Phím mặc định (đổi được trong menu **Esc → Cài đặt → Bàn p
 | Xuống khỏi bục một chiều | S | ↓ |
 | Nhảy (giữ lâu nhảy cao, nhả sớm nhảy thấp). Tốn năng lượng | Space | Num 0 |
 | Chém: bấm liên tục ra combo 3 nhát. Giữ để **lướt chém** xuyên qua kẻ địch | J | Num 1 |
-| Kỹ năng riêng (chưa có, bước 2) | K | Num 2 |
-| Tương tác: kéo đồng đội dậy (sau này: bê, ném...) | L | Num 3 |
+| Kỹ năng riêng (xem bảng kỹ năng) | K | Num 2 |
+| Tương tác: bê/ném, thả dây, giữ để kéo đồng đội dậy | L | Num 3 |
 | Đổi mèo (chơi 1 người) | Tab | — |
 | Menu tạm dừng | Esc | Esc |
 
 Cảm ứng: joystick trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục; nút J để chém (giữ để lướt), nút SPACE để nhảy,
-nút hai mũi tên để đổi mèo. Trên máy tính bật **Touch On Desktop** (Canvas) để thấy nút, nút có ghi phím tương ứng.
+nút ngôi sao (K) để dùng kỹ năng, nút bàn tay (L) để tương tác, nút hai mũi tên để đổi mèo. Trên máy tính bật **Touch On Desktop** (Canvas) để thấy nút, nút có ghi phím tương ứng.
 
 ## Menu (Esc hoặc nút bánh răng góc trên phải)
 

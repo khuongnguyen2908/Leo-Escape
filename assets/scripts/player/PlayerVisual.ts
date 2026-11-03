@@ -69,6 +69,9 @@ export class PlayerVisual extends Component {
     private facing = 1;
     private blinking = false;
     private downed = false;
+    private lying = false;
+    private spinning = false;
+    private spinAngle = 0;
     private hidden = false;
     private downTime = 0;
     private readonly dim = new Color();
@@ -92,6 +95,21 @@ export class PlayerVisual extends Component {
         this.setFrame(this.idleFrame);
         this.node.setScale(this.baseScale * this.widthScale * (this.artFacesRight ? 1 : -1), this.baseScale, 1);
         if (this.sprite) this.sprite.color = this.tint;
+    }
+
+    /** Nằm xuống có chủ đích (Leo nằm làm đệm, Angelo nằm lì): như gục nhưng không tối màu. */
+    setLying(on: boolean) {
+        if (this.lying === on) return;
+        this.lying = on;
+        this.downTime = 0;
+        this.squash = on ? 0.25 : -0.15;
+        this.squashVel = 0;
+    }
+
+    /** Cuộn tròn xoay vòng (đang bị ném). */
+    setSpin(on: boolean) {
+        this.spinning = on;
+        if (!on) this.spinAngle = 0;
     }
 
     /** Ẩn hình (đang hoá linh hồn bay đi). */
@@ -170,7 +188,13 @@ export class PlayerVisual extends Component {
             angle -= this.facing * 14 * (this.attackLean / 0.2);
         }
 
-        if (this.downed) {
+        if (this.spinning) {
+            this.spinAngle -= this.facing * 900 * dt;
+            angle = this.spinAngle;
+            sx = sy = 0.85;
+            const ref = this.idleFrame ?? this.sprite?.spriteFrame;
+            y = ref ? ref.rect.height * this.baseScale * 0.35 : 0; // xoay quanh giữa người
+        } else if (this.downed || this.lying) {
             // Nằm nghiêng xuống đất, thở chậm; nâng lên nửa bề ngang để không lún xuống nền
             this.downTime += dt;
             const lie = Math.min(1, this.downTime / 0.25);

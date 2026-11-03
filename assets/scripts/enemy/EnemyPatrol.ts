@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, Node, Rect, Sprite, SpriteFrame, tween, UIOpacity, UITransform, Vec3 } from 'cc';
+import { _decorator, Color, Component, Graphics, Node, Rect, Sprite, SpriteFrame, tween, UIOpacity, UITransform, Vec3 } from 'cc';
 import { moveTowards, overlaps } from '../core/Box';
 import { Hittable, registerHittable, unregisterHittable } from '../core/Hittable';
 import { HitStop } from '../core/HitStop';
@@ -11,6 +11,7 @@ const _player = new Rect();
 const _self = new Rect();
 const HIT_TINT = new Color(255, 120, 120, 255);
 const HIT_SHAKE_TIME = 0.28;
+const YARN = new Color(232, 92, 132, 255);
 
 /**
  * Kẻ địch đi tuần qua lại, quay đầu khi đụng tường hoặc tới mép vực.
@@ -68,6 +69,8 @@ export class EnemyPatrol extends Component implements Hittable {
     private shakeTime = 0;
     private pop = 0;
     private dead = false;
+    private bound = 0;
+    private yarn: Graphics | null = null;
 
     onLoad() {
         this.body = this.getComponent(PlatformerBody)!;
@@ -119,6 +122,18 @@ export class EnemyPatrol extends Component implements Hittable {
         if (this.dead || HitStop.frozen) return;
         const b = this.body;
         if (this.hitCooldown > 0) this.hitCooldown -= dt;
+
+        // Bị Angelo trói chân: đứng yên, không đánh ai, vẫn bị chém được
+        if (this.bound > 0) {
+            this.bound -= dt;
+            b.velocity.x = this.stun > 0 ? this.knockVel : 0;
+            if (this.stun > 0) this.stun -= dt;
+            b.move(dt);
+            this.animate(dt);
+            this.drawYarn();
+            if (this.bound <= 0) this.drawYarn();
+            return;
+        }
 
         // Vừa bị chém: văng lùi rồi trượt chậm lại, chưa đi tuần tiếp
         if (this.stun > 0) {
@@ -195,6 +210,33 @@ export class EnemyPatrol extends Component implements Hittable {
         const self = this.body.getRect(_self);
         for (const cat of gm.cats) {
             if (overlaps(cat.body.getRect(_player), self)) gm.hurtCat(cat, this.node.position.x);
+        }
+    }
+
+    /** Bị trói chân seconds giây (boss to xác bị trói ngắn hơn). */
+    bind(seconds: number) {
+        if (this.dead) return;
+        this.bound = this.targetHeight > 250 ? seconds * 0.6 : seconds;
+        this.pop = 0.6;
+    }
+
+    /** Vòng len quấn quanh chân khi đang bị trói. */
+    private drawYarn() {
+        if (!this.yarn) {
+            const n = new Node('Yarn');
+            n.layer = this.node.layer;
+            this.node.addChild(n);
+            this.yarn = n.addComponent(Graphics);
+        }
+        const g = this.yarn;
+        g.clear();
+        if (this.bound <= 0) return;
+        const w = this.body.size.width;
+        g.lineWidth = 5;
+        g.strokeColor = YARN;
+        for (let i = 0; i < 3; i++) {
+            g.ellipse(0, 14 + i * 14, w * 0.55, 9);
+            g.stroke();
         }
     }
 

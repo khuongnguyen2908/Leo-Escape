@@ -3780,7 +3780,7 @@
       "r": 255,
       "g": 246,
       "b": 205,
-      "a": 87
+      "a": 88
     },
     "_miterLimit": 10,
     "_id": "d7Cta0zeVE/rlAj5AzBznf"
@@ -4061,7 +4061,7 @@
       "r": 255,
       "g": 246,
       "b": 205,
-      "a": 58
+      "a": 57
     },
     "_miterLimit": 10,
     "_id": "b3uyExj4lNsY8mfpgzWYKe"
@@ -4623,7 +4623,7 @@
       "r": 255,
       "g": 246,
       "b": 205,
-      "a": 37
+      "a": 38
     },
     "_miterLimit": 10,
     "_id": "61GwXT/p1FrL1yjiEvBzr4"
@@ -16198,6 +16198,18 @@
       "__type__": "cc.Vec2",
       "x": 300,
       "y": 330
+    },
+    "skillFrame": null,
+    "skillPos": {
+      "__type__": "cc.Vec2",
+      "x": 580,
+      "y": 130
+    },
+    "interactFrame": null,
+    "interactPos": {
+      "__type__": "cc.Vec2",
+      "x": 130,
+      "y": 400
     },
     "joystickPos": {
       "__type__": "cc.Vec2",
