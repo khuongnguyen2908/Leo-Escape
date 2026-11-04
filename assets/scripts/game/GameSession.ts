@@ -11,6 +11,8 @@ export const GameSession = {
     leoPlayer: 0,
     /** Chơi 2 người: Angelo do người chơi nào điều khiển. */
     angeloPlayer: 1,
+    /** Có Angelo trong màn không (theo ô "Bật Angelo" của GameManager). Tắt thì không có chơi 2 người, không có phím Đổi mèo. */
+    angelo: false,
     /** Màn mở đầu đang hiện, chưa vào chơi (GameManager chờ tới khi bấm START). */
     waitingForStart: false,
 

@@ -103,6 +103,14 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Cách tránh lần sau: mỗi khi người dùng thêm ảnh, kiểm tra `.meta` bằng `grep '"type"' assets/resources/art/<tên>.png.meta`.
   Nếu là `texture` thì nhắc người dùng đổi trước khi làm.
 
+### Đặt ảnh theo ảnh mẫu mà tâm bị lệch (Sprite tự cắt viền trong suốt)
+- Ngày: 04/11/2026 · Nhóm: art
+- Triệu chứng: đo tâm logo, khung chọn trên ảnh mẫu rồi đặt đúng số đó, nhưng hình vẫn lệch vài chục px.
+- Nguyên nhân: Sprite mặc định bật *Trim*, cắt bỏ phần trong suốt quanh hình rồi đặt phần còn lại vào giữa node.
+  Ảnh có quầng sáng hay viền trống không đều (như `logo.png`) thì tâm phần còn lại khác tâm ảnh gốc.
+- Cách tránh lần sau: ảnh đặt theo số đo trên ảnh mẫu thì để `trim = false` và *Size Mode* = RAW (xem `ensureMainMenu` trong DemoLevelBuilder).
+  Đo vị trí bằng cách dò ảnh gốc trên ảnh mẫu (OpenCV `matchTemplate` có mask), đừng ước bằng mắt.
+
 ### Kích thước va chạm không tự theo khi scale hình
 - Ngày: trước 03/11/2026 · Nhóm: scene
 - Triệu chứng: chém hụt, đứng lơ lửng, hoặc bị đụng khi chưa chạm.
@@ -125,6 +133,12 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Nguyên nhân: Compress-Archive của PowerShell ghi dấu `\` trong đường dẫn file zip.
 - Cách sửa: `python tools/zip_build.py build/web-mobile Leo-Escape-web.zip`.
 - Cách tránh lần sau: không dùng Compress-Archive để nén bản build.
+
+### Nút QUIT trên bản web không đóng được tab
+- Ngày: 04/11/2026 · Nhóm: build
+- Nguyên nhân: trình duyệt chỉ cho `window.close()` đóng tab do chính trang đó mở bằng script. Mở game từ itch.io thì bị chặn, không báo lỗi.
+- Cách làm: bản native gọi `game.end()`. Bản web thử `window.close()`, không được thì thoát toàn màn hình, tắt nhạc,
+  hiện "THANKS FOR PLAYING!" kèm nút về menu (`LandingScreen.answerQuit`). Đây cũng là cách các game web hay làm.
 
 ### Tên file asset có dấu tiếng Việt
 - Ngày: trước 03/11/2026 · Nhóm: art

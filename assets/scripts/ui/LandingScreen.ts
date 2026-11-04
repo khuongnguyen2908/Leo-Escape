@@ -1,30 +1,50 @@
-import { _decorator, Camera, Color, Component, EventKeyboard, Input, input, KeyCode, Label, Node, RenderTexture, resources, screen, Sprite, SpriteFrame, sys, Texture2D, tween, UIOpacity, UITransform, Vec3, view } from 'cc';
+import { _decorator, Camera, Color, Component, EventKeyboard, game, Input, input, KeyCode, Label, Node, RenderTexture, resources, screen, Sprite, SpriteFrame, sys, Texture2D, Tween, tween, UIOpacity, UITransform, Vec3, view } from 'cc';
 import { Settings } from '../core/Settings';
+import { Sound } from '../core/Sound';
 import { GameManager } from '../game/GameManager';
 import { GameSession } from '../game/GameSession';
 import { PlayerInput } from '../player/PlayerInput';
 import { PlayerVisual } from '../player/PlayerVisual';
 import { CharacterSelect } from './CharacterSelect';
 import { useGameFont } from './GameFont';
-import { UI, uiButton, UiButton, uiLabel, uiNode } from './UiKit';
+import { UI, uiButton, UiButton, uiDim, uiLabel, uiNode, uiPanel } from './UiKit';
 const { ccclass, property } = _decorator;
 
-type Page = 'start' | 'mode' | 'pick';
+type Page = 'start' | 'mode' | 'pick' | 'quit' | 'thanks';
+
+/** Các dòng của menu chính: [tên node trong Landing/Menu, chữ mặc định]. */
+export const MENU_ITEMS: [string, string][] = [
+    ['NewGame', 'NEW GAME'],
+    ['Options', 'OPTIONS'],
+    ['Achievements', 'ACHIEVEMENTS'],
+    ['Credits', 'CREDITS'],
+    ['Quit', 'QUIT'],
+];
+
+const TITLE_OUTLINE = new Color(0x46, 0x2c, 0x22, 255);
+const SMALL = new Color(0x96, 0x87, 0x87, 255);
+const SMALL_OUTLINE = new Color(0x2c, 0x1d, 0x17, 255);
 
 /**
- * Màn mở đầu trên nền là chính màn chơi làm mờ:
- *   1. Logo + nút START (Enter, hoặc phím Nhảy / Đánh của người chơi nào cũng được).
- *   2. Chọn 1 NGƯỜI (điều khiển Leo, phím Đổi mèo để đổi) hoặc 2 NGƯỜI. Điện thoại bỏ qua bước này, vào thẳng 1 người.
+ * Màn mở đầu:
+ *   1. Menu chính: logo, NEW GAME, OPTIONS, ACHIEVEMENTS, CREDITS, QUIT. W/S hoặc ↑/↓ dời khung chọn, rê chuột cũng được;
+ *      Enter, phím Nhảy / Đánh hoặc chạm để chọn. Scene chưa có node Menu thì dùng nút START cũ.
+ *   2. NEW GAME: chọn 1 NGƯỜI (điều khiển Leo, phím Đổi mèo để đổi) hoặc 2 NGƯỜI. Điện thoại bỏ qua bước này, vào thẳng 1 người.
  *   3. Chơi 2 người: màn chọn mèo (CharacterSelect). Esc để quay lại bước trước.
+ * OPTIONS mở trang Cài đặt của PauseMenu. QUIT hỏi lại; trên web không đóng được tab thì hiện màn cảm ơn.
  * Chỉ hiện một lần khi mở game: thua rồi chơi lại thì vào thẳng màn chơi. "Về màn hình chính" trong menu thì hiện lại.
  * Gắn lên node Landing dưới Canvas (nút "⚙ Cập nhật" trên DemoLevelBuilder tự tạo nếu chưa có).
- * Logo: kéo ảnh vào ô Logo Frame, hoặc đặt ảnh tên MG_logo trong assets/resources/art là tự dùng; chưa có thì hiện chữ.
+ * Nền: có node MenuBg (ảnh Background) thì dùng ảnh đó, không thì chụp màn chơi làm mờ.
+ * Logo: kéo ảnh vào ô Logo Frame, hoặc đặt ảnh tên logo / MG_logo trong assets/resources/art là tự dùng; chưa có thì hiện chữ.
  */
 @ccclass('LandingScreen')
 export class LandingScreen extends Component {
     /** Đã bấm START trong lần mở game này (giữ qua các lần tải lại scene). */
     static passed = false;
     static instance: LandingScreen | null = null;
+    /** PauseMenu gắn vào: mở thẳng trang Cài đặt, và cho biết menu tạm dừng đang mở (để không nhận phím bên dưới). */
+    static openOptions: (() => void) | null = null;
+    static pauseOpen: () => boolean = () => false;
 
     @property({ type: SpriteFrame, tooltip: 'Không bắt buộc: ảnh logo. Để trống thì tìm MG_logo trong thư mục ảnh' })
     logoFrame: SpriteFrame | null = null;
@@ -49,6 +69,16 @@ export class LandingScreen extends Component {
     private pick: CharacterSelect | null = null;
     private wasLeft = false;
     private wasRight = false;
+    private menu: Node | null = null;
+    private items: Node[] = [];
+    private selection: Node | null = null;
+    private selectionDy = 0;
+    private focus = 0;
+    private toast: Label | null = null;
+    private quitRoot: Node | null = null;
+    private quitButtons: UiButton[] = [];
+    private quitFocus = 1;
+    private thanksRoot: Node | null = null;
 
     /** Màn mở đầu đang hiện (chưa vào chơi). */
     get showing() { return this.node.activeInHierarchy && !this.leaving; }
@@ -66,12 +96,16 @@ export class LandingScreen extends Component {
         this.node.setSiblingIndex(this.node.parent!.children.length - 1);
         for (const l of this.getComponentsInChildren(Label)) useGameFont(l);
         this.setupLogo();
-        this.setupStart();
+        this.menu = this.node.getChildByName('Menu');
+        if (this.menu) this.setupMenu();
+        else this.setupStart();
         input.on(Input.EventType.KEY_DOWN, this.onKey, this);
     }
 
     start() {
-        this.beginCapture();
+        // Có ảnh nền menu thì không cần chụp màn chơi làm mờ
+        if (this.node.getChildByName('MenuBg')) PlayerInput.clearQueues();
+        else this.beginCapture();
     }
 
     onDestroy() {
@@ -93,8 +127,21 @@ export class LandingScreen extends Component {
         }
         if (this.leaving) return;
         const c = PlayerInput.merged;
-        if (this.page === 'start') {
+        if (this.page === 'start' && this.menu) {
+            const n = this.items.length;
+            if (c.consumeUp()) this.focusMenu((this.focus + n - 1) % n);
+            if (c.consumeDown()) this.focusMenu((this.focus + 1) % n);
+            if (c.consumeJump() || c.consumeAttack()) this.chooseMenu(this.focus);
+        } else if (this.page === 'start') {
             if (c.consumeJump() || c.consumeAttack()) this.onStart();
+        } else if (this.page === 'quit') {
+            const left = c.left, right = c.right;
+            if ((left && !this.wasLeft) || (right && !this.wasRight)) this.focusQuit(this.quitFocus === 0 ? 1 : 0);
+            this.wasLeft = left;
+            this.wasRight = right;
+            if (c.consumeJump() || c.consumeAttack()) this.answerQuit(this.quitFocus === 0);
+        } else if (this.page === 'thanks') {
+            if (c.consumeJump() || c.consumeAttack()) this.hideThanks();
         } else if (this.page === 'mode') {
             const left = c.left, right = c.right;
             if ((left && !this.wasLeft) || (right && !this.wasRight)) this.focusMode(this.modeFocus === 0 ? 1 : 0);
@@ -116,11 +163,153 @@ export class LandingScreen extends Component {
         if (this.page === 'mode') {
             this.page = 'start';
             if (this.modeRoot) this.modeRoot.active = false;
-            this.setActive('Start', true);
+            if (this.menu) this.menu.active = true;
+            else this.setActive('Start', true);
             this.setActive('Logo', true);
+            PlayerInput.clearQueues();
+            return true;
+        }
+        if (this.page === 'quit') {
+            this.answerQuit(false);
+            return true;
+        }
+        if (this.page === 'thanks') {
+            this.hideThanks();
             return true;
         }
         return false;
+    }
+
+    private setupMenu() {
+        const menu = this.menu!;
+        this.setActive('Start', false);
+        this.items = MENU_ITEMS.map(([name]) => menu.getChildByName(name)).filter((n): n is Node => !!n && n.active);
+        this.selection = menu.getChildByName('Selection');
+        // Giữ khoảng lệch giữa khung chọn và dòng đầu như bạn đặt trong editor
+        if (this.selection && this.items.length) this.selectionDy = this.selection.position.y - this.items[0].position.y;
+        this.items.forEach((n, i) => {
+            n.on(Node.EventType.MOUSE_ENTER, () => {
+                if (this.page === 'start') this.focusMenu(i);
+            });
+            n.on(Node.EventType.TOUCH_END, () => {
+                if (this.page !== 'start' || this.leaving) return;
+                this.focusMenu(i);
+                this.chooseMenu(i);
+            });
+        });
+        this.focusMenu(0);
+    }
+
+    private focusMenu(i: number) {
+        const item = this.items[i];
+        if (!item) return;
+        this.focus = i;
+        const sel = this.selection;
+        if (sel) sel.setPosition(sel.position.x, item.position.y + this.selectionDy, sel.position.z);
+    }
+
+    private chooseMenu(i: number) {
+        const item = this.items[i];
+        if (!item || this.leaving) return;
+        switch (item.name) {
+            case 'NewGame': this.onStart(); break;
+            case 'Options': LandingScreen.openOptions?.(); break;
+            case 'Quit': this.showQuit(); break;
+            default: this.showToast(item, 'COMING SOON'); break;
+        }
+    }
+
+    /** Chữ nâu nhỏ hiện bên phải dòng menu chừng 1 giây. */
+    private showToast(item: Node, text: string) {
+        if (!this.toast) {
+            this.toast = uiLabel(this.node, '', 30, SMALL, { outline: SMALL_OUTLINE, outlineWidth: 3, name: 'Toast' });
+            this.toast.node.getComponent(UITransform)!.setAnchorPoint(0, 0.5);
+            this.toast.node.addComponent(UIOpacity);
+        }
+        const t = this.toast;
+        t.string = text;
+        const p = new Vec3();
+        item.getWorldPosition(p);
+        this.node.getComponent(UITransform)!.convertToNodeSpaceAR(p, p);
+        const w = item.getComponent(UITransform)?.width ?? 0;
+        t.node.setPosition(p.x + w / 2 + 40, p.y, 0);
+        t.node.setSiblingIndex(this.node.children.length - 1);
+        const op = t.node.getComponent(UIOpacity)!;
+        Tween.stopAllByTarget(op);
+        op.opacity = 255;
+        tween(op).delay(1).to(0.3, { opacity: 0 }).start();
+    }
+
+    /** Hỏi lại trước khi thoát. Mặc định chọn NO cho khỏi lỡ tay. */
+    private showQuit() {
+        const d = view.getDesignResolutionSize();
+        if (!this.quitRoot) {
+            const root = uiNode('QuitAsk', this.node, d.width, d.height);
+            uiDim(root, d.width, d.height);
+            uiPanel(root, 640, 320);
+            uiLabel(root, 'QUIT GAME?', 60, Color.WHITE, { outline: TITLE_OUTLINE, outlineWidth: 4 }).node.setPosition(0, 60, 0);
+            const yes = uiButton(root, 'YES', 240, 90, () => this.answerQuit(true), { fontSize: 44, name: 'Yes' });
+            const no = uiButton(root, 'NO', 240, 90, () => this.answerQuit(false), { fontSize: 44, name: 'No' });
+            yes.node.setPosition(-140, -70, 0);
+            no.node.setPosition(140, -70, 0);
+            yes.node.on(Node.EventType.MOUSE_ENTER, () => this.focusQuit(0));
+            no.node.on(Node.EventType.MOUSE_ENTER, () => this.focusQuit(1));
+            this.quitButtons = [yes, no];
+            this.quitRoot = root;
+        }
+        this.quitRoot.setSiblingIndex(this.node.children.length - 1);
+        this.quitRoot.active = true;
+        this.page = 'quit';
+        this.focusQuit(1);
+        PlayerInput.clearQueues();
+    }
+
+    private focusQuit(i: number) {
+        this.quitFocus = i;
+        this.quitButtons.forEach((b, k) => b.setFocus(k === i));
+    }
+
+    private answerQuit(yes: boolean) {
+        if (this.quitRoot) this.quitRoot.active = false;
+        this.page = 'start';
+        PlayerInput.clearQueues();
+        if (!yes) return;
+        // Bản build ra máy tính / điện thoại thì thoát thật
+        if (sys.isNative) {
+            game.end();
+            return;
+        }
+        // Trình duyệt chỉ cho đóng tab do chính game mở; mở từ itch.io thì bị chặn, nên hiện màn cảm ơn
+        try { window.close(); } catch (e) { /* bị chặn thì thôi */ }
+        this.scheduleOnce(() => this.showThanks(), 0.2);
+    }
+
+    private showThanks() {
+        if (screen.fullScreen()) screen.exitFullScreen().catch(() => { /* không thoát được thì thôi */ });
+        Sound.stopMusic();
+        const d = view.getDesignResolutionSize();
+        if (!this.thanksRoot) {
+            const root = uiNode('Thanks', this.node, d.width, d.height);
+            uiDim(root, d.width, d.height);
+            uiLabel(root, 'THANKS FOR PLAYING!', 60, Color.WHITE, { outline: TITLE_OUTLINE, outlineWidth: 4 }).node.setPosition(0, 90, 0);
+            uiLabel(root, 'YOU CAN CLOSE THIS TAB NOW.', 30, SMALL, { outline: SMALL_OUTLINE, outlineWidth: 3 }).node.setPosition(0, 20, 0);
+            const back = uiButton(root, 'BACK TO MENU', 480, 96, () => this.hideThanks(), { fontSize: 44, name: 'Back' });
+            back.node.setPosition(0, -100, 0);
+            back.setFocus(true);
+            this.thanksRoot = root;
+        }
+        this.thanksRoot.setSiblingIndex(this.node.children.length - 1);
+        this.thanksRoot.active = true;
+        this.page = 'thanks';
+        PlayerInput.clearQueues();
+    }
+
+    private hideThanks() {
+        if (this.thanksRoot) this.thanksRoot.active = false;
+        this.page = 'start';
+        PlayerInput.clearQueues();
+        const music = GameManager.instance?.music;
+        if (music) Sound.music(music);
     }
 
     private onStart() {
@@ -135,6 +324,7 @@ export class LandingScreen extends Component {
     private showMode() {
         this.page = 'mode';
         this.setActive('Start', false);
+        if (this.menu) this.menu.active = false;
         this.setActive('Logo', true);
         if (!this.modeRoot) this.buildMode();
         this.modeRoot!.active = true;
@@ -196,8 +386,13 @@ export class LandingScreen extends Component {
     }
 
     private onKey(e: EventKeyboard) {
-        if (e.keyCode === KeyCode.ENTER && this.page === 'start' && !this.leaving) this.onStart();
-        else if (e.keyCode === KeyCode.ENTER && this.page === 'mode' && !this.leaving) this.chooseMode(this.modeFocus === 0 ? 1 : 2);
+        if (e.keyCode !== KeyCode.ENTER || this.leaving || LandingScreen.pauseOpen()) return;
+        if (this.page === 'start') {
+            if (this.menu) this.chooseMenu(this.focus);
+            else this.onStart();
+        } else if (this.page === 'mode') this.chooseMode(this.modeFocus === 0 ? 1 : 2);
+        else if (this.page === 'quit') this.answerQuit(this.quitFocus === 0);
+        else if (this.page === 'thanks') this.hideThanks();
     }
 
     private setActive(name: string, on: boolean) {
@@ -279,8 +474,11 @@ export class LandingScreen extends Component {
             show(this.logoFrame);
             return;
         }
-        resources.load(`${this.artFolder}/MG_logo/spriteFrame`, SpriteFrame, (err, sf) => {
+        resources.load(`${this.artFolder}/logo/spriteFrame`, SpriteFrame, (err, sf) => {
             if (!err && sf) show(sf);
+            else resources.load(`${this.artFolder}/MG_logo/spriteFrame`, SpriteFrame, (err2, sf2) => {
+                if (!err2 && sf2) show(sf2);
+            });
         });
     }
 

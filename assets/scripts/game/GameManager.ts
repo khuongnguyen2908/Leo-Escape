@@ -40,6 +40,9 @@ export class GameManager extends Component {
     @property({ type: PlayerController, tooltip: 'Angelo (nút ⚙ Cập nhật tự thêm)' })
     partner: PlayerController | null = null;
 
+    @property({ displayName: 'Bật Angelo', tooltip: 'Tắt: khi chơi ẩn Angelo và tim của Angelo, chỉ chơi 1 người với Leo. Angelo vẫn nằm trong scene, tick lại là có lại' })
+    angeloEnabled = false;
+
     @property({ type: HeartsHUD, tooltip: 'Tim của Leo' })
     hud: HeartsHUD | null = null;
 
@@ -93,6 +96,19 @@ export class GameManager extends Component {
     onLoad() {
         GameManager.instance = this;
         PlayerInput.reset();
+        if (!this.angeloEnabled) this.removeAngelo();
+        GameSession.angelo = !!this.partner;
+        if (!GameSession.angelo) GameSession.mode = 1;
+    }
+
+    /** Tạm bỏ Angelo khi chơi: ẩn Angelo và HUD của Angelo, coi như màn chỉ có Leo. Scene không đổi. */
+    private removeAngelo() {
+        if (this.partner) this.partner.node.active = false;
+        if (this.partnerHud) this.partnerHud.node.active = false;
+        const hud = this.node.getChildByName('HUD_Angelo');
+        if (hud) hud.active = false;
+        this.partner = null;
+        this.partnerHud = null;
     }
 
     start() {

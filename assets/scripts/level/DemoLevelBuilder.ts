@@ -13,7 +13,7 @@ import { BossHealthBar } from '../ui/BossHealthBar';
 import { CoinCounter } from '../ui/CoinCounter';
 import { EnergyBar } from '../ui/EnergyBar';
 import { HeartsHUD } from '../ui/HeartsHUD';
-import { LandingScreen } from '../ui/LandingScreen';
+import { LandingScreen, MENU_ITEMS } from '../ui/LandingScreen';
 import { Letterbox } from '../ui/Letterbox';
 import { PauseMenu } from '../ui/PauseMenu';
 import { TouchControls } from '../ui/TouchControls';
@@ -371,6 +371,13 @@ export class DemoLevelBuilder extends Component {
         // 11. Angelo (hình tạm: Leo nhuộm xám xanh, bóp gầy) và HUD của Angelo ở góc trên phải (có rồi thì để yên)
         done.push(...this.ensureAngelo(play));
 
+        // 12. Menu chính trong Landing: nền, logo, 5 dòng chữ, khung chọn, dòng bản quyền (có rồi thì để yên)
+        try {
+            done.push(...this.ensureMainMenu(await this.loadFontInEditor()));
+        } catch (e) {
+            console.warn('[DemoLevelBuilder] Không thêm được menu chính:', e);
+        }
+
         try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
         console.log(done.length
             ? `[DemoLevelBuilder] Đã cập nhật, giữ nguyên phần bạn sắp xếp:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu.`
@@ -543,6 +550,105 @@ export class DemoLevelBuilder extends Component {
         t.outlineWidth = 7;
         t.outlineColor = new Color(0x3b, 0x71, 0x13, 255);
         this.setFont(t, font);
+    }
+
+    /**
+     * Menu chính theo ảnh mẫu (khung 1920×1080): ảnh Background phủ cả khung, logo tâm (-20, 240) tỉ lệ 0.97,
+     * 5 dòng chữ trắng 60 viền 4px #462c22 từ y = -65 cách nhau 75, khung selection tâm (0, -68),
+     * dòng bản quyền nâu 30 viền 3px #2c1d17 ở y = -480. Nút START cũ chỉ tắt đi. Thứ nào có rồi thì để yên.
+     */
+    private ensureMainMenu(font: TTFFont | null): string[] {
+        const done: string[] = [];
+        const root = this.node.getChildByName('Landing');
+        if (!root) return done;
+        const d = view.getDesignResolutionSize();
+        const lost: string[] = [];
+        const pick = (name: string) => {
+            const sf = this.frame(name);
+            if (!sf) lost.push(name);
+            return sf;
+        };
+        // Ảnh giữ nguyên cả phần trong suốt quanh hình, để tâm ảnh đúng chỗ đo trên ảnh mẫu
+        const picture = (n: Node, sf: SpriteFrame) => {
+            const sp = n.getComponent(Sprite) ?? n.addComponent(Sprite);
+            sp.trim = false;
+            sp.sizeMode = Sprite.SizeMode.RAW;
+            sp.spriteFrame = sf;
+        };
+
+        if (!root.getChildByName('MenuBg')) {
+            const bg = pick('Background');
+            if (bg) {
+                const n = this.mk('MenuBg', root);
+                n.setSiblingIndex(0);
+                picture(n, bg);
+                done.push('menu: nền Background');
+            }
+        }
+
+        const logo = root.getChildByName('Logo');
+        const logoFrame = pick('logo');
+        if (logo && logoFrame && !logo.getChildByName('Pic')) {
+            picture(this.mk('Pic', logo), logoFrame);
+            const text = logo.getChildByName('Text');
+            if (text) text.active = false;
+            const landing = root.getComponent(LandingScreen);
+            if (landing && !landing.logoFrame) landing.logoFrame = logoFrame;
+            // Chỉ dời khi logo còn ở chỗ mặc định cũ (bạn chưa kéo)
+            const p = logo.position;
+            if (Math.abs(p.x) < 0.5 && Math.abs(p.y - (d.height / 2 - 285)) < 0.5) {
+                logo.setPosition(-20, 240, 0);
+                logo.setScale(0.97, 0.97, 1);
+            }
+            done.push('menu: logo');
+        }
+
+        const text = (n: Node, s: string, size: number, color: Color, outline: Color, width: number) => {
+            const l = n.addComponent(Label);
+            l.string = s;
+            l.fontSize = size;
+            l.lineHeight = Math.round(size * 1.2);
+            l.color = color;
+            l.enableOutline = true;
+            l.outlineWidth = width;
+            l.outlineColor = outline;
+            this.setFont(l, font);
+        };
+
+        if (!root.getChildByName('Menu')) {
+            const menu = this.mk('Menu', root);
+            menu.addComponent(UITransform);
+            const sel = this.mk('Selection', menu);
+            sel.setPosition(0, -68, 0);
+            const selFrame = pick('selection');
+            if (selFrame) picture(sel, selFrame);
+            else sel.addComponent(UITransform).setContentSize(385, 81);
+            MENU_ITEMS.forEach(([name, s], i) => {
+                const n = this.mk(name, menu);
+                n.setPosition(0, -65 - 75 * i, 0);
+                text(n, s, 60, Color.WHITE, new Color(0x46, 0x2c, 0x22, 255), 4);
+            });
+            done.push('menu: 5 dòng chữ và khung chọn (node Menu)');
+        }
+
+        if (!root.getChildByName('Copyright')) {
+            const n = this.mk('Copyright', root);
+            n.setPosition(0, -480, 0);
+            text(n, '© 1999 2026 ALL RIGHTS RESERVED.', 30, new Color(0x96, 0x87, 0x87, 255), new Color(0x2c, 0x1d, 0x17, 255), 3);
+            done.push('menu: dòng bản quyền');
+        }
+
+        const start = root.getChildByName('Start');
+        if (start && start.active && root.getChildByName('Menu')) {
+            start.active = false;
+            done.push('menu: tắt nút START cũ (không xoá)');
+        }
+
+        if (lost.length) {
+            console.warn(`[DemoLevelBuilder] Chưa thấy ảnh: ${lost.join(', ')}. `
+                + 'Kiểm tra ảnh nằm trong assets/resources/art và ở Inspector có Type = sprite-frame (đổi xong bấm Apply).');
+        }
+        return done;
     }
 
     private setFont(label: Label, font: TTFFont | null) {

@@ -50,7 +50,7 @@ Lưu ý khi sắp xếp:
     - ánh sáng: lớp `Light_Far` (sương sáng nền xa), lớp `Light` (tia nắng `TiaNang`, bụi sáng `BuiSang`), node `HaoQuang` sau mỗi con cá mới;
     - xoá hào quang của cá đã bị xoá;
     - ghim băng rôn, cờ mới thêm vào `FR_Top` sát mép trên;
-    - màn mở đầu (node `Landing`) nếu chưa có;
+    - màn mở đầu (node `Landing`) nếu chưa có, và menu chính trong đó nếu chưa có (xem mục "Vào game");
     - ảnh thanh năng lượng, nút nhảy, nút đánh nếu ô ảnh còn trống;
     - độ lún mép đá theo số đo ảnh demo, chai nước đứng trên mặt đường, chim/boss/cá vẽ trên đồ vật;
     - Angelo (nhân bản từ Leo, đặt sau lưng Leo) và HUD của Angelo ở góc trên phải, nếu chưa có.
@@ -70,7 +70,21 @@ Lưu ý khi sắp xếp:
 
 ## Vào game: 1 người hay 2 người
 
-Màn mở đầu → bấm **START** → chọn **1 NGƯỜI** hoặc **2 NGƯỜI** (điện thoại vào thẳng 1 người).
+> **Đang tạm tắt Angelo.** Ô **Bật Angelo** trên GameManager (node Canvas) đang bỏ tick. Khi chơi, Angelo và tim của Angelo
+> bị ẩn và không có chọn 1/2 người: NEW GAME vào thẳng với Leo. Trang phím chỉ hiện cột Người 1 và không có dòng Đổi mèo.
+> Angelo vẫn nằm trong scene; tick lại ô này rồi Ctrl+S là có lại mọi thứ bên dưới.
+
+Màn mở đầu là **menu chính**: logo, NEW GAME, OPTIONS, ACHIEVEMENTS, CREDITS, QUIT, dòng bản quyền ở đáy.
+W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter, Nhảy, Đánh hoặc chạm để chọn.
+- **NEW GAME** → chọn **1 NGƯỜI** hoặc **2 NGƯỜI** (điện thoại vào thẳng 1 người). Esc quay lại menu.
+- **OPTIONS** mở trang Cài đặt (âm lượng, toàn màn hình, rung, bàn phím). Quay lại / Esc là về menu.
+- **ACHIEVEMENTS**, **CREDITS** chưa làm: hiện chữ "COMING SOON".
+- **QUIT** hỏi lại YES / NO. Bản build ra máy tính, điện thoại thì thoát thật. Bản web: trình duyệt không cho game tự đóng tab
+  mở từ itch.io, nên game thoát toàn màn hình, tắt nhạc, hiện "THANKS FOR PLAYING!" kèm nút BACK TO MENU.
+- Node trong `Landing` (nút ⚙ tạo, kéo chỉnh thoải mái): `MenuBg` (ảnh `Background`), `Logo/Pic` (ảnh `logo`),
+  `Menu` gồm `Selection` (ảnh `selection`) và 5 dòng `NewGame`, `Options`, `Achievements`, `Credits`, `Quit`, rồi `Copyright`.
+  Khung chọn giữ đúng khoảng lệch với dòng đầu như bạn đặt. Tắt một dòng (bỏ tích node) là menu bỏ qua dòng đó.
+  Chữ trắng cỡ 60 viền 4px #462c22; chữ nâu nhỏ #968787 cỡ 30 viền 3px #2c1d17. Node `Start` (nút START cũ) chỉ bị tắt, không xoá.
 - **1 người:** điều khiển Leo. Bấm **Đổi mèo** (Tab, hoặc nút hai mũi tên trên điện thoại) để chuyển sang Angelo: một linh hồn
   phát sáng (màu của con được chọn) bay vòng từ con cũ sang con mới (`SoulWisp.ts`). Bấm bộ phím của Người 1 hay Người 2 đều được.
   Con không được điều khiển **tự đi theo** sau lưng, tự nhảy lên bục / qua hố, tự chém địch ở gần, nhưng không lướt, không dùng kỹ năng,

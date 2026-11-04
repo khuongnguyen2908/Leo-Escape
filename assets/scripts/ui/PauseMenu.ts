@@ -35,11 +35,15 @@ export class PauseMenu extends Component {
     private capturing: { p: number; a: Action } | null = null;
     private ignoreEscUntil = 0;
     private refreshSettings: (() => void) | null = null;
+    /** Đang mở từ OPTIONS của menu chính (không qua trang Tạm dừng). */
+    private fromLanding = false;
 
     get isOpen() { return !!this.overlay?.active; }
 
     onLoad() {
         PauseMenu.instance = this;
+        LandingScreen.openOptions = () => this.openSettings();
+        LandingScreen.pauseOpen = () => this.isOpen;
         const d = view.getDesignResolutionSize();
         this.makeGear(d.width, d.height);
         const overlay = uiNode('Overlay', this.node, d.width, d.height);
@@ -47,11 +51,14 @@ export class PauseMenu extends Component {
         this.overlay = overlay;
         this.pages.set('main', this.buildMain());
         this.pages.set('settings', this.buildSettings());
-        this.pages.set('keys', this.buildKeys());
         overlay.active = false;
     }
 
     start() {
+        // Dựng trang phím ở start: lúc này GameManager đã biết có Angelo (chơi 2 người) hay không
+        const keys = this.buildKeys();
+        keys.active = this.page === 'keys';
+        this.pages.set('keys', keys);
         // Nằm trên cùng, trên cả màn mở đầu
         this.node.setSiblingIndex(this.node.parent!.children.length - 1);
     }
@@ -65,15 +72,34 @@ export class PauseMenu extends Component {
     }
 
     onDestroy() {
-        if (PauseMenu.instance === this) PauseMenu.instance = null;
+        if (PauseMenu.instance === this) {
+            PauseMenu.instance = null;
+            LandingScreen.openOptions = null;
+            LandingScreen.pauseOpen = () => false;
+        }
         if (this.isOpen) director.resume();
     }
 
     open() {
         if (this.isOpen || !this.overlay) return;
         this.overlay.active = true;
+        this.fromLanding = false;
         this.show('main');
         director.pause();
+    }
+
+    /** OPTIONS ở menu chính: mở thẳng trang Cài đặt; Quay lại / Esc thì đóng hẳn, về menu chính. */
+    openSettings() {
+        if (this.isOpen || !this.overlay) return;
+        this.overlay.active = true;
+        this.fromLanding = true;
+        this.show('settings');
+        director.pause();
+    }
+
+    private backFromSettings() {
+        if (this.fromLanding) this.close();
+        else this.show('main');
     }
 
     close() {
@@ -94,7 +120,7 @@ export class PauseMenu extends Component {
         } else if (this.page === 'keys') {
             this.show('settings');
         } else if (this.page === 'settings') {
-            this.show('main');
+            this.backFromSettings();
         } else {
             this.close();
         }
@@ -164,7 +190,7 @@ export class PauseMenu extends Component {
         if (sys.isMobile) full.node.active = false;
 
         uiButton(panel, 'Bàn phím', 380, 90, () => this.show('keys'), { fontSize: 40 }).node.setPosition(-210, -240, 0);
-        uiButton(panel, 'Quay lại', 380, 90, () => this.show('main'), { fontSize: 40 }).node.setPosition(210, -240, 0);
+        uiButton(panel, 'Quay lại', 380, 90, () => this.backFromSettings(), { fontSize: 40 }).node.setPosition(210, -240, 0);
 
         this.refreshSettings = () => {
             music.set(Settings.music);
@@ -181,16 +207,20 @@ export class PauseMenu extends Component {
         const panel = uiPanel(this.overlay!, 1180, 1000, 'Keys');
         const title = uiLabel(panel, 'BÀN PHÍM', 56, UI.text);
         title.node.setPosition(0, 435, 0);
-        const colX = [-330, 100, 400];
+        // Không có Angelo: chỉ hiện phím của Người 1, bỏ dòng Đổi mèo
+        const two = GameSession.angelo;
+        const players = two ? 2 : 1;
+        const actions = two ? ACTIONS : ACTIONS.filter((a) => a !== 'swap');
+        const colX = two ? [-330, 100, 400] : [-200, 250];
         const head = (x: number, text: string, color: Color) => uiLabel(panel, text, 36, color).node.setPosition(x, 365, 0);
         head(colX[1], 'Người 1', UI.p1);
-        head(colX[2], 'Người 2', UI.p2);
+        if (two) head(colX[2], 'Người 2', UI.p2);
 
-        ACTIONS.forEach((a, i) => {
+        actions.forEach((a, i) => {
             const y = 300 - i * 66;
             const name = uiLabel(panel, ACTION_NAMES[a], 34, UI.text);
             name.node.setPosition(colX[0], y, 0);
-            for (let p = 0; p < 2; p++) {
+            for (let p = 0; p < players; p++) {
                 const b = uiButton(panel, '', 260, 56, () => this.startCapture(p, a), { fontSize: 30 });
                 b.node.setPosition(colX[p + 1], y, 0);
                 this.keyCells.push({ p, a, button: b });
