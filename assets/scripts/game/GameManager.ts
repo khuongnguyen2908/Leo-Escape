@@ -10,6 +10,7 @@ import { PlayerController } from '../player/PlayerController';
 import { SoulWisp } from '../player/SoulWisp';
 import { PlayerInput } from '../player/PlayerInput';
 import { ReviveRing } from '../player/ReviveRing';
+import { RunDust } from '../player/RunDust';
 import { CoinCounter } from '../ui/CoinCounter';
 import { HeartsHUD } from '../ui/HeartsHUD';
 import { GameSession, reloadScene } from './GameSession';
@@ -122,6 +123,14 @@ export class GameManager extends Component {
             c.idle = true; // chưa vào chơi thì chưa bị đánh
             this.attachSkills(c);
             if (!c.getComponent(ReviveRing)) c.addComponent(ReviveRing);
+            // Khói chạy, bụi nhảy / đáp đất; Angelo nhỏ nên khói bằng 70% của Leo
+            if (!c.getComponent(RunDust)) {
+                const dust = c.addComponent(RunDust);
+                if (c.catName === 'Angelo') {
+                    dust.scale *= 0.7;
+                    dust.jumpScale *= 0.7;
+                }
+            }
             this.hudFor(c)?.setHp(c.hp, this.maxHp);
         }
         if (this.player) this.respawnPoint.set(this.player.node.position);

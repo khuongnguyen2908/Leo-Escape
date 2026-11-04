@@ -5,6 +5,7 @@ import { HitStop } from '../core/HitStop';
 import { Sound } from '../core/Sound';
 import { PlatformerBody } from '../core/PlatformerBody';
 import { GameManager } from '../game/GameManager';
+import { DustPuff } from '../player/DustPuff';
 const { ccclass, property, requireComponent } = _decorator;
 
 const _player = new Rect();
@@ -71,6 +72,16 @@ export class EnemyPatrol extends Component implements Hittable {
     private dead = false;
     private bound = 0;
     private yarn: Graphics | null = null;
+    private dazed = 0;
+    private stars: DustPuff | null = null;
+    private airborne = false;
+    private airTime = 0;
+    private floatTime = 0;
+
+    /** Bị hất tung rơi xuống đất thì choáng thêm chừng này giây. */
+    private static readonly LAND_DAZE = 0.4;
+    /** Đang bị hất mà bị chém trúng thì lơ lửng (rơi chậm) chừng này giây. */
+    private static readonly JUGGLE_FLOAT = 0.5;
 
     onLoad() {
         this.body = this.getComponent(PlatformerBody)!;
@@ -123,6 +134,24 @@ export class EnemyPatrol extends Component implements Hittable {
         const b = this.body;
         if (this.hitCooldown > 0) this.hitCooldown -= dt;
 
+        // Bị Leo hất tung: bay lên rồi rơi, không đi tuần, không đánh mèo; bị chém tiếp trên không thì lơ lửng thêm
+        if (this.airborne) {
+            this.airTime += dt;
+            if (this.floatTime > 0) this.floatTime -= dt;
+            if (this.stun > 0) this.stun -= dt;
+            b.gravityScale = this.floatTime > 0 ? 0.3 : 1;
+            this.knockVel = moveTowards(this.knockVel, 0, 1600 * dt);
+            b.velocity.x = this.knockVel;
+            b.move(dt);
+            this.animate(dt);
+            if (b.grounded && this.airTime > 0.1) {
+                this.airborne = false;
+                b.gravityScale = 1;
+                this.daze(EnemyPatrol.LAND_DAZE);
+            }
+            return;
+        }
+
         // Bị Angelo trói chân: đứng yên, không đánh ai, vẫn bị chém được
         if (this.bound > 0) {
             this.bound -= dt;
@@ -132,6 +161,23 @@ export class EnemyPatrol extends Component implements Hittable {
             this.animate(dt);
             this.drawYarn();
             if (this.bound <= 0) this.drawYarn();
+            return;
+        }
+
+        // Bị Leo đập choáng: văng lùi xong thì đứng yên, sao xoay trên đầu, không đánh ai, vẫn bị chém được
+        if (this.dazed > 0) {
+            this.dazed -= dt;
+            if (this.stun > 0) {
+                this.stun -= dt;
+                this.knockVel = moveTowards(this.knockVel, 0, 1600 * dt);
+                if (b.grounded && !this.groundAt(Math.sign(this.knockVel))) this.knockVel = 0;
+            } else {
+                this.knockVel = 0;
+            }
+            b.velocity.x = this.knockVel;
+            b.move(dt);
+            this.animate(dt);
+            if (this.dazed <= 0) this.clearStars();
             return;
         }
 
@@ -180,10 +226,10 @@ export class EnemyPatrol extends Component implements Hittable {
         const v = this.visual;
         if (!v) return;
         const frames = this.walkFrames;
-        if (this.sprite && frames.length > 1) {
+        if (this.sprite && frames.length > 1 && this.dazed <= 0) {
             this.sprite.spriteFrame = frames[Math.floor(this.animTime * this.walkFps) % frames.length];
         }
-        const hop = this.stun > 0 ? 0 : Math.abs(Math.sin(this.animTime * this.walkFps * Math.PI));
+        const hop = this.stun > 0 || this.dazed > 0 || this.airborne ? 0 : Math.abs(Math.sin(this.animTime * this.walkFps * Math.PI));
         const flip = this.dir * (this.artFacesRight ? 1 : -1);
 
         // Bị chém: bẹp ngang một nhịp rồi nảy lại, đồng thời rung giật qua lại và lắc nghiêng, nhỏ dần
@@ -220,6 +266,35 @@ export class EnemyPatrol extends Component implements Hittable {
         this.pop = 0.6;
     }
 
+    /** Bị choáng seconds giây (boss to xác choáng ngắn hơn): đứng yên, sao xoay trên đầu. */
+    daze(seconds: number) {
+        if (this.dead) return;
+        this.dazed = this.targetHeight > 250 ? seconds * 0.6 : seconds;
+        this.clearStars();
+        this.stars = DustPuff.spawn(DustPuff.STUN, this.node, 0, this.targetHeight + 40,
+            { scale: 4.5, fps: 8, center: true, loopFor: this.dazed });
+    }
+
+    /** Bị hất tung lên cao height (boss to xác không bị hất). */
+    launch(height: number) {
+        if (this.dead || this.targetHeight > 250) return;
+        const b = this.body;
+        this.airborne = true;
+        this.airTime = 0;
+        this.floatTime = 0;
+        this.bound = 0;
+        this.dazed = 0;
+        this.clearStars();
+        this.drawYarn();
+        this.knockVel *= 0.15; // bay thẳng lên, gần như không văng ngang
+        b.velocity.y = Math.sqrt(2 * b.gravity * Math.max(0, height));
+    }
+
+    private clearStars() {
+        if (this.stars && this.stars.isValid) this.stars.node.destroy();
+        this.stars = null;
+    }
+
     /** Vòng len quấn quanh chân khi đang bị trói. */
     private drawYarn() {
         if (!this.yarn) {
@@ -249,13 +324,21 @@ export class EnemyPatrol extends Component implements Hittable {
         this.stun = (heavy ? 0.12 : 0.3) * power;
         this.shakeTime = HIT_SHAKE_TIME * (heavy ? 0.6 : 1);
         this.pop = heavy ? 0.5 : 1;
-        if (!heavy) this.body.velocity.y = 220 * power; // nảy nhẹ lên
+        if (this.airborne) {
+            // Đang bị hất mà bị chém tiếp: giữ lơ lửng ngang tầm mèo (không vọt lên cao), rơi chậm, văng ngang ít
+            this.knockVel *= 0.25;
+            this.body.velocity.y = 200;
+            this.floatTime = EnemyPatrol.JUGGLE_FLOAT;
+        } else if (!heavy) {
+            this.body.velocity.y = 220 * power; // nảy nhẹ lên
+        }
         if (this.hp <= 0) this.die(away);
     }
 
     /** Gục: văng ra sau, lật nghiêng rồi mờ dần. */
     private die(away: number) {
         this.dead = true;
+        this.clearStars();
         Sound.play('enemy_die');
         const v = this.visual ?? this.node;
         const fade = v.getComponent(UIOpacity) ?? v.addComponent(UIOpacity);

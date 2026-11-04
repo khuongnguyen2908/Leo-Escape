@@ -164,6 +164,12 @@ export class CameraRig extends Component {
         for (const layer of ParallaxLayer.all) layer.apply(cam, zoom);
     }
 
+    /** Chỗ x (toạ độ lớp Gameplay) có đang thấy trong khung hình không, nới thêm margin hai bên. */
+    inViewX(x: number, margin = 0): boolean {
+        const halfW = this.frameWidth() / 2 / Math.max(0.1, this.zoom);
+        return Math.abs(x - this.position.x) <= halfW + margin;
+    }
+
     /** Đổi nhân vật cần bám theo (một hoặc nhiều node trong lớp Gameplay). */
     setTargets(nodes: Node[]) {
         this.targets = nodes.slice();

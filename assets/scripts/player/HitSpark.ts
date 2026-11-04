@@ -1,4 +1,5 @@
 import { _decorator, Color, Component, Graphics, Node } from 'cc';
+import { DustPuff } from './DustPuff';
 const { ccclass } = _decorator;
 
 const FLASH = new Color(255, 255, 255, 255);
@@ -7,8 +8,9 @@ const RING = new Color(255, 210, 120, 255);
 const LIFE = 0.28;
 
 /**
- * Tia lửa khi chém trúng, vẽ bằng code: chớp trắng ở giữa, vòng sóng nở ra và các tia bắn
- * về phía đòn đánh đi tới. Tự xoá sau chưa tới nửa giây.
+ * Tia lửa khi chém trúng. Có ảnh art/fx/FX_hit_ (đòn thường), FX_hitbig_ (nhát mạnh) thì chạy ảnh;
+ * chưa có thì vẽ bằng code: chớp trắng ở giữa, vòng sóng nở ra và các tia bắn về phía đòn đánh đi tới.
+ * Tự xoá sau chưa tới nửa giây.
  */
 @ccclass('HitSpark')
 export class HitSpark extends Component {
@@ -17,8 +19,19 @@ export class HitSpark extends Component {
     private scale = 1;
     private rays: { ang: number; len: number; w: number }[] = [];
 
+    /** Tải trước ảnh trúng đòn (gọi sớm, ví dụ lúc vào màn). */
+    static preload() {
+        DustPuff.preload(DustPuff.HIT);
+        DustPuff.preload(DustPuff.HIT_BIG);
+    }
+
     /** Tạo tia lửa tại (x, y) trong node cha; dir là hướng đòn đánh (1 phải, -1 trái). */
     static spawn(parent: Node, x: number, y: number, dir: number, big = false) {
+        const prefix = big ? DustPuff.HIT_BIG : DustPuff.HIT;
+        if (DustPuff.ready(prefix)) {
+            DustPuff.spawn(prefix, parent, x, y, { dir, scale: big ? 3.6 : 2.6, fps: big ? 20 : 24, center: true });
+            return;
+        }
         const n = new Node('HitSpark');
         n.layer = parent.layer;
         parent.addChild(n);

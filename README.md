@@ -103,14 +103,15 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
 | | Leo (`LeoSkills.ts`) | Angelo (`AngeloSkills.ts`) |
 |---|---|---|
 | Nhảy | Nhảy thường | **Nhảy thêm 1 lần** trên không. Đang bay đẩy vào tường thì **bám tường** trượt chậm, Nhảy để **bật tường** |
-| Đánh (J) | Chém combo, giữ để lướt chém | **Quất dây len**, tầm xa gấp đôi Leo |
-| Kỹ năng (K) | Đang bay: **đập bụng** lao xuống, sóng chấn đánh địch xung quanh. Dưới đất: **nằm ngửa làm đệm** (K lần nữa để dậy); Angelo rơi trúng bụng thì bật rất cao | Bấm: **trói chân** địch gần nhất 2 giây (boss ngắn hơn), địch đứng yên và không đánh ai. Giữ: **nằm lì** / đứng dậy |
+| Đánh (J) | Chém combo, giữ để lướt chém. **Giữ Lên + J** dưới đất: **chém hất**, cơn lốc hất địch bay lên (tốn 20); nhảy theo chém tiếp thì địch lơ lửng (chém trúng trên không thì Leo cũng nảy nhẹ lên, ô *Air Hit Lift*), đang bay thì địch không đánh mèo, rơi xuống choáng 0.4 giây. Boss không bị hất. Đứng ngay dưới bục một chiều thì bấm W sẽ nhảy lên bục trước | **Quất dây len**, tầm xa gấp đôi Leo |
+| Kỹ năng (K) | Đang bay: **đập bụng** lao xuống, sóng chấn đánh địch xung quanh và làm chúng **choáng** 1.5 giây; rơi càng cao sóng càng rộng (tối đa ×1.6 khi rơi từ cao 600). Dưới đất: **nằm ngửa làm đệm** (K lần nữa để dậy); Angelo rơi trúng bụng thì bật rất cao | Bấm: **trói chân** địch gần nhất 2 giây (boss ngắn hơn), địch đứng yên và không đánh ai. Giữ: **nằm lì** / đứng dậy |
+| Tuyệt chiêu (giữ Xuống + K) | **Mèo Nổ**: cần đầy 100 năng lượng, tốn hết. Gồng 0.6 giây (bất tử) rồi nổ: mọi kẻ địch đang thấy trên màn hình mất 3 máu, văng ra, choáng 1 giây. Chỉ dùng trên nền cứng (trên bàn, thùng... bấm Xuống là rơi xuống) | — |
 | Tương tác (L) | Cạnh Angelo: **bê** lên đầu, L lần nữa để **ném** | Ở mép bục cao, quay mặt ra ngoài: **thả dây len** xuống. L / Nhảy / đi để kéo dây lên |
 | Leo dây | **Giữ Lên** cạnh dây để leo, thả thì đu, Xuống để tụt, Nhảy để buông | — |
 | Bị bê / ném | — | Bị bê: bấm Nhảy để thoát. Bị ném: cuộn tròn bay, Nhảy giữa chừng để nhảy tiếp |
 
 Con đang nằm (Leo nằm làm đệm, Angelo nằm lì) hoặc đang giữ dây thì khi đổi mèo sẽ ở lại tại chỗ, con đi theo không tự đi.
-Hiệu ứng (dây len, sóng chấn, dây thả) vẽ tạm bằng code: `SkillFx.ts`, `YarnRope.ts`. Số liệu kỹ năng chỉnh ngay trong hai file kỹ năng.
+Hiệu ứng dây len, dây thả vẽ tạm bằng code (`SkillFx.ts`, `YarnRope.ts`); hiệu ứng chém và đập bụng của Leo dùng ảnh (xem mục Animation). Số liệu kỹ năng chỉnh ngay trong hai file kỹ năng.
 Đập bụng chạm đất sẽ báo cho `LeoSkills.poundListeners` (để dành cho sàn yếu ở bước câu đố).
 
 ## Điều khiển
@@ -141,6 +142,28 @@ Menu và màn chọn vẽ tạm bằng code (`UiKit.ts`). Chữ có dấu tiến
 
 **Năng lượng** (thanh xanh dưới hàng tim): nhảy tốn 10, chém tốn 12, lướt tốn 35 trên 100. Vừa dùng thì chờ 0.6 giây mới hồi lại.
 Không đủ năng lượng thì không làm được và thanh nháy đỏ. Chỉnh trong PlayerController, nhóm "Năng lượng".
+
+## Animation (ảnh nhiều khung)
+
+- **Hiệu ứng bật ra rồi tự biến mất** (khói, bụi, tia...): flip-book bằng code. Ví dụ khói chạy:
+  ảnh `assets/resources/art/fx/FX_dust_1.png`, `FX_dust_2.png`... (`DustPuff.ts`), đổi khung 20 lần/giây rồi tự xoá.
+  3 khung đầu là khói đang tung lên, các khung sau là khói tan.
+  Muốn đổi khói thì chép ảnh mới đè đúng tên; thêm hay bớt khung cũng được, code tự đếm theo số trong tên.
+  Ảnh pixel art được giữ sắc nét khi phóng to (lọc NEAREST, không gộp atlas).
+- **Khói chạy** (`RunDust.ts`, game tự gắn vào Leo và Angelo): chạy nhanh ít nhất 0.18 giây thì một đám khói bám sau đuôi,
+  lặp qua lại khung 1–3; dừng lại, nhảy lên hay quay đầu thì đám khói đứng lại tại chỗ và chạy khung 4–9 cho tan hết.
+  Leo phóng ảnh khói 4.5 lần, Angelo 3.15 lần (bụi nhảy: ô **Jump Scale**, Leo 6 lần, Angelo 4.2 lần); ô **Behind** chỉnh khói lùi về sau bao xa (tính theo bề rộng thân mèo).
+- **Bụi nhảy / đáp đất** (cũng trong `RunDust.ts`, ảnh `FX_jump_1.png`, `FX_jump_2.png`...): nhảy lên từ mặt đất thì tung bụi
+  ở chỗ chân vừa rời đất; rơi đủ mạnh rồi đáp đất (cùng ngưỡng kêu tiếng đáp, ô **Land Impact**) thì tung bụi dưới chân.
+  Bước hụt khỏi mép, nhảy lần 2 trên không hay bật tường thì không có bụi.
+- **Hiệu ứng kỹ năng của Leo** (cắt từ tấm sprite sheet, mỗi ô 64×64): `FX_slash_` vệt chém (nhát 1 và 3 lật dọc thành chém xuống,
+  nhát 3 to hơn; `SlashFx.ts`), `FX_hit_` / `FX_hitbig_` trúng đòn thường / nhát mạnh (`HitSpark.ts`),
+  `FX_ring_` vòng sóng + `FX_spike_` gai đất hai bên khi đập bụng (`LeoSkills.ts`), `FX_stun_` sao xoay trên đầu địch bị choáng (`EnemyPatrol.ts`),
+  `FX_tornado_` cơn lốc chém hất, `FX_swirl_` lá xoáy lúc gồng + `FX_burst_` vụ nổ + `FX_shock_` vòng sóng của Mèo Nổ (`LeoSkills.ts`).
+  Số liệu hai đòn mới ở LeoSkills, nhóm *Chém hất* và *Mèo Nổ*.
+  Thiếu ảnh bộ nào thì bộ đó tự quay về hình vẽ bằng code như cũ.
+- **Nhân vật**: PlayerVisual có ô *Run Frames* (nhiều khung chạy thì tự thành flip-book), *Jump Frame*, *Fall Frame*.
+- **Thứ đứng yên lặp mãi** (cờ bay, đèn nháy): làm bằng Animation Clip trong cửa sổ Animation của Creator.
 
 ## Âm thanh
 

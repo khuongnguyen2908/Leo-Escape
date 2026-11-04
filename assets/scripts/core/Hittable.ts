@@ -11,6 +11,10 @@ export interface Hittable {
     takeHit(fromX?: number, power?: number, damage?: number): void;
     /** Không bắt buộc: bị trói chân (Angelo), đứng yên trong seconds giây. */
     bind?(seconds: number): void;
+    /** Không bắt buộc: bị choáng (Leo đập bụng), đứng yên trong seconds giây, có sao xoay trên đầu. */
+    daze?(seconds: number): void;
+    /** Không bắt buộc: bị hất tung lên cao height (Leo chém hất). Boss to xác không bị hất. */
+    launch?(height: number): void;
 }
 
 export const Hittables: Hittable[] = [];

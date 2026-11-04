@@ -1,4 +1,5 @@
 import { _decorator, Color, Component, Graphics } from 'cc';
+import { DustPuff } from './DustPuff';
 const { ccclass } = _decorator;
 
 const GLOW = new Color(255, 196, 110, 255);
@@ -13,8 +14,19 @@ const STYLES: [number, number, number, number, number][] = [
 ];
 
 /**
- * Vệt chém hình lưỡi liềm vẽ bằng code (chưa cần ảnh), gắn trên node con của mèo.
- * Vệt quét nhanh theo cung tròn, dày ở giữa, nhọn hai đầu, rồi mờ dần.
+ * Kiểu vệt chém bằng ảnh FX_slash_ theo nhịp combo: [x phía trước, y tâm, phóng to, lật dọc].
+ * Ảnh gốc quét từ dưới lên; lật dọc thành chém từ trên xuống.
+ */
+const IMAGE_STYLES: [number, number, number, boolean][] = [
+    [70, 85, 3.5, true],   // nhát 1: chém từ trên xuống
+    [70, 80, 3.5, false],  // nhát 2: hất từ dưới lên
+    [80, 90, 4.9, true],   // nhát 3: to nhất
+];
+
+/**
+ * Vệt chém hình lưỡi liềm của Leo, gắn trên node con của mèo.
+ * Có ảnh art/fx/FX_slash_1, 2... thì chạy ảnh; chưa có thì vẽ bằng code: quét nhanh theo cung tròn,
+ * dày ở giữa, nhọn hai đầu, rồi mờ dần.
  */
 @ccclass('SlashFx')
 export class SlashFx extends Component {
@@ -22,6 +34,8 @@ export class SlashFx extends Component {
     sweepTime = 0.08;
     /** Thời gian mờ dần sau khi quét */
     fadeTime = 0.14;
+    /** Tốc độ khung ảnh vệt chém (khung/giây) */
+    imageFps = 24;
 
     private g: Graphics | null = null;
     private t = -1;
@@ -31,6 +45,12 @@ export class SlashFx extends Component {
     play(facing: number, combo: number) {
         this.facing = facing >= 0 ? 1 : -1;
         this.style = Math.max(0, Math.min(STYLES.length - 1, combo));
+        if (DustPuff.ready(DustPuff.SLASH)) {
+            const [x, y, scale, flipY] = IMAGE_STYLES[this.style];
+            DustPuff.spawn(DustPuff.SLASH, this.node, this.facing * x, y,
+                { dir: this.facing, flipY, scale, fps: this.imageFps, center: true });
+            return;
+        }
         this.t = 0;
         this.draw();
     }

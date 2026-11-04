@@ -118,6 +118,18 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Cách sửa: chọn ảnh → Inspector → **Type = sprite-frame** → Apply.
 - Cách tránh lần sau: mỗi khi người dùng thêm ảnh, kiểm tra `.meta` bằng `grep '"type"' assets/resources/art/<tên>.png.meta`.
   Nếu là `texture` thì nhắc người dùng đổi trước khi làm.
+- Ảnh do mình tự tạo (cắt sprite sheet...): ghi sẵn `.meta` tối giản trước khi Creator nhập
+  (`"importer": "image"`, `"imported": false`, uuid mới, `"subMetas": {}`, `"userData": {"type": "sprite-frame", ...}`).
+  Creator giữ đúng `sprite-frame` và tự điền phần còn lại (đã thử 05/11/2026 với 26 ảnh `FX_*`). Sau đó vẫn grep lại cho chắc.
+
+### Cắt sprite sheet hiệu ứng
+- Ngày: 05/11/2026 · Nhóm: art
+- Bẫy: hai bản màu của cùng một tấm sheet có thể xếp hàng khác nhau (bản xanh và bản cam của tấm FX: cột phải lệch thứ tự).
+  Luôn dò lại hàng trên đúng tấm sẽ cắt, đừng dùng số hàng của bản kia.
+- Cách làm: đo trước (chạy thử không ghi file) xem hình có chạm mép ô / tràn sang ô bên không, cắt xong ghép thành một hình kiểm tra gửi người dùng.
+- Bẫy PowerShell: `| Select-Object -First 1` sau một script sẽ **dừng luôn script** sau dòng đầu tiên (file không được ghi). Dùng `| Out-Null`.
+- Bẫy PowerShell: tên biến không phân biệt hoa thường. Tham số `$Jobs` và biến `$jobs` trong script là **một biến**, ghi đè nhau. Đặt tên khác hẳn (`$JobSpec`).
+- Hình to hơn ô lưới (vòng sóng khung cuối) thì bị cắt mất viền: kiểm tra số điểm ảnh chạm mép (`edge`) khi đo trước, khung nào bị cắt thì bỏ.
 
 ### Đặt ảnh theo ảnh mẫu mà tâm bị lệch (Sprite tự cắt viền trong suốt)
 - Ngày: 04/11/2026 · Nhóm: art
@@ -180,6 +192,11 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Nguyên nhân: máy công ty chưa cài Python, chỉ có Node.js. `tools/zip_build.py` và `tools/make_sfx.py` cần Python.
 - Cách tránh lần sau: trước khi chạy script Python thì kiểm tra `python --version`. Ở máy công ty, viết script phụ bằng Node.
   Muốn nén bản build hay sinh lại âm thanh ở máy này thì phải nhờ người dùng cài Python trước.
+- Bổ sung 05/11/2026: cần xử lý ảnh (cắt nền, đọc `.webp`) mà không có Python thì nhúng ảnh dạng data URI vào một trang HTML,
+  xử lý bằng canvas, rồi chạy Edge ngầm: `--screenshot` để xem, `--dump-dom` để lấy kết quả (`toDataURL`) ra file.
+  Ảnh phải là data URI, nếu nạp từ `file://` thì canvas bị khoá, không đọc được điểm ảnh.
+  Trang thử trên máy phải tự có `[hidden]{display:none!important}`. Thiếu dòng này thì mọi bảng có `display:grid/flex` hiện chồng lên nhau
+  (trang Artifact đã đăng thì có sẵn dòng này).
 
 ### Nút "Về màn hình chính" (và thua rồi chơi lại) không tải lại được màn
 - Ngày: 04/11/2026 · Nhóm: code · **Lỗi do Claude**
@@ -204,6 +221,14 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Bẫy: khung trình duyệt của app bị ẩn (`tabs_context` báo "hidden") thì trình duyệt gần như không cho game chạy khung hình nào,
   số đo ra vô lý (vận tốc đứng yên, nhân vật không nhúc nhích). Cách đo đúng: `cc.game.pause()`, rồi tự chạy từng khung bằng
   `cc.director.tick(1/60)` trong vòng lặp JS (phát phím trước khi tick), đo xong `cc.game.resume()`. Kết quả không phụ thuộc máy nhanh hay chậm.
+- Bẫy (05/11/2026): `HitStop` đếm bằng `Date.now()` (giờ thật). Tick dồn cả trăm khung trong một lệnh JS thì giờ thật gần như đứng yên,
+  nên sau nhát chém trúng đầu tiên mèo và địch bị "khựng" mãi: combo chỉ ra 1 nhát, tưởng code lỗi.
+  Khi thử đòn đánh trúng, chờ thật giữa các khung: `for (...) { cc.director.tick(1/60); await new Promise(r => setTimeout(r, 16)); }`.
+  Thử cạnh kẻ địch thì cho mèo bất tử (`invincible = 30`) để bị chạm không làm ngắt đòn.
+- Mẹo (05/11/2026): muốn thử một cách sửa trước khi nhờ người dùng bấm Creator, vá tạm hàm trong trang
+  (`cc.js.getClassByName('X').prototype.hàm = ...`), đo, rồi mới sửa code thật. Xong thì tải lại trang để bỏ bản vá.
+  Combo trên không: đo vị trí cả hai bên ngay lúc chém (bọc hàm `slash`) mới thấy đòn trượt vì mèo rơi nhanh hơn địch.
+- Bẫy: thử chiêu có bấm W (chém hất) cạnh bàn/ghế thì W làm mèo nhảy lên bục trước. Đặt mèo và địch ở chỗ trống không có bục phía trên.
 
 ### Kiểm tra lỗi TypeScript khi không mở được Creator
 - Ngày: 03/11/2026 · Nhóm: code

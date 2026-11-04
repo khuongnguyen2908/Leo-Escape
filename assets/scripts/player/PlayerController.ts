@@ -82,6 +82,9 @@ export class PlayerController extends Component {
     @property({ group: 'Tấn công', tooltip: 'Bấm tiếp trong khoảng này sau một nhát thì ra nhát kế của combo' })
     comboWindow = 0.35;
 
+    @property({ group: 'Tấn công', tooltip: 'Chém trúng khi đang bay thì nảy nhẹ lên với tốc độ này, để chém liên tục trên không (combo với địch bị hất)' })
+    airHitLift = 300;
+
     @property({ group: 'Tấn công', tooltip: 'Tốc độ lướt tới khi chém trên mặt đất (lướt trong 0.08 giây)' })
     slashLunge = 420;
 
@@ -333,6 +336,7 @@ export class PlayerController extends Component {
             if (this.node.parent) HitSpark.spawn(this.node.parent, sx, sy, this.facing, finisher);
         }
         if (hits > 0) {
+            if (!this.body.grounded) v.y = Math.max(v.y, this.airHitLift);
             Sound.play('hit', finisher ? 1 : 0.8);
             HitStop.trigger(finisher ? 90 : 55);
             CameraRig.instance?.shake(finisher ? 14 : 7, finisher ? 0.22 : 0.12);

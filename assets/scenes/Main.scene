@@ -315,7 +315,7 @@
     "_priority": 1073741824,
     "_fov": 45,
     "_fovAxis": 0,
-    "_orthoHeight": 647.0219435736677,
+    "_orthoHeight": 653.3611691022965,
     "_near": 1,
     "_far": 2000,
     "_color": {
@@ -3780,7 +3780,7 @@
       "r": 255,
       "g": 246,
       "b": 205,
-      "a": 87
+      "a": 90
     },
     "_miterLimit": 10,
     "_id": "d7Cta0zeVE/rlAj5AzBznf"
@@ -4061,7 +4061,7 @@
       "r": 255,
       "g": 246,
       "b": 205,
-      "a": 58
+      "a": 55
     },
     "_miterLimit": 10,
     "_id": "b3uyExj4lNsY8mfpgzWYKe"
@@ -4623,7 +4623,7 @@
       "r": 255,
       "g": 246,
       "b": 205,
-      "a": 37
+      "a": 40
     },
     "_miterLimit": 10,
     "_id": "61GwXT/p1FrL1yjiEvBzr4"
@@ -10275,7 +10275,7 @@
     "node": {
       "__id__": 271
     },
-    "_enabled": true,
+    "_enabled": false,
     "__prefab": null,
     "oneWay": true,
     "size": {
@@ -13371,7 +13371,7 @@
     "node": {
       "__id__": 359
     },
-    "_enabled": true,
+    "_enabled": false,
     "__prefab": null,
     "oneWay": true,
     "size": {
@@ -17589,7 +17589,7 @@
     "energyRegen": 18,
     "regenDelay": 0.6,
     "jumpEnergy": 10,
-    "slashEnergy": 12,
+    "slashEnergy": 4,
     "dashEnergy": 35,
     "_id": "19bTli2SlO/4W5Q+lGBpbL"
   },
