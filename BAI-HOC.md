@@ -18,6 +18,22 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 
 ## Scene và editor
 
+### Mèo đi xuyên vào thùng, khung va chạm lệch khỏi hình
+- Ngày: 04/11/2026 · Nhóm: scene
+- Triệu chứng: Leo đứng lẫn vào giữa thùng giấy có viên gạch (`mg_up`), không bị chặn. Không nhảy lên viên gạch được.
+- Nguyên nhân:
+  - Mọi đồ dựng bằng `platform()` đều là **bục một chiều** (`oneWay`): chỉ đứng được trên mặt, đi ngang thì xuyên qua.
+  - Khung va chạm tính theo tỉ lệ ảnh cũ 0.87 × `widthFrac` 0.85, nên chỉ rộng khoảng 74% hình và đặt giữa ảnh.
+  - Ảnh `MG_up` vẽ chung viên gạch với thùng, nên khung còn lệch hẳn sang trái, phủ khoảng trống phía trên viên gạch.
+- Cách sửa: bảng `SOLID_PROPS` và hàm `applySolidProp` trong DemoLevelBuilder.ts, chạy ở bước 13 của nút ⚙ Cập nhật.
+  - `mg_up` và `mg_thungrac` bỏ một chiều, khung ôm đúng thân, giữ độ cao mặt đứng đang có trong scene.
+  - Viên gạch là một Solid thứ hai trên cùng node (Solid phải là con trực tiếp của Gameplay, nên không tách ra node con).
+- Cách tránh lần sau:
+  - Đo thân đồ vật trên ảnh gốc (quét alpha từng hàng bằng Python) rồi vẽ thử khung lên ảnh để xem trước khi ghi số.
+  - Một ảnh chứa nhiều khối (thùng + gạch) thì mỗi khối một Solid.
+  - Các đồ một chiều còn lại (thùng xốp, thùng điện, bàn, ghế đá) vẫn có khung khoảng 74% hình.
+    Người dùng muốn chặn thêm đồ nào thì thêm vào `SOLID_PROPS`.
+
 ### Sửa `Main.scene` trên đĩa khi Creator đang mở
 - Ngày: trước 03/11/2026 · Nhóm: scene
 - Triệu chứng: chỉnh sửa bị mất, hoặc Creator ghi đè lên scene khi lưu.

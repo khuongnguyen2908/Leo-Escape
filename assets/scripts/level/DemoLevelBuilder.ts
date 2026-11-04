@@ -94,6 +94,15 @@ const RAY_SPOTS: [number, number][] = [[1, 760], [2, 700], [3, 690], [4, 560]];
 
 type PropOpts = { flip?: boolean; tint?: Color; ph?: [number, number]; phColor?: Color };
 type PlatformOpts = PropOpts & { oneWay?: boolean; widthFrac?: number; topInset?: number };
+/**
+ * Đồ vật chặn cả hai bên (không đi xuyên, phải nhảy lên), đo trên ảnh gốc cỡ 1:1, toạ độ so với tâm đáy ảnh.
+ * cx, w: tâm và bề ngang thân đồ vật (độ cao mặt đứng giữ như đang có trong scene).
+ * extra: bậc phụ thêm một Solid trên cùng node, h = độ cao mặt đứng (viên gạch cạnh thùng giấy).
+ */
+const SOLID_PROPS: Record<string, { cx: number; w: number; extra?: { cx: number; w: number; h: number } }> = {
+    mg_up: { cx: 60.5, w: 232, extra: { cx: -90, w: 119, h: 116 } },   // thùng giấy + viên gạch chung một ảnh
+    mg_thungrac: { cx: 2, w: 268 },
+};
 type EnemyOpts = { name?: string; frames?: string[]; scale?: number; range?: number; hp?: number; speed?: number; body?: [number, number] };
 type Built = { node: Node; w: number; h: number };
 /** [tên ảnh, x, y, tỉ lệ so với cỡ gốc, lật?] */
@@ -377,6 +386,10 @@ export class DemoLevelBuilder extends Component {
         } catch (e) {
             console.warn('[DemoLevelBuilder] Không thêm được menu chính:', e);
         }
+
+        // 13. Thùng giấy + viên gạch, thùng rác: chặn hai bên, khung va chạm ôm đúng hình (đã đúng thì để yên)
+        const solidProps = play.children.filter((n) => this.applySolidProp(n)).length;
+        if (solidProps) done.push(`${solidProps} đồ vật (thùng giấy + viên gạch, thùng rác): chặn hai bên, khung va chạm ôm đúng hình`);
 
         try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
         console.log(done.length
@@ -1297,7 +1310,34 @@ export class DemoLevelBuilder extends Component {
         const top = b.h * (1 - (o.topInset ?? 0.08));
         solid.size = new Size(w, top);
         solid.offset = new Vec2(0, top / 2);
+        this.applySolidProp(b.node);
         return b;
+    }
+
+    /**
+     * Đồ vật có trong SOLID_PROPS: bỏ một chiều (chặn cả hai bên), hộp va chạm ôm đúng thân, giữ độ cao mặt đứng đang có;
+     * thêm bậc phụ (Solid thứ hai) nếu có. Đã đúng thì để yên. Trả về true nếu có đổi.
+     */
+    private applySolidProp(node: Node): boolean {
+        const spec = SOLID_PROPS[node.name];
+        const solids = node.getComponents(Solid);
+        if (!spec || !solids.length) return false;
+        const sx = node.scale.x, sy = node.scale.y;
+        let changed = false;
+        const fit = (s: Solid, cx: number, w: number, h: number) => {
+            const same = (a: number, b: number) => Math.abs(a - b) < 0.01;
+            if (!s.oneWay && same(s.size.width, w) && same(s.size.height, h) && same(s.offset.x, cx) && same(s.offset.y, h / 2)) return;
+            s.oneWay = false;
+            s.size = new Size(w, h);
+            s.offset = new Vec2(cx, h / 2);
+            changed = true;
+        };
+        fit(solids[0], spec.cx * sx, spec.w * Math.abs(sx), solids[0].size.height);
+        if (spec.extra) {
+            const e = spec.extra;
+            fit(solids[1] ?? node.addComponent(Solid), e.cx * sx, e.w * Math.abs(sx), e.h * Math.abs(sy));
+        }
+        return changed;
     }
 
     private hazard(parent: Node, names: string, x: number, y: number) {

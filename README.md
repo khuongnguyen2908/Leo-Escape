@@ -53,7 +53,9 @@ Lưu ý khi sắp xếp:
     - màn mở đầu (node `Landing`) nếu chưa có, và menu chính trong đó nếu chưa có (xem mục "Vào game");
     - ảnh thanh năng lượng, nút nhảy, nút đánh nếu ô ảnh còn trống;
     - độ lún mép đá theo số đo ảnh demo, chai nước đứng trên mặt đường, chim/boss/cá vẽ trên đồ vật;
-    - Angelo (nhân bản từ Leo, đặt sau lưng Leo) và HUD của Angelo ở góc trên phải, nếu chưa có.
+    - Angelo (nhân bản từ Leo, đặt sau lưng Leo) và HUD của Angelo ở góc trên phải, nếu chưa có;
+    - thùng giấy + viên gạch (`mg_up`) và thùng rác chặn cả hai bên (không đi xuyên, phải nhảy lên), khung va chạm ôm đúng hình.
+      Viên gạch có Solid thứ hai trên cùng node. Số đo nằm trong `SOLID_PROPS` (DemoLevelBuilder.ts); muốn thêm đồ khác thì thêm vào đó.
   - **"📐 Xếp lại theo ảnh demo"**: đặt lại vị trí, kích thước của đồ vật, cây, chim, boss, mèo, nền đá và độ cao camera
     cho khớp 4 ảnh demo. **Phần bạn đã tự kéo sẽ mất.** Số liệu nằm trong `DemoLayout.ts`, đo bằng cách dò từng ảnh gốc
     trên ảnh demo (ảnh demo vẽ mọi thứ đúng cỡ gốc, tỉ lệ 1). Băng rôn đã ghim thì giữ độ cao của ghim.
