@@ -8,10 +8,13 @@ const TEXT = new Color(255, 240, 215, 255);
 
 /**
  * Thanh máu boss ở đáy màn hình: khung MG_boss_hpgauge, thanh đỏ MG_boss_hp co lại theo máu,
- * icon MG_icon_boss ở đầu trái. Chỉ hiện khi mèo tới gần boss, ẩn dần khi boss bị hạ.
+ * icon MG_icon_boss ở đầu trái. Có khu boss (BossArena) thì hiện theo cảnh mở màn: trượt lên từ đáy rồi đầy dần;
+ * không có thì hiện khi mèo tới gần boss. Bị đánh thì thanh tụt từ từ. Ẩn dần khi boss bị hạ.
  */
 @ccclass('BossHealthBar')
 export class BossHealthBar extends Component {
+    static instance: BossHealthBar | null = null;
+
     @property({ type: EnemyPatrol })
     boss: EnemyPatrol | null = null;
 
@@ -30,10 +33,40 @@ export class BossHealthBar extends Component {
     private fill: Sprite | null = null;
     private label: Label | null = null;
     private opacity: UIOpacity | null = null;
+    /** BossArena điều khiển lúc hiện / ẩn (không theo khoảng cách nữa). */
+    private driven = false;
+    private shown = false;
+    /** Phần máu đang vẽ (chạy dần tới máu thật). */
+    private shownFill = 1;
+    private baseY = 0;
+    private slide = 0;
+
+    onLoad() {
+        BossHealthBar.instance = this;
+    }
+
+    onDestroy() {
+        if (BossHealthBar.instance === this) BossHealthBar.instance = null;
+    }
+
+    /** Hiện ra: trượt lên từ đáy, thanh đầy dần từ 0. */
+    reveal() {
+        this.driven = true;
+        this.shown = true;
+        this.shownFill = 0;
+        this.slide = 1;
+    }
+
+    /** Ẩn (đánh lại từ đầu). */
+    conceal() {
+        this.driven = true;
+        this.shown = false;
+    }
 
     start() {
         this.opacity = this.getComponent(UIOpacity) ?? this.addComponent(UIOpacity);
         this.opacity.opacity = 0;
+        this.baseY = this.node.position.y;
 
         const gaugeW = this.gaugeFrame?.rect.width ?? 1000;
         if (this.gaugeFrame) this.child('Gauge').addComponent(Sprite).spriteFrame = this.gaugeFrame;
@@ -64,14 +97,22 @@ export class BossHealthBar extends Component {
         if (!this.opacity) return;
 
         const alive = !!boss && boss.isValid && !boss.defeated;
-        const near = alive && cats.some((c) => Math.abs(c.node.position.x - boss!.node.position.x) < this.showDistance);
-        const target = near ? 255 : 0;
+        const near = this.driven ? this.shown : cats.some((c) => Math.abs(c.node.position.x - boss!.node.position.x) < this.showDistance);
+        const target = alive && near ? 255 : 0;
         this.opacity.opacity += (target - this.opacity.opacity) * Math.min(1, dt * 6);
+        // Trượt lên từ dưới đáy lúc mới hiện
+        this.slide = Math.max(0, this.slide - dt * 2.2);
+        const p = this.node.position;
+        this.node.setPosition(p.x, this.baseY - 160 * this.slide * this.slide, p.z);
 
         if (boss && boss.isValid) {
             const hp = Math.max(0, boss.hp);
-            if (this.fill) this.fill.fillRange = hp / boss.maxHp;
-            if (this.label) this.label.string = `${hp}/${boss.maxHp}`;
+            // Thanh chạy dần tới máu thật: lúc mới hiện thì đầy dần, bị đánh thì tụt từ từ
+            const ratio = hp / boss.maxHp;
+            this.shownFill += (ratio - this.shownFill) * Math.min(1, dt * (this.shownFill < ratio ? 2.5 : 8));
+            if (Math.abs(ratio - this.shownFill) < 0.002) this.shownFill = ratio;
+            if (this.fill) this.fill.fillRange = this.shownFill;
+            if (this.label) this.label.string = `${Math.round(this.shownFill * boss.maxHp)}/${boss.maxHp}`;
         }
     }
 

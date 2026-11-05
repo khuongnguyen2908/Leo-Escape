@@ -6,11 +6,15 @@ import { Sound } from '../core/Sound';
 import { PlatformerBody } from '../core/PlatformerBody';
 import { GameManager } from '../game/GameManager';
 import { DustPuff } from '../player/DustPuff';
+import type { PlayerController } from '../player/PlayerController';
 const { ccclass, property, requireComponent } = _decorator;
 
 const _player = new Rect();
 const _self = new Rect();
 const HIT_TINT = new Color(255, 120, 120, 255);
+/** Nháy đỏ đậm lúc rướn người báo trước khi mổ */
+const PECK_TINT = new Color(255, 60, 60, 255);
+const _beak = new Rect();
 const HIT_SHAKE_TIME = 0.28;
 /** Quái nhỏ chết: tia nổ (folder art/fx/Enemy death). Boss chết: đầu lâu nổ (art/fx/Boss/Death) */
 const ENEMY_DEATH = 'Enemy death/frame';
@@ -22,7 +26,9 @@ const YARN = new Color(232, 92, 132, 255);
 
 /**
  * Kẻ địch đi tuần qua lại, quay đầu khi đụng tường hoặc tới mép vực.
- * Mèo chém trúng thì mất máu và bị đẩy lùi; mèo chạm vào thì mèo bị đánh (không đạp đầu được).
+ * Mèo chém trúng thì mất máu và bị đẩy lùi. Chạm vào không mất máu: địch nhỏ (chim, gà...) đánh bằng đòn MỔ —
+ * thấy mèo trong tầm thì dừng, rướn người nháy đỏ (báo trước để né), rồi lao mổ; trúng thì mèo mất 1 tim, xong nghỉ một lúc.
+ * Bị chém trúng lúc đang rướn / lao thì mất đòn. Boss không mổ (BossBrain lo các đòn axit).
  * Boss dùng chung script này: tăng hp, targetHeight, speed. Kẻ địch nhiều máu (boss) bị đẩy lùi ít hơn.
  */
 @ccclass('EnemyPatrol')
@@ -55,6 +61,18 @@ export class EnemyPatrol extends Component implements Hittable {
     @property({ tooltip: 'Bị chém thì rung giật mạnh bao nhiêu' })
     hitShake = 10;
 
+    @property({ group: 'Mổ', tooltip: 'Mèo cách thân chim chừng này (khoảng hở giữa hai thân) thì chim bắt đầu mổ' })
+    peckRange = 160;
+
+    @property({ group: 'Mổ', tooltip: 'Rướn người nháy đỏ báo trước bao lâu (giây) rồi mới lao mổ' })
+    peckWindup = 0.45;
+
+    @property({ group: 'Mổ', tooltip: 'Mổ xong nghỉ bao lâu (giây) mới mổ tiếp' })
+    peckRest = 1.2;
+
+    @property({ group: 'Mổ', tooltip: 'Tốc độ lao tới khi mổ' })
+    peckSpeed = 700;
+
     @property({ tooltip: 'Quay đầu ở mép vực' })
     turnAtEdges = true;
 
@@ -67,6 +85,10 @@ export class EnemyPatrol extends Component implements Hittable {
     private body!: PlatformerBody;
     private sprite: Sprite | null = null;
     private dir = -1;
+    private peck: 'none' | 'windup' | 'lunge' | 'back' = 'none';
+    private peckTime = 0;
+    private peckWait = 0;
+    private peckHit = false;
     private startX = 0;
     private baseScale = 1;
     private animTime = 0;
@@ -136,6 +158,11 @@ export class EnemyPatrol extends Component implements Hittable {
     /** Lấy đà trước khi ra đòn: phồng người một nhịp. */
     windup() {
         this.pop = 0.9;
+    }
+
+    /** Gặm (boss chưa vào trận): nhún nhẹ một nhịp. */
+    nibble() {
+        this.pop = Math.max(this.pop, 0.22);
     }
 
     /** Đánh lại từ đầu (mèo gục hết, hồi sinh ở checkpoint): đầy máu, về chỗ (x, y), bỏ mọi trạng thái đang bị. */
@@ -252,7 +279,7 @@ export class EnemyPatrol extends Component implements Hittable {
             return;
         }
 
-        // Boss đang ra đòn / nhảy múa: đứng yên (vẫn bị đẩy lùi khi bị chém), đụng mèo vẫn đánh
+        // Boss đang ra đòn / nhảy múa: đứng yên (vẫn bị đẩy lùi khi bị chém); đụng vào không mất máu
         if (this.paused) {
             if (this.stun > 0) this.stun -= dt;
             this.knockVel = moveTowards(this.knockVel, 0, 1600 * dt);
@@ -260,7 +287,6 @@ export class EnemyPatrol extends Component implements Hittable {
             b.velocity.x = this.knockVel;
             b.move(dt);
             this.animate(dt);
-            this.checkPlayer();
             return;
         }
 
@@ -272,6 +298,12 @@ export class EnemyPatrol extends Component implements Hittable {
             if (b.grounded && !this.groundAt(Math.sign(this.knockVel))) this.knockVel = 0;
             b.velocity.x = this.knockVel;
             b.move(dt);
+            this.animate(dt);
+            return;
+        }
+
+        // Địch nhỏ: mèo trong tầm thì mổ (đang mổ thì không đi tuần)
+        if (!this.big && this.updatePeck(dt)) {
             this.animate(dt);
             return;
         }
@@ -289,7 +321,93 @@ export class EnemyPatrol extends Component implements Hittable {
         }
 
         this.animate(dt);
-        this.checkPlayer();
+    }
+
+    /** Đòn mổ: rướn (báo trước) → lao tới → lùi về → nghỉ. Trả về true khi đang bận mổ. */
+    private updatePeck(dt: number): boolean {
+        const b = this.body;
+        if (this.peckWait > 0) this.peckWait -= dt;
+        switch (this.peck) {
+            case 'none': {
+                if (this.peckWait > 0 || !b.grounded) return false;
+                const cat = this.catInReach();
+                if (!cat) return false;
+                this.face(cat.node.position.x);
+                this.peck = 'windup';
+                this.peckTime = 0;
+                b.velocity.x = 0;
+                b.move(dt);
+                return true;
+            }
+            case 'windup':
+                this.peckTime += dt;
+                b.velocity.x = 0;
+                b.move(dt);
+                if (this.peckTime >= this.peckWindup) {
+                    this.peck = 'lunge';
+                    this.peckTime = 0;
+                    this.peckHit = false;
+                    Sound.play('slash1', 0.5);
+                }
+                return true;
+            case 'lunge':
+                this.peckTime += dt;
+                // Không lao xuống vực
+                b.velocity.x = this.groundAhead() ? this.dir * this.peckSpeed : 0;
+                b.move(dt);
+                if (!this.peckHit) this.peckHit = this.beakHit();
+                if (this.peckTime >= 0.14) {
+                    this.peck = 'back';
+                    this.peckTime = 0;
+                }
+                return true;
+            case 'back':
+                this.peckTime += dt;
+                b.velocity.x = this.groundAt(-this.dir) ? -this.dir * this.peckSpeed * 0.4 : 0;
+                b.move(dt);
+                if (this.peckTime >= 0.22) {
+                    this.peck = 'none';
+                    this.peckWait = this.peckRest;
+                }
+                return true;
+        }
+        return false;
+    }
+
+    /** Con mèo gần nhất trong tầm mổ (gần ngang nhau, không gục, đang chơi). */
+    private catInReach(): PlayerController | null {
+        const gm = GameManager.instance;
+        if (!gm) return null;
+        const self = this.body.getRect(_self);
+        let best: PlayerController | null = null;
+        let bestGap = Infinity;
+        for (const cat of gm.cats) {
+            if (cat.downed || cat.idle) continue;
+            const r = cat.body.getRect(_player);
+            const gap = Math.max(r.xMin - self.xMax, self.xMin - r.xMax, 0);
+            if (gap > this.peckRange || Math.abs(r.yMin - self.yMin) > 100) continue;
+            if (gap < bestGap) {
+                bestGap = gap;
+                best = cat;
+            }
+        }
+        return best;
+    }
+
+    /** Mỏ (phía trước thân, dài 70) chạm mèo nào thì mèo đó bị đánh. Trả về true nếu trúng. */
+    private beakHit(): boolean {
+        const gm = GameManager.instance;
+        if (!gm) return false;
+        const self = this.body.getRect(_self);
+        const reach = 70;
+        _beak.set(this.dir > 0 ? self.xMax - 20 : self.xMin - reach, self.y + self.height * 0.2, reach + 20, self.height * 0.6);
+        let hit = false;
+        for (const cat of gm.cats) {
+            if (cat.downed || !overlaps(cat.body.getRect(_player), _beak)) continue;
+            gm.hurtCat(cat, this.node.position.x);
+            hit = true;
+        }
+        return hit;
     }
 
     private groundAhead(): boolean {
@@ -324,8 +442,19 @@ export class EnemyPatrol extends Component implements Hittable {
             ang = Math.sin(this.animTime * 70) * 9 * k;
         }
         this.pop = Math.max(0, this.pop - dt * 5);
-        const sx = 1 + 0.04 * hop + 0.22 * this.pop;
-        const sy = 1 - 0.04 * hop - 0.18 * this.pop;
+        let sx = 1 + 0.04 * hop + 0.22 * this.pop;
+        let sy = 1 - 0.04 * hop - 0.18 * this.pop;
+        // Mổ: rướn người ra sau (thân co, ngửa lên) rồi lao tới (thân dài ra, chúi xuống)
+        if (this.peck === 'windup') {
+            const k = Math.min(1, this.peckTime / Math.max(0.01, this.peckWindup * 0.6));
+            sx *= 1 - 0.12 * k;
+            sy *= 1 + 0.1 * k;
+            ang += 10 * k * this.dir;
+        } else if (this.peck === 'lunge') {
+            sx *= 1.18;
+            sy *= 0.9;
+            ang -= 8 * this.dir;
+        }
         v.setScale(this.baseScale * flip * sx, this.baseScale * sy, 1);
         // Té: xoay quanh chân, ngã nằm nghiêng 90° về phía bị quét tới; nâng lên nửa bề ngang để không lún xuống đất,
         // dời ngang nửa chiều cao để thân nằm giữa chỗ đứng
@@ -342,16 +471,9 @@ export class EnemyPatrol extends Component implements Hittable {
         }
         v.setPosition(jx + tx, hop * 6 + ty, 0);
         v.angle = ang;
-        if (this.sprite) this.sprite.color = this.stun > 0 && Math.floor(this.animTime * 16) % 2 === 0 ? HIT_TINT : Color.WHITE;
-    }
-
-    /** Chạm vào con mèo nào thì con đó bị đánh, từ phía nào cũng vậy. */
-    private checkPlayer() {
-        const gm = GameManager.instance;
-        if (!gm) return;
-        const self = this.body.getRect(_self);
-        for (const cat of gm.cats) {
-            if (overlaps(cat.body.getRect(_player), self)) gm.hurtCat(cat, this.node.position.x);
+        if (this.sprite) {
+            const warn = this.peck === 'windup' && Math.floor(this.peckTime * 14) % 2 === 0;
+            this.sprite.color = warn ? PECK_TINT : this.stun > 0 && Math.floor(this.animTime * 16) % 2 === 0 ? HIT_TINT : Color.WHITE;
         }
     }
 
@@ -424,6 +546,11 @@ export class EnemyPatrol extends Component implements Hittable {
     }
 
     takeHit(fromX?: number, power = 1, damage = 1) {
+        // Bị chém trúng lúc đang rướn / lao thì mất đòn
+        if (this.peck === 'windup' || this.peck === 'lunge') {
+            this.peck = 'none';
+            this.peckWait = this.peckRest * 0.5;
+        }
         this.hp = Math.max(this.hpFloor, this.hp - damage);
         this.hitCooldown = 0.12; // chỉ để một nhát chém không tính 2 lần
         const heavy = this.targetHeight > 250; // boss to xác: văng ít, giật ít
@@ -452,8 +579,8 @@ export class EnemyPatrol extends Component implements Hittable {
         const parent = this.node.parent;
         if (parent) {
             const p0 = this.node.position;
-            if (this.big) DustPuff.spawn(BOSS_DEATH, parent, p0.x, p0.y + this.targetHeight * 0.5, { scale: 7, fps: 12, center: true });
-            else DustPuff.spawn(ENEMY_DEATH, parent, p0.x, p0.y + this.targetHeight * 0.5, { scale: 2.6, fps: 16, center: true });
+            if (this.big) DustPuff.spawn(BOSS_DEATH, parent, p0.x, p0.y + this.targetHeight * 0.5, { scale: 10.5, fps: 12, center: true });
+            else DustPuff.spawn(ENEMY_DEATH, parent, p0.x, p0.y + this.targetHeight * 0.5, { scale: 3.9, fps: 16, center: true });
         }
         const v = this.visual ?? this.node;
         const fade = v.getComponent(UIOpacity) ?? v.addComponent(UIOpacity);

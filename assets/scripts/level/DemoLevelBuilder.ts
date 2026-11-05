@@ -34,6 +34,7 @@ import { PinToScreenTop } from './PinToScreenTop';
 import { PlaceholderBox } from './PlaceholderBox';
 import { SkyGradient } from './SkyGradient';
 import { SoftGlow } from './SoftGlow';
+import { TutorialHint } from './TutorialHint';
 const { ccclass, property } = _decorator;
 
 // API của editor Cocos, chỉ tồn tại khi chạy trong Creator
@@ -498,10 +499,45 @@ export class DemoLevelBuilder extends Component {
             }
         }
 
+        // 21. Nhạc nền mới: ô Music của GameManager còn là bài cũ "bgm" thì đổi sang bgm_forest (bạn tự đặt bài khác thì để yên)
+        const gmMusic = this.getComponent(GameManager);
+        if (gmMusic && gmMusic.music === 'bgm') {
+            gmMusic.music = 'bgm_forest';
+            done.push('nhạc nền: bgm → bgm_forest (nhạc trận boss: bgm_boss, ô Boss Music của BossArena)');
+        }
+
+        // 20. Vùng hướng dẫn (TutorialHint): chưa có vùng nào thì tạo 3 vùng (đầu màn, trước chim 1, trước chim 2); có rồi thì để yên
+        done.push(...this.ensureTutorialHints(play));
+
         try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
         console.log(done.length
             ? `[DemoLevelBuilder] Đã cập nhật, giữ nguyên phần bạn sắp xếp:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu.`
             : '[DemoLevelBuilder] Màn đã đủ và mới nhất, không đổi gì.');
+    }
+
+    /**
+     * Vùng hướng dẫn mặc định của màn 1 (chưa có TutorialHint nào mới tạo; đã có thì để yên cho bạn tự kéo, tự tích).
+     * Vùng cao 1400 tính từ y = 0, phủ cả nền thấp lẫn bậc đá cao.
+     */
+    private ensureTutorialHints(play: Node): string[] {
+        if (play.getComponentsInChildren(TutorialHint).length > 0) return [];
+        const hints: [string, number, (h: TutorialHint) => void][] = [
+            ['Hint_CoBan', 600, (h) => { h.move = true; h.jump = true; h.doubleJump = true; }],
+            ['Hint_Chem', 3050, (h) => { h.attack = true; h.dash = true; }],
+            ['Hint_NangCao', 4750, (h) => { h.wave = true; h.sweep = true; h.launch = true; }],
+        ];
+        for (const [name, x, setup] of hints) {
+            const n = new Node(name);
+            n.layer = play.layer;
+            play.addChild(n);
+            n.setPosition(x, 0, 0);
+            n.addComponent(UITransform).setContentSize(900, 1400);
+            const h = n.addComponent(TutorialHint);
+            h.size = new Size(900, 1400);
+            h.offset = new Vec2(0, 500);
+            setup(h);
+        }
+        return [`3 vùng hướng dẫn (Hint_CoBan x=600, Hint_Chem x=3050, Hint_NangCao x=4750): kéo node để dời, tích ô trong 'Dạy đòn' để đổi đòn`];
     }
 
     /**

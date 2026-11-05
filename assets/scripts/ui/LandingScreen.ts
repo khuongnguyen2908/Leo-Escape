@@ -1,4 +1,4 @@
-import { _decorator, Camera, Color, Component, EventKeyboard, game, Input, input, KeyCode, Label, Node, RenderTexture, resources, screen, Sprite, SpriteFrame, sys, Texture2D, Tween, tween, UIOpacity, UITransform, Vec3, view } from 'cc';
+import { _decorator, Camera, Color, Component, EventKeyboard, game, Graphics, Input, input, KeyCode, Label, Node, RenderTexture, resources, screen, Sprite, SpriteFrame, sys, Texture2D, Tween, tween, UIOpacity, UITransform, Vec3, view } from 'cc';
 import { Settings } from '../core/Settings';
 import { Sound } from '../core/Sound';
 import { GameManager } from '../game/GameManager';
@@ -6,11 +6,17 @@ import { GameSession } from '../game/GameSession';
 import { PlayerInput } from '../player/PlayerInput';
 import { PlayerVisual } from '../player/PlayerVisual';
 import { CharacterSelect } from './CharacterSelect';
+import { Lang, TextKey } from './Lang';
 import { useGameFont } from './GameFont';
 import { UI, uiButton, UiButton, uiDim, uiLabel, uiNode, uiPanel } from './UiKit';
 const { ccclass, property } = _decorator;
 
-type Page = 'start' | 'mode' | 'pick' | 'quit' | 'thanks';
+type Page = 'start' | 'mode' | 'pick' | 'quit' | 'thanks' | 'credits';
+
+/** Dòng menu được chọn: chữ phóng lên chừng này rồi thu về (khung chọn tính theo cỡ lúc to nhất nên chữ không tràn) */
+const FOCUS_PULSE = 1.15;
+/** Bảng Tác giả: [tên, ảnh logo trong thư mục art (chưa có thì vẽ khung LOGO)] */
+const CREDITS: [string, string][] = [['Laris', 'credit_laris'], ['Flynt', 'credit_flynt']];
 
 /** Các dòng của menu chính: [tên node trong Landing/Menu, chữ mặc định]. */
 export const MENU_ITEMS: [string, string][] = [
@@ -116,6 +122,7 @@ export class LandingScreen extends Component {
     }
 
     onDestroy() {
+        Lang.offChange(this.onLang);
         input.off(Input.EventType.KEY_DOWN, this.onKey, this);
         if (LandingScreen.instance === this) LandingScreen.instance = null;
     }
@@ -149,6 +156,8 @@ export class LandingScreen extends Component {
             if (c.consumeJump() || c.consumeAttack()) this.answerQuit(this.quitFocus === 0);
         } else if (this.page === 'thanks') {
             if (c.consumeJump() || c.consumeAttack()) this.hideThanks();
+        } else if (this.page === 'credits') {
+            if (c.consumeJump() || c.consumeAttack()) this.hideCredits();
         } else if (this.page === 'mode') {
             const left = c.left, right = c.right;
             if ((left && !this.wasLeft) || (right && !this.wasRight)) this.focusMode(this.modeFocus === 0 ? 1 : 0);
@@ -184,6 +193,10 @@ export class LandingScreen extends Component {
             this.hideThanks();
             return true;
         }
+        if (this.page === 'credits') {
+            this.hideCredits();
+            return true;
+        }
         return false;
     }
 
@@ -200,6 +213,12 @@ export class LandingScreen extends Component {
             this.selectionDy = sel.position.y - near.position.y;
         }
         this.makeSelectionStretchy();
+        // Chữ của từng dòng theo ngôn ngữ (đổi ngôn ngữ thì khung chọn giãn lại theo chữ mới)
+        for (const n of this.items) {
+            const label = n.getComponent(Label) ?? n.getComponentInChildren(Label);
+            if (label) Lang.bind(label, `menu.${n.name}` as TextKey);
+        }
+        Lang.onChange(this.onLang);
         this.items.forEach((n, i) => {
             n.on(Node.EventType.MOUSE_ENTER, () => {
                 if (this.page === 'start') this.focusMenu(i);
@@ -213,9 +232,15 @@ export class LandingScreen extends Component {
         this.focusMenu(0);
     }
 
-    private focusMenu(i: number) {
+    private readonly onLang = () => {
+        if (this.isValid && this.page === 'start') this.focusMenu(this.focus, false);
+    };
+
+    /** Chọn dòng i. pulse: chữ phóng lên rồi thu về (chỉ khi đổi dòng). */
+    private focusMenu(i: number, pulse = true) {
         const item = this.items[i];
         if (!item) return;
+        if (pulse && i !== this.focus) this.pulse(item);
         this.focus = i;
         const sel = this.selection;
         if (sel) {
@@ -224,10 +249,28 @@ export class LandingScreen extends Component {
             const ui = sel.getComponent(UITransform);
             const text = item.getComponent(UITransform)?.width ?? 0;
             if (ui && this.selectionWidth > 0) {
-                ui.setContentSize(Math.max(this.selectionWidth, text + SELECTION_EXTRA), ui.height);
+                ui.setContentSize(Math.max(this.selectionWidth, text * FOCUS_PULSE + SELECTION_EXTRA), ui.height);
             }
         }
     }
+
+    /** Chữ dòng menu phóng lên FOCUS_PULSE lần rồi thu về cỡ gốc. */
+    private pulse(item: Node) {
+        let base = this.baseScale.get(item);
+        if (!base) {
+            base = item.scale.clone();
+            this.baseScale.set(item, base);
+        }
+        Tween.stopAllByTarget(item);
+        item.setScale(base);
+        const b = base;
+        tween(item)
+            .to(0.1, { scale: new Vec3(b.x * FOCUS_PULSE, b.y * FOCUS_PULSE, b.z) }, { easing: 'quadOut' })
+            .to(0.16, { scale: b }, { easing: 'quadIn' })
+            .start();
+    }
+
+    private baseScale = new Map<Node, Vec3>();
 
     /**
      * Khung chọn (selection.png 385×81): hai hoa văn hai đầu rộng 70, giữa là phần đệm vuông.
@@ -254,19 +297,20 @@ export class LandingScreen extends Component {
             case 'NewGame': this.onStart(); break;
             case 'Options': LandingScreen.openOptions?.(); break;
             case 'Quit': this.showQuit(); break;
-            default: this.showToast(item, 'COMING SOON'); break;
+            case 'Credits': this.showCredits(); break;
+            default: this.showToast(item); break;
         }
     }
 
     /** Chữ nâu nhỏ hiện bên phải dòng menu chừng 1 giây. */
-    private showToast(item: Node, text: string) {
+    private showToast(item: Node) {
         if (!this.toast) {
             this.toast = uiLabel(this.node, '', 30, SMALL, { outline: SMALL_OUTLINE, outlineWidth: 3, name: 'Toast' });
             this.toast.node.getComponent(UITransform)!.setAnchorPoint(0, 0.5);
             this.toast.node.addComponent(UIOpacity);
         }
         const t = this.toast;
-        t.string = text;
+        Lang.bind(t, 'menu.soon');
         const p = new Vec3();
         item.getWorldPosition(p);
         this.node.getComponent(UITransform)!.convertToNodeSpaceAR(p, p);
@@ -286,9 +330,13 @@ export class LandingScreen extends Component {
             const root = uiNode('QuitAsk', this.node, d.width, d.height);
             uiDim(root, d.width, d.height);
             uiPanel(root, 640, 320);
-            uiLabel(root, 'QUIT GAME?', 60, Color.WHITE, { outline: TITLE_OUTLINE, outlineWidth: 4 }).node.setPosition(0, 60, 0);
-            const yes = uiButton(root, 'YES', 240, 90, () => this.answerQuit(true), { fontSize: 44, name: 'Yes' });
-            const no = uiButton(root, 'NO', 240, 90, () => this.answerQuit(false), { fontSize: 44, name: 'No' });
+            const title = uiLabel(root, '', 60, Color.WHITE, { outline: TITLE_OUTLINE, outlineWidth: 4 });
+            Lang.bind(title, 'quit.title');
+            title.node.setPosition(0, 60, 0);
+            const yes = uiButton(root, '', 240, 90, () => this.answerQuit(true), { fontSize: 44, name: 'Yes' });
+            const no = uiButton(root, '', 240, 90, () => this.answerQuit(false), { fontSize: 44, name: 'No' });
+            Lang.bind(yes.label, 'yes');
+            Lang.bind(no.label, 'no');
             yes.node.setPosition(-140, -70, 0);
             no.node.setPosition(140, -70, 0);
             yes.node.on(Node.EventType.MOUSE_ENTER, () => this.focusQuit(0));
@@ -330,9 +378,14 @@ export class LandingScreen extends Component {
         if (!this.thanksRoot) {
             const root = uiNode('Thanks', this.node, d.width, d.height);
             uiDim(root, d.width, d.height);
-            uiLabel(root, 'THANKS FOR PLAYING!', 60, Color.WHITE, { outline: TITLE_OUTLINE, outlineWidth: 4 }).node.setPosition(0, 90, 0);
-            uiLabel(root, 'YOU CAN CLOSE THIS TAB NOW.', 30, SMALL, { outline: SMALL_OUTLINE, outlineWidth: 3 }).node.setPosition(0, 20, 0);
-            const back = uiButton(root, 'BACK TO MENU', 480, 96, () => this.hideThanks(), { fontSize: 44, name: 'Back' });
+            const title = uiLabel(root, '', 60, Color.WHITE, { outline: TITLE_OUTLINE, outlineWidth: 4 });
+            Lang.bind(title, 'thanks.title');
+            title.node.setPosition(0, 90, 0);
+            const sub = uiLabel(root, '', 30, SMALL, { outline: SMALL_OUTLINE, outlineWidth: 3 });
+            Lang.bind(sub, 'thanks.sub');
+            sub.node.setPosition(0, 20, 0);
+            const back = uiButton(root, '', 480, 96, () => this.hideThanks(), { fontSize: 44, name: 'Back' });
+            Lang.bind(back.label, 'thanks.back');
             back.node.setPosition(0, -100, 0);
             back.setFocus(true);
             this.thanksRoot = root;
@@ -342,6 +395,75 @@ export class LandingScreen extends Component {
         this.page = 'thanks';
         PlayerInput.clearQueues();
     }
+
+    /** Bảng Tác giả: hai ô logo (ảnh credit_laris, credit_flynt trong thư mục art; chưa có thì khung LOGO) và tên. */
+    private showCredits() {
+        const d = view.getDesignResolutionSize();
+        if (!this.creditsRoot) {
+            const root = uiNode('Credits', this.node, d.width, d.height);
+            uiDim(root, d.width, d.height);
+            const panel = uiPanel(root, 900, 620);
+            const title = uiLabel(panel, '', 60, UI.text);
+            Lang.bind(title, 'credits.title');
+            title.node.setPosition(0, 225, 0);
+            CREDITS.forEach(([name, art], i) => {
+                const x = (i - (CREDITS.length - 1) / 2) * 340;
+                const box = uiNode(`Logo_${name}`, panel, 240, 240);
+                box.setPosition(x, 30, 0);
+                const g = box.addComponent(Graphics);
+                // Khung tạm: viền nét đứt + chữ LOGO (có ảnh thì ẩn)
+                g.strokeColor = UI.brownDown;
+                g.lineWidth = 6;
+                const dash = (x0: number, y0: number, x1: number, y1: number) => {
+                    const len = Math.hypot(x1 - x0, y1 - y0), n = Math.floor(len / 26);
+                    for (let k = 0; k < n; k += 2) {
+                        g.moveTo(x0 + ((x1 - x0) * k) / n, y0 + ((y1 - y0) * k) / n);
+                        g.lineTo(x0 + ((x1 - x0) * (k + 1)) / n, y0 + ((y1 - y0) * (k + 1)) / n);
+                    }
+                };
+                dash(-110, -110, 110, -110);
+                dash(110, -110, 110, 110);
+                dash(110, 110, -110, 110);
+                dash(-110, 110, -110, -110);
+                g.stroke();
+                const ph = uiLabel(box, 'LOGO', 40, UI.brownDown);
+                resources.load(`${this.artFolder}/${art}/spriteFrame`, SpriteFrame, (err, sf) => {
+                    if (err || !sf || !box.isValid) return;
+                    g.clear();
+                    ph.node.active = false;
+                    const pic = uiNode('Pic', box);
+                    const sp = pic.addComponent(Sprite);
+                    sp.spriteFrame = sf;
+                    const k = 230 / Math.max(sf.rect.width, sf.rect.height);
+                    pic.setScale(k, k, 1);
+                });
+                const label = uiLabel(panel, name, 50, UI.text);
+                label.node.setPosition(x, -150, 0);
+            });
+            const close = uiButton(panel, '', 300, 90, () => this.hideCredits(), { fontSize: 42, name: 'Close' });
+            Lang.bind(close.label, 'close');
+            close.node.setPosition(0, -245, 0);
+            close.setFocus(true);
+            this.creditsRoot = root;
+        }
+        this.creditsRoot.setSiblingIndex(this.node.children.length - 1);
+        this.creditsRoot.active = true;
+        const panel = this.creditsRoot.getChildByName('Panel');
+        if (panel) {
+            panel.setScale(0.7, 0.7, 1);
+            tween(panel).to(0.22, { scale: Vec3.ONE }, { easing: 'backOut' }).start();
+        }
+        this.page = 'credits';
+        PlayerInput.clearQueues();
+    }
+
+    private hideCredits() {
+        if (this.creditsRoot) this.creditsRoot.active = false;
+        this.page = 'start';
+        PlayerInput.clearQueues();
+    }
+
+    private creditsRoot: Node | null = null;
 
     private hideThanks() {
         if (this.thanksRoot) this.thanksRoot.active = false;
@@ -378,16 +500,20 @@ export class LandingScreen extends Component {
         const frame = start?.getComponent(Sprite)?.spriteFrame ?? null;
         const y = start ? start.position.y : -322;
         const w = frame ? frame.rect.width : 386, h = frame ? frame.rect.height : 194;
-        const one = uiButton(root, '1 NGƯỜI', w, h, () => this.chooseMode(1), { frame, fontSize: 64, name: 'One' });
-        const two = uiButton(root, '2 NGƯỜI', w, h, () => this.chooseMode(2), { frame, fontSize: 64, name: 'Two' });
+        const one = uiButton(root, '', w, h, () => this.chooseMode(1), { frame, fontSize: 64, name: 'One' });
+        const two = uiButton(root, '', w, h, () => this.chooseMode(2), { frame, fontSize: 64, name: 'Two' });
+        Lang.bind(one.label, 'mode.one');
+        Lang.bind(two.label, 'mode.two');
         one.node.setPosition(-250, y, 0);
         two.node.setPosition(250, y, 0);
         one.node.on(Node.EventType.MOUSE_ENTER, () => this.focusMode(0));
         two.node.on(Node.EventType.MOUSE_ENTER, () => this.focusMode(1));
         this.modeButtons = [one, two];
-        const hint1 = uiLabel(root, 'Đổi qua lại 2 mèo bằng phím Đổi mèo', 28, UI.cream, { outline: UI.brown, outlineWidth: 4 });
+        const hint1 = uiLabel(root, '', 28, UI.cream, { outline: UI.brown, outlineWidth: 4 });
+        Lang.bind(hint1, 'mode.oneHint');
         hint1.node.setPosition(-250, y - h / 2 - 34, 0);
-        const hint2 = uiLabel(root, 'Mỗi người một bộ phím', 28, UI.cream, { outline: UI.brown, outlineWidth: 4 });
+        const hint2 = uiLabel(root, '', 28, UI.cream, { outline: UI.brown, outlineWidth: 4 });
+        Lang.bind(hint2, 'mode.twoHint');
         hint2.node.setPosition(250, y - h / 2 - 34, 0);
     }
 
@@ -432,6 +558,7 @@ export class LandingScreen extends Component {
         } else if (this.page === 'mode') this.chooseMode(this.modeFocus === 0 ? 1 : 2);
         else if (this.page === 'quit') this.answerQuit(this.quitFocus === 0);
         else if (this.page === 'thanks') this.hideThanks();
+        else if (this.page === 'credits') this.hideCredits();
     }
 
     private setActive(name: string, on: boolean) {

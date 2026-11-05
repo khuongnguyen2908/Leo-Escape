@@ -104,7 +104,8 @@ export class TouchControls extends Component {
         this.makeButton('jump', right - this.jumpPos.x, bottom + this.jumpPos.y, this.radius, this.jumpFrame);
         // Nút Kỹ năng (K) chỉ dùng khi có Angelo; chưa có thì đập bụng = Xuống + Đánh, Mèo Nổ = Xuống + Lướt
         if (GameSession.angelo) this.makeButton('skill', right - this.skillPos.x, bottom + this.skillPos.y, this.attackRadius * 0.85, this.skillFrame);
-        this.makeButton('interact', right - this.interactPos.x, bottom + this.interactPos.y, this.attackRadius * 0.8, this.interactFrame);
+        // Nút L (tương tác) chỉ khi có Angelo; chưa có thì lướt bằng đẩy đúp joystick
+        if (GameSession.angelo) this.makeButton('interact', right - this.interactPos.x, bottom + this.interactPos.y, this.attackRadius * 0.8, this.interactFrame);
         // Nút đổi mèo: chỉ khi có Angelo và chơi 1 người (điện thoại luôn chơi 1 người)
         if (GameManager.instance?.partner && GameSession.mode === 1) {
             this.makeButton('swap', right - this.swapPos.x, bottom + this.swapPos.y, this.attackRadius * 0.8, this.swapFrame);

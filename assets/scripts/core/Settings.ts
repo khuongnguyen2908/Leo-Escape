@@ -22,6 +22,22 @@ export const ACTION_NAMES: Record<Action, string> = {
 
 type KeyMap = Record<Action, number>;
 
+/** Kiểu phím có sẵn: WASD (+ Space/J/K/L) hoặc Mũi tên (+ Z/X/C/V). 'custom' = đã đổi lẻ phím. */
+export type KeyLayout = 'wasd' | 'arrows' | 'custom';
+
+export type LangCode = 'vi' | 'en';
+
+const LAYOUT_KEYS: Record<'wasd' | 'arrows', KeyMap> = {
+    wasd: {
+        left: KeyCode.KEY_A, right: KeyCode.KEY_D, up: KeyCode.KEY_W, down: KeyCode.KEY_S,
+        jump: KeyCode.SPACE, attack: KeyCode.KEY_J, skill: KeyCode.KEY_K, interact: KeyCode.KEY_L, swap: KeyCode.TAB,
+    },
+    arrows: {
+        left: KeyCode.ARROW_LEFT, right: KeyCode.ARROW_RIGHT, up: KeyCode.ARROW_UP, down: KeyCode.ARROW_DOWN,
+        jump: KeyCode.KEY_Z, attack: KeyCode.KEY_X, skill: KeyCode.KEY_V, interact: KeyCode.KEY_C, swap: KeyCode.TAB,
+    },
+};
+
 const DEFAULT_KEYS: KeyMap[] = [
     {
         left: KeyCode.KEY_A, right: KeyCode.KEY_D, up: KeyCode.KEY_W, down: KeyCode.KEY_S,
@@ -38,13 +54,14 @@ interface Data {
     sfx: number;
     fullscreen: boolean;
     shake: boolean;
+    lang: LangCode;
     keys: KeyMap[];
 }
 
 const STORE_KEY = 'leo-escape-settings';
 
 function defaults(): Data {
-    return { music: 0.35, sfx: 0.8, fullscreen: false, shake: true, keys: DEFAULT_KEYS.map((k) => ({ ...k })) };
+    return { music: 0.35, sfx: 0.8, fullscreen: false, shake: true, lang: 'vi', keys: DEFAULT_KEYS.map((k) => ({ ...k })) };
 }
 
 function load(): Data {
@@ -57,6 +74,7 @@ function load(): Data {
         if (typeof saved.sfx === 'number') d.sfx = saved.sfx;
         if (typeof saved.fullscreen === 'boolean') d.fullscreen = saved.fullscreen;
         if (typeof saved.shake === 'boolean') d.shake = saved.shake;
+        if (saved.lang === 'vi' || saved.lang === 'en') d.lang = saved.lang;
         for (let p = 0; p < 2; p++) {
             for (const a of ACTIONS) {
                 const k = saved.keys?.[p]?.[a];
@@ -71,19 +89,25 @@ function load(): Data {
 
 let data: Data | null = null;
 const listeners: (() => void)[] = [];
+/** Đang mở bảng Cài đặt: đổi thì áp dụng ngay nhưng chưa ghi xuống máy, bấm Lưu mới ghi (bản lúc mở để trả lại). */
+let editSnapshot: string | null = null;
 
 function get(): Data {
     if (!data) data = load();
     return data;
 }
 
-function save() {
+function write() {
     try {
         sys.localStorage.setItem(STORE_KEY, JSON.stringify(get()));
     } catch (e) {
         console.warn('[Settings] Không lưu được cài đặt.', e);
     }
-    for (const l of listeners) l();
+}
+
+function save() {
+    if (editSnapshot === null) write();
+    for (const l of listeners.slice()) l();
 }
 
 export const Settings = {
@@ -127,6 +151,60 @@ export const Settings = {
 
     resetKeys() {
         get().keys = DEFAULT_KEYS.map((k) => ({ ...k }));
+        save();
+    },
+
+    /** Mở bảng Cài đặt: từ giờ đổi gì cũng áp dụng ngay nhưng chưa ghi xuống máy. */
+    beginEdit() {
+        if (editSnapshot === null) editSnapshot = JSON.stringify(get());
+    },
+
+    /** Có đổi gì so với lúc mở bảng không. */
+    get dirty(): boolean {
+        return editSnapshot !== null && editSnapshot !== JSON.stringify(get());
+    },
+
+    /** Bấm Lưu: ghi xuống máy, bản này thành mốc mới (vẫn đang trong bảng). */
+    commitEdit() {
+        write();
+        if (editSnapshot !== null) editSnapshot = JSON.stringify(get());
+    },
+
+    /** Bỏ thay đổi: trả mọi cài đặt về như lúc mở bảng, rồi kết thúc phiên. */
+    cancelEdit() {
+        if (editSnapshot === null) return;
+        data = JSON.parse(editSnapshot);
+        editSnapshot = null;
+        for (const l of listeners.slice()) l();
+    },
+
+    /** Đóng bảng (đã lưu hoặc không đổi gì). */
+    endEdit() {
+        editSnapshot = null;
+    },
+
+    get lang(): LangCode { return get().lang; },
+    set lang(v: LangCode) { get().lang = v; save(); },
+
+    /** Kiểu phím người chơi p đang dùng (đổi lẻ phím thì là 'custom'). */
+    layout(p: number): KeyLayout {
+        const keys = get().keys[p];
+        for (const name of ['wasd', 'arrows'] as const) {
+            const preset = LAYOUT_KEYS[name];
+            // Người 2 không có phím Đổi mèo nên bỏ qua ô đó khi so
+            if (ACTIONS.every((a) => (p === 1 && a === 'swap') || keys[a] === preset[a])) return name;
+        }
+        return 'custom';
+    },
+
+    /** Đặt cả hàng phím của người chơi p theo kiểu layout; người kia lấy kiểu còn lại để hai người không trùng phím. */
+    setLayout(p: number, layout: 'wasd' | 'arrows') {
+        const keys = get().keys;
+        const other: 'wasd' | 'arrows' = layout === 'wasd' ? 'arrows' : 'wasd';
+        keys[p] = { ...LAYOUT_KEYS[layout] };
+        keys[1 - p] = { ...LAYOUT_KEYS[other] };
+        keys[1].swap = KeyCode.NONE; // chỉ Người 1 đổi mèo
+        if (p === 1) keys[0].swap = KeyCode.TAB;
         save();
     },
 
@@ -181,12 +259,35 @@ const KEY_NAMES: Record<number, string> = {
     [KeyCode.QUOTE]: "'",
 };
 
-/** Tên phím để hiện trên màn hình. */
+/** Tên phím tiếng Anh (chỉ những phím có chữ khác tiếng Việt). */
+const KEY_NAMES_EN: Record<number, string> = {
+    [KeyCode.SHIFT_RIGHT]: 'R-Shift',
+    [KeyCode.CTRL_RIGHT]: 'R-Ctrl',
+    [KeyCode.ALT_RIGHT]: 'R-Alt',
+    [KeyCode.ARROW_LEFT]: '← Left',
+    [KeyCode.ARROW_RIGHT]: '→ Right',
+    [KeyCode.ARROW_UP]: '↑ Up',
+    [KeyCode.ARROW_DOWN]: '↓ Down',
+};
+
+/** Tên phím để hiện trên màn hình (theo ngôn ngữ đang chọn). */
 export function keyName(code: number): string {
+    if (Settings.lang === 'en' && KEY_NAMES_EN[code] !== undefined) return KEY_NAMES_EN[code];
     if (KEY_NAMES[code] !== undefined) return KEY_NAMES[code];
     if (code >= KeyCode.KEY_A && code <= KeyCode.KEY_A + 25) return String.fromCharCode(code);
     if (code >= KeyCode.DIGIT_0 && code <= KeyCode.DIGIT_0 + 9) return String(code - KeyCode.DIGIT_0);
     if (code >= KeyCode.NUM_0 && code <= KeyCode.NUM_0 + 9) return `Num ${code - KeyCode.NUM_0}`;
     if (code >= KeyCode.F1 && code <= KeyCode.F1 + 11) return `F${code - KeyCode.F1 + 1}`;
-    return `Phím ${code}`;
+    return Settings.lang === 'en' ? `Key ${code}` : `Phím ${code}`;
+}
+
+/** Tên phím ngắn cho gợi ý trong màn (mũi tên chỉ còn ký hiệu). */
+export function keyShort(code: number): string {
+    switch (code) {
+        case KeyCode.ARROW_LEFT: return '←';
+        case KeyCode.ARROW_RIGHT: return '→';
+        case KeyCode.ARROW_UP: return '↑';
+        case KeyCode.ARROW_DOWN: return '↓';
+        default: return keyName(code);
+    }
 }

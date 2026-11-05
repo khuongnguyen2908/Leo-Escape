@@ -94,6 +94,8 @@ export interface UiButton {
     setText(text: string): void;
     /** Đang được chọn bằng bàn phím: viền cam. */
     setFocus(on: boolean): void;
+    /** Bấm bằng bàn phím: nút lún xuống một nhịp rồi gọi onClick. */
+    click(): void;
 }
 
 /** Nút bo góc có chữ. Có frame thì dùng ảnh đó làm nền thay cho hình vẽ. */
@@ -111,6 +113,7 @@ export function uiButton(parent: Node, text: string, w: number, h: number, onCli
         pic.getComponent(UITransform)!.setContentSize(w, h);
         const ring = n.addComponent(Graphics);
         paint = () => {
+            if (!ring.isValid) return; // nút đã bị xoá (đổi scene)
             ring.clear();
             if (focus) {
                 ring.strokeColor = UI.accent;
@@ -123,6 +126,7 @@ export function uiButton(parent: Node, text: string, w: number, h: number, onCli
     } else {
         const g = n.addComponent(Graphics);
         paint = () => {
+            if (!g.isValid) return; // nút đã bị xoá (đổi scene)
             g.clear();
             g.fillColor = down ? UI.brownDown : UI.brown;
             g.strokeColor = focus ? UI.accent : UI.cream;
@@ -151,17 +155,47 @@ export function uiButton(parent: Node, text: string, w: number, h: number, onCli
             focus = on;
             paint();
         },
+        click: () => {
+            // setTimeout chạy cả khi game đang tạm dừng (director.pause)
+            down = true;
+            paint();
+            setTimeout(() => {
+                down = false;
+                if (n.isValid) paint();
+            }, 90);
+            onClick();
+        },
     };
 }
 
+/** Ô điều hướng bàn phím (MenuNav) cho một nút. */
+export function navButton(b: UiButton): { node: Node; press: () => void; focus: (on: boolean) => void } {
+    return { node: b.node, press: () => b.click(), focus: (on) => b.setFocus(on) };
+}
+
+export interface UiSlider {
+    node: Node;
+    set(v: number): void;
+    setFocus(on: boolean): void;
+    /** Tăng / giảm d (bàn phím A/D), có gọi onChange. */
+    nudge(d: number): void;
+}
+
 /** Thanh trượt 0..1. */
-export function uiSlider(parent: Node, w: number, value: number, onChange: (v: number) => void): { node: Node; set(v: number): void } {
+export function uiSlider(parent: Node, w: number, value: number, onChange: (v: number) => void): UiSlider {
     const h = 56;
     const n = uiNode('Slider', parent, w + 40, h);
     const g = n.addComponent(Graphics);
     let v = value;
+    let focus = false;
     const draw = () => {
         g.clear();
+        if (focus) {
+            g.strokeColor = UI.accent;
+            g.lineWidth = 5;
+            g.roundRect(-w / 2 - 34, -h / 2 - 4, w + 68, h + 8, (h + 8) / 2);
+            g.stroke();
+        }
         g.fillColor = UI.creamDim;
         g.roundRect(-w / 2, -8, w, 16, 8);
         g.fill();
@@ -188,18 +222,45 @@ export function uiSlider(parent: Node, w: number, value: number, onChange: (v: n
     n.on(Node.EventType.TOUCH_START, pick);
     n.on(Node.EventType.TOUCH_MOVE, pick);
     draw();
-    return { node: n, set: (x: number) => { v = x; draw(); } };
+    return {
+        node: n,
+        set: (x: number) => { v = x; draw(); },
+        setFocus: (on: boolean) => { focus = on; draw(); },
+        nudge: (d: number) => {
+            v = Math.max(0, Math.min(1, Math.round((v + d) * 20) / 20));
+            draw();
+            onChange(v);
+        },
+    };
 }
 
+export interface UiToggle {
+    node: Node;
+    set(v: boolean): void;
+    setFocus(on: boolean): void;
+    /** Bật ↔ tắt (bàn phím), có gọi onChange. */
+    flip(): void;
+}
+
+/** Chữ BẬT / TẮT của công tắc (Lang gắn vào để đổi theo ngôn ngữ). */
+export const toggleText = { on: 'BẬT', off: 'TẮT' };
+
 /** Công tắc bật/tắt. */
-export function uiToggle(parent: Node, value: boolean, onChange: (v: boolean) => void): { node: Node; set(v: boolean): void } {
+export function uiToggle(parent: Node, value: boolean, onChange: (v: boolean) => void): UiToggle {
     const w = 120, h = 56;
     const n = uiNode('Toggle', parent, w, h);
     const g = n.addComponent(Graphics);
     const label = uiLabel(n, '', 24, Color.WHITE);
     let v = value;
+    let focus = false;
     const draw = () => {
         g.clear();
+        if (focus) {
+            g.strokeColor = UI.accent;
+            g.lineWidth = 5;
+            g.roundRect(-w / 2 - 8, -h / 2 - 8, w + 16, h + 16, (h + 16) / 2);
+            g.stroke();
+        }
         g.fillColor = v ? UI.green : UI.creamDim;
         g.roundRect(-w / 2, -h / 2, w, h, h / 2);
         g.fill();
@@ -210,15 +271,21 @@ export function uiToggle(parent: Node, value: boolean, onChange: (v: boolean) =>
         g.circle(x, 0, h / 2 - 6);
         g.fill();
         g.stroke();
-        setText(label, v ? 'BẬT' : 'TẮT');
+        setText(label, v ? toggleText.on : toggleText.off);
         label.color = v ? Color.WHITE : UI.text;
         label.node.setPosition(v ? -18 : 18, 0, 0);
     };
-    n.on(Node.EventType.TOUCH_END, () => {
+    const flip = () => {
         v = !v;
         draw();
         onChange(v);
-    });
+    };
+    n.on(Node.EventType.TOUCH_END, flip);
     draw();
-    return { node: n, set: (x: boolean) => { v = x; draw(); } };
+    return {
+        node: n,
+        set: (x: boolean) => { v = x; draw(); },
+        setFocus: (on: boolean) => { focus = on; draw(); },
+        flip,
+    };
 }

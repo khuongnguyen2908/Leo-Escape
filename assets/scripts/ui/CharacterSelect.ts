@@ -2,6 +2,7 @@ import { _decorator, Color, Component, Graphics, Label, Node, Sprite, SpriteFram
 import { keyName, Settings } from '../core/Settings';
 import { Sound } from '../core/Sound';
 import { PlayerInput } from '../player/PlayerInput';
+import { Lang } from './Lang';
 import { setText, UI, uiLabel, uiNode } from './UiKit';
 const { ccclass } = _decorator;
 
@@ -39,7 +40,8 @@ export class CharacterSelect extends Component {
 
     /** Dựng màn chọn. leoFrame: hình Leo; angeloTint/angeloWidth: hình tạm của Angelo (hình Leo nhuộm, bóp gầy). */
     setup(leoFrame: SpriteFrame | null, angeloFrame: SpriteFrame | null, angeloTint: Color, angeloWidth: number) {
-        const title = uiLabel(this.node, 'CHỌN MÈO', 72, UI.cream, { outline: UI.brown, outlineWidth: 8 });
+        const title = uiLabel(this.node, '', 72, UI.cream, { outline: UI.brown, outlineWidth: 8 });
+        Lang.bind(title, 'pick.title');
         title.node.setPosition(0, 430, 0);
 
         this.cards.push(this.makeCard(LANE_X[0], 'LEO', leoFrame, Color.WHITE, 1));
@@ -58,8 +60,9 @@ export class CharacterSelect extends Component {
         this.place(0, false);
         this.place(1, false);
 
-        const hint = uiLabel(this.node, 'Trái / phải: chọn mèo   ·   Nhảy: chốt   ·   Xuống: bỏ chọn   ·   Esc: quay lại', 30, UI.cream,
+        const hint = uiLabel(this.node, '', 30, UI.cream,
             { outline: UI.brown, outlineWidth: 4 });
+        Lang.bind(hint, 'pick.hint');
         hint.node.setPosition(0, -490, 0);
 
         this.countdown = uiLabel(this.node, '', 160, UI.cream, { outline: UI.green, outlineWidth: 10 });

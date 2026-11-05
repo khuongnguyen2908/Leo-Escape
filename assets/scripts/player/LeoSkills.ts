@@ -58,6 +58,12 @@ export class LeoSkills extends Component implements CatSkills {
     @property({ group: 'Nhảy 2 lần', tooltip: 'Lần nhảy trên không mạnh bằng bao nhiêu so với nhảy thường (miễn phí)' })
     airJumpPower = 0.85;
 
+    @property({ group: 'Mở khoá', tooltip: 'Có đập bụng (Xuống + J khi đang bay) chưa. Tạm tắt, sau này mở trong cửa hàng nâng cấp. Tắt thì Xuống + J trên không là chém thường' })
+    poundUnlocked = false;
+
+    @property({ group: 'Mở khoá', tooltip: 'Có tuyệt chiêu Mèo Nổ (Xuống + L) chưa. Tạm tắt, sau này mở trong cửa hàng nâng cấp. Tắt thì Xuống + L là lướt' })
+    burstUnlocked = false;
+
     @property({ tooltip: 'Tốc độ lao xuống khi đập bụng' })
     poundSpeed = 2200;
 
@@ -177,13 +183,13 @@ export class LeoSkills extends Component implements CatSkills {
         // Phím K: chỉ khi có Angelo (chưa có thì nuốt phím, không làm gì)
         if (ctl.consumeSkill() && !this.carrying && this.partner()) {
             if (!b.grounded) {
-                if (c.useEnergy(this.poundEnergy)) {
+                if (this.poundUnlocked && c.useEnergy(this.poundEnergy)) {
                     this.startPound();
                     return true;
                 }
             } else if (ctl.down) {
                 // Giữ Xuống + K: tuyệt chiêu (trên bục một chiều thì bấm Xuống đã rơi xuyên xuống rồi)
-                if (!b.groundSolid?.oneWay && this.startBurst()) return true;
+                if (this.burstUnlocked && !b.groundSolid?.oneWay && this.startBurst()) return true;
             } else {
                 this.setLying(true);
                 return true;
@@ -192,10 +198,11 @@ export class LeoSkills extends Component implements CatSkills {
         if (ctl.consumeInteract()) {
             if (this.carrying) this.throwPartner();
             else if (!this.partner()) {
-                // Chưa có Angelo: phím Tương tác = Lướt; giữ Xuống + Lướt trên nền cứng = Mèo Nổ
-                if (ctl.down && b.grounded && !b.groundSolid?.oneWay) {
+                // Chưa có Angelo: phím Tương tác không làm gì (lướt chỉ bằng bấm đúp trái / phải).
+                // Mèo Nổ đang khoá; khi mở trong cửa hàng sẽ gán phím riêng.
+                if (this.burstUnlocked && ctl.down && b.grounded && !b.groundSolid?.oneWay) {
                     if (this.startBurst()) return true;
-                } else c.tryDash();
+                }
             } else this.tryPickUp();
         }
         return false;
@@ -206,7 +213,7 @@ export class LeoSkills extends Component implements CatSkills {
         if (this.carrying || this.state !== 'none') return true;
         const c = this.cat, b = c.body;
         // Giữ Xuống + J: trên không thì đập bụng, trên nền cứng thì quét chân
-        if (c.controls.down && !b.grounded) {
+        if (this.poundUnlocked && c.controls.down && !b.grounded) {
             if (c.useEnergy(this.poundEnergy)) this.startPound();
             return true;
         }

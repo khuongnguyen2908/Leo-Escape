@@ -46,7 +46,7 @@ const _other = new Rect();
  * đi lên bục một chiều ngay phía trên, xuống khỏi bục.
  * Đánh: bấm liên tục ra combo 5 nhát (nhát 4 chém xoay trúng cả sau lưng, nhát 5 kết liễu). Đang bay thì combo 3 nhát đầu.
  * Giữ nút đánh đủ Charge Time rồi thả: phóng sóng kiếm.
- * Lướt chém (kiểu Mega Man X): phím Tương tác khi chưa có Angelo (LeoSkills gọi tryDash), hoặc bấm đúp trái/phải.
+ * Lướt chém (kiểu Mega Man X): bấm đúp trái/phải (điện thoại: đẩy đúp joystick). Không còn phím Lướt riêng.
  * Đang lướt trên mặt đất mà bấm Nhảy: nhảy giữ đà lướt (bay nhanh hơn chạy) tới khi chạm đất.
  * Chạy, nhảy, chém thường miễn phí; chỉ kỹ năng (lướt, sóng kiếm, chém hất, quét chân, đập bụng, Mèo Nổ) tốn năng lượng.
  * Phím nào điều khiển con mèo này do GameManager gán (controls), theo lựa chọn 1 người / 2 người.
@@ -171,6 +171,8 @@ export class PlayerController extends Component {
     body!: PlatformerBody;
     facing = 1;
     controlEnabled = true;
+    /** Khi bị khoá điều khiển: tự chạy theo hướng này (1 phải, -1 trái, 0 đứng). Dùng lúc về đích. */
+    autoMove = 0;
     /** Phím đang điều khiển con mèo này (GameManager gán). Mặc định không điều khiển gì. */
     controls: Controls = PlayerInput.none;
     /** Chơi 1 người: con mèo đang đứng chờ (không điều khiển) thì không bị đánh. */
@@ -256,7 +258,9 @@ export class PlayerController extends Component {
         }
 
         // Chạy
-        const dir = canControl ? (this.controls.right ? 1 : 0) - (this.controls.left ? 1 : 0) : 0;
+        const dir = canControl
+            ? (this.controls.right ? 1 : 0) - (this.controls.left ? 1 : 0)
+            : (this.downed || this.hurtLock > 0 ? 0 : this.autoMove);
         if (this.lunge > 0) this.lunge -= dt;
         if (this.pushLock > 0) this.pushLock -= dt;
         if (b.grounded) this.dashJump = false;
@@ -493,6 +497,13 @@ export class PlayerController extends Component {
         SwordWave.fire(parent, p.x + this.facing * 220, p.y + 95, this.facing,
             { speed: this.waveSpeed, distance: this.waveDistance, damage: this.waveDamage });
         CameraRig.instance?.shake(6, 0.1);
+    }
+
+    /** Nảy lên một nhịp nhỏ (mừng về đích), không tiếng nhảy. */
+    hop(speed: number) {
+        this.body.velocity.y = speed;
+        this.jumping = false;
+        this.visual?.playJump();
     }
 
     /** Trừ năng lượng nếu đủ; không đủ thì báo (thanh nháy đỏ) và trả về false. */

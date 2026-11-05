@@ -3,6 +3,7 @@ import { CameraRig } from '../camera/CameraRig';
 import { computeBox, overlaps } from '../core/Box';
 import { keyName, Settings } from '../core/Settings';
 import { Sound } from '../core/Sound';
+import { TimeScale } from '../core/TimeScale';
 import { AngeloSkills } from '../player/AngeloSkills';
 import { FollowerAI } from '../player/FollowerAI';
 import { LeoSkills } from '../player/LeoSkills';
@@ -14,6 +15,11 @@ import { ReviveRing } from '../player/ReviveRing';
 import { RunDust } from '../player/RunDust';
 import { CoinCounter } from '../ui/CoinCounter';
 import { HeartsHUD } from '../ui/HeartsHUD';
+import { LandingScreen } from '../ui/LandingScreen';
+import { T } from '../ui/Lang';
+import { PauseMenu } from '../ui/PauseMenu';
+import { ResultsScreen } from '../ui/ResultsScreen';
+import { ScreenFade } from '../ui/ScreenFade';
 import { GameSession, reloadScene } from './GameSession';
 const { ccclass, property } = _decorator;
 
@@ -29,7 +35,8 @@ const ANGELO_SOUL = new Color(150, 196, 240, 255);
  * Chơi 1 người: điều khiển một con, phím Đổi mèo (Tab) để đổi (linh hồn bay qua). Con kia tự đi theo, tự chém địch
  * (FollowerAI); nó bị đánh nhưng không gục, kẹt hoặc tụt lại xa thì hoá linh hồn bay tới.
  * Chơi 2 người: mỗi người một con, hai con không được đi xa nhau quá Max Gap.
- * Một con hết tim thì gục; con kia tới gần giữ phím Tương tác để kéo dậy. Cả hai cùng gục thì thua.
+ * Một con hết tim thì gục; con kia tới gần giữ phím Tương tác để kéo dậy. Cả hai cùng gục thì màn tối lại, sống lại ở checkpoint (đếm số lần gục).
+ * Về đích: bảng kết quả (thời gian, số cá, số lần gục, sao, kỷ lục) với Chơi lại / Về menu.
  * Gắn lên Canvas, chỉ có một trong scene.
  */
 @ccclass('GameManager')
@@ -74,12 +81,27 @@ export class GameManager extends Component {
     @property({ tooltip: 'Rơi thấp hơn độ cao này (toạ độ lớp Gameplay) là rơi xuống vực' })
     killY = -600;
 
-    @property({ group: 'Âm thanh', tooltip: 'Tên file nhạc nền trong assets/resources/sounds (để trống = không có nhạc). Âm lượng chỉnh trong menu Cài đặt' })
-    music = 'bgm';
+    @property({ group: 'Về đích', tooltip: 'Chạm cờ: mèo nảy mừng lên với vận tốc này rồi mới tự chạy ra khỏi màn (0 = không nảy)' })
+    winHop = 650;
+
+    @property({ group: 'Về đích', tooltip: 'Mèo tự chạy quá chừng này giây mà chưa khuất khỏi khung hình (bị kẹt) thì vẫn hiện bảng kết quả' })
+    winWalkMax = 4;
+
+    @property({ group: 'Âm thanh', tooltip: 'Tên file nhạc nền trong assets/resources/sounds (để trống = không có nhạc). Nhạc trận boss: ô Boss Music của BossArena. Âm lượng chỉnh trong menu Cài đặt' })
+    music = 'bgm_forest';
 
     coins = 0;
+    /** Thời gian chơi màn này (giây, không tính lúc tạm dừng), số cá đã nhặt / có trong màn, số lần gục hết tim. */
+    playTime = 0;
+    fish = 0;
+    fishTotal = 0;
+    downs = 0;
+    /** Tên màn để lưu kỷ lục. */
+    levelId = 'chapter1-1';
     readonly respawnPoint = new Vec3();
     private finished = false;
+    /** Về đích: thời gian (giây) từ lúc chạm cờ; âm là chưa về đích */
+    private outroTime = -1;
     private respawning = false;
     /** Gục hết thì chờ chừng này giây (hiện "Try again!") rồi hồi sinh ở checkpoint */
     private respawnDelay = 1.2;
@@ -102,6 +124,8 @@ export class GameManager extends Component {
 
     onLoad() {
         GameManager.instance = this;
+        TimeScale.reset(); // vào màn (chơi lại giữa lúc slow motion) thì về tốc độ bình thường
+        PauseMenu.blockOpen = () => this.finished;
         PlayerInput.reset();
         if (!this.angeloEnabled) this.removeAngelo();
         GameSession.angelo = !!this.partner;
@@ -143,13 +167,17 @@ export class GameManager extends Component {
             this.hudFor(c)?.setHp(c.hp, this.maxHp);
         }
         if (this.player) this.respawnPoint.set(this.player.node.position);
+        this.fishTotal = this.player?.node.parent?.getComponentsInChildren('CoinPickup').length ?? 0;
         this.updateCamera();
         // Màn mở đầu đang hiện thì chờ bấm START (LandingScreen gọi beginPlay)
         if (!GameSession.waitingForStart) this.beginPlay();
     }
 
     onDestroy() {
-        if (GameManager.instance === this) GameManager.instance = null;
+        if (GameManager.instance === this) {
+            GameManager.instance = null;
+            PauseMenu.blockOpen = () => false;
+        }
     }
 
     /** Bắt đầu chơi: gán phím cho từng con mèo theo lựa chọn 1 người / 2 người. */
@@ -176,7 +204,7 @@ export class GameManager extends Component {
         for (const c of this.cats) {
             c.idle = false;
             if (c === cat) {
-                c.controls = PlayerInput.merged;
+                c.controls = PlayerInput.player(0); // chơi 1 người: chỉ bộ phím Người 1 (Kiểu phím chọn trong Cài đặt)
             } else {
                 const ai = this.aiFor(c);
                 ai.leader = cat;
@@ -257,12 +285,14 @@ export class GameManager extends Component {
     }
 
     update(dt: number) {
+        if (this.outroTime >= 0) this.updateOutro(dt);
         if (this.finished) return;
+        if (this.playing) this.playTime += dt;
 
         // Chơi 1 người: con không được điều khiển tự đi theo; phím Đổi mèo để đổi
         if (this.playing && this.active) {
             for (const c of this.cats) if (c !== this.active) this.ai.get(c)?.think(dt);
-            if (PlayerInput.merged.consumeSwap()) {
+            if (PlayerInput.player(0).consumeSwap()) {
                 const other = this.cats.find((c) => c !== this.active && !c.downed);
                 if (other) this.setActive(other, true);
             }
@@ -323,6 +353,7 @@ export class GameManager extends Component {
     addCoins(amount: number) {
         Sound.play('coin', 0.7);
         this.coins += amount;
+        this.fish++;
         this.coinCounter?.setValue(this.coins);
     }
 
@@ -330,9 +361,77 @@ export class GameManager extends Component {
         this.respawnPoint.set(pos);
     }
 
+    /** Cảnh mở màn boss: mèo đứng yên, không điều khiển được, không bị đánh. */
+    lockCats(on: boolean) {
+        if (this.finished) return;
+        for (const c of this.cats) {
+            c.controlEnabled = !on && !c.downed;
+            if (on) {
+                c.body.velocity.x = 0;
+                c.invincible = Math.max(c.invincible, 999);
+            } else if (c.invincible > 900) {
+                c.invincible = 0.5;
+            }
+        }
+        PlayerInput.clearQueues();
+    }
+
+    /** Camera bám lại mèo (sau khi trượt sang boss). */
+    followCats() {
+        this.updateCamera();
+    }
+
+    /**
+     * Về đích: người chơi thôi điều khiển, camera đứng yên, mèo nảy mừng một nhịp rồi tự chạy sang phải ra khỏi khung hình;
+     * khuất hết thì màn tối mờ dần rồi hiện bảng kết quả.
+     */
     win() {
+        if (this.finished) return;
+        this.finished = true;
         Sound.play('win');
-        this.end('You made it!', 3);
+        for (const c of this.cats) {
+            c.controlEnabled = false;
+            c.invincible = Math.max(c.invincible, 999);
+            c.getComponent(PoisonStatus)?.clear();
+            if (c.body.grounded && !c.downed && this.winHop > 0) {
+                c.body.velocity.x = 0;
+                c.hop(this.winHop);
+            }
+        }
+        PlayerInput.clearQueues();
+        this.getComponent(CameraRig)?.hold(true);
+        this.outroTime = 0;
+    }
+
+    /** Chạy ra khỏi màn: đáp đất xong thì chạy; con cuối khuất khỏi khung hình (hoặc kẹt quá lâu) thì hiện kết quả. */
+    private updateOutro(dt: number) {
+        this.outroTime += dt;
+        const rig = this.getComponent(CameraRig);
+        let allGone = true;
+        for (const c of this.cats) {
+            if (c.downed) continue;
+            if (c.autoMove === 0 && this.outroTime > 0.15 && c.body.grounded) c.autoMove = 1;
+            if (rig && rig.inViewX(c.node.position.x, 120)) allGone = false;
+        }
+        if (allGone || this.outroTime > this.winWalkMax) {
+            this.outroTime = -1;
+            this.showResults();
+        }
+    }
+
+    /** Màn tối mờ dần rồi hiện bảng kết quả. */
+    private showResults() {
+        ScreenFade.to(170, 0.5, () => {
+            const stats = { level: this.levelId, time: this.playTime, fish: this.fish, fishTotal: this.fishTotal, downs: this.downs };
+            ResultsScreen.show(this.node, stats, {
+                replay: () => ScreenFade.to(255, 0.3, () => reloadScene()),
+                menu: () => ScreenFade.to(255, 0.3, () => {
+                    LandingScreen.passed = false;
+                    GameSession.reset();
+                    reloadScene();
+                }),
+            });
+        });
     }
 
     /** Các con mèo (còn đứng) đang chạm hộp (size, offset) của node. Node phải nằm trong lớp Gameplay. */
@@ -377,7 +476,7 @@ export class GameManager extends Component {
                 this.standUp(c);
                 continue;
             }
-            ring?.show(progress, helper ? `Giữ ${this.interactKeyName(helper)}` : '');
+            ring?.show(progress, helper ? T('revive.hold', this.interactKeyName(helper)) : '');
         }
     }
 
@@ -413,46 +512,40 @@ export class GameManager extends Component {
     }
 
     /**
-     * Gục hết: hiện "Try again!" một chút rồi mọi con mèo đứng dậy ở checkpoint gần nhất (chưa chạm checkpoint nào thì đầu màn),
+     * Gục hết: hiện "Thử lại nào!" một chút, màn tối lại rồi mọi con mèo đứng dậy ở checkpoint gần nhất (chưa chạm checkpoint nào thì đầu màn),
      * đủ tim, bất tử 1.5 giây. Boss đánh lại từ đầu (respawnListeners). Quái đã hạ, cá đã ăn giữ nguyên.
      */
     private respawnAtCheckpoint() {
         if (this.finished || this.respawning) return;
         this.respawning = true;
+        this.downs++;
         Sound.play('lose');
         for (const c of this.cats) {
             c.controlEnabled = false;
             c.getComponent(PoisonStatus)?.clear();
         }
-        this.hud?.showMessage('Try again!');
-        this.scheduleOnce(() => {
-            this.respawning = false;
-            if (this.finished) return;
-            this.hud?.hideMessage();
-            this.cats.forEach((c, i) => {
-                this.revive.delete(c);
-                c.getComponent(ReviveRing)?.hide();
-                _pos.set(this.respawnPoint.x - i * 120, this.respawnPoint.y + 20, 0);
-                c.respawn(_pos);
-                c.hp = this.maxHp;
-                c.setDowned(false);
-                c.controlEnabled = true;
-                this.hudFor(c)?.setHp(c.hp, this.maxHp);
-            });
-            for (const f of GameManager.respawnListeners.slice()) f();
-            CameraRig.instance?.snapNext();
-            Sound.play('heal');
-        }, this.respawnDelay);
+        this.hud?.showMessage(T('hud.tryAgain'));
+        // Chữ hiện một lúc, màn tối hẳn, đổi chỗ trong bóng tối rồi sáng lại
+        this.scheduleOnce(() => ScreenFade.blink(() => this.respawnNow()), this.respawnDelay);
     }
 
-    private end(message: string, restartDelay: number) {
+    /** Trong lúc màn tối: mọi con mèo đứng dậy ở checkpoint, đủ tim; boss đánh lại từ đầu. */
+    private respawnNow() {
+        this.respawning = false;
         if (this.finished) return;
-        this.finished = true;
-        for (const c of this.cats) {
-            c.controlEnabled = false;
-            c.getComponent(PoisonStatus)?.clear();
-        }
-        this.hud?.showMessage(message);
-        this.scheduleOnce(() => reloadScene(), restartDelay);
+        this.hud?.hideMessage();
+        this.cats.forEach((c, i) => {
+            this.revive.delete(c);
+            c.getComponent(ReviveRing)?.hide();
+            _pos.set(this.respawnPoint.x - i * 120, this.respawnPoint.y + 20, 0);
+            c.respawn(_pos);
+            c.hp = this.maxHp;
+            c.setDowned(false);
+            c.controlEnabled = true;
+            this.hudFor(c)?.setHp(c.hp, this.maxHp);
+        });
+        for (const f of GameManager.respawnListeners.slice()) f();
+        CameraRig.instance?.snapNext();
+        Sound.play('heal');
     }
 }

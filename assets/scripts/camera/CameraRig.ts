@@ -93,6 +93,9 @@ export class CameraRig extends Component {
     @property({ group: 'Giới hạn màn', tooltip: 'Camera không lên cao hơn' })
     maxY = 220;
 
+    @property({ group: 'Giới hạn màn', tooltip: 'Về đích (camera đứng yên): mép phải khung hình phải cách Max X ít nhất chừng này, sát hơn thì camera trượt nhẹ sang trái, để mèo còn chỗ chạy khuất trước khi đụng tường cuối màn' })
+    holdExitRoom = 250;
+
     readonly position = new Vec2();
 
     private look = 0;
@@ -105,6 +108,8 @@ export class CameraRig extends Component {
     private shakeTime = 0;
     private shakeDuration = 0;
     private readonly shaken = new Vec2();
+    /** Camera đứng yên, không bám theo ai (lúc về đích: mèo chạy ra khỏi khung hình) */
+    private held = false;
 
     onLoad() {
         if (!EDITOR) CameraRig.instance = this;
@@ -127,6 +132,10 @@ export class CameraRig extends Component {
             // Trong editor: xem trước thì dịch lớp theo camera; không xem trước thì ghi nhận vị trí bạn kéo làm vị trí gốc
             if (this._editorPreview) this.applyEditorPreview();
             else for (const layer of ParallaxLayer.all) layer.captureBase();
+            return;
+        }
+        if (this.held) {
+            this.updateHeld(dt);
             return;
         }
         // Bám một con (chơi 1 người) hoặc điểm giữa hai con (chơi 2 người)
@@ -169,10 +178,24 @@ export class CameraRig extends Component {
         for (const layer of ParallaxLayer.all) layer.apply(cam, zoom);
     }
 
+    /** Đứng yên; chỉ trượt sang trái nếu đang sát mép phải màn chơi quá (mèo cần chỗ chạy ra khỏi khung hình). */
+    private updateHeld(dt: number) {
+        const zoom = Math.max(0.1, this.zoom);
+        const limit = this.maxX - this.frameWidth() / 2 / zoom - this.holdExitRoom;
+        if (this.position.x <= limit) return;
+        this.position.x += (limit - this.position.x) * (1 - Math.exp(-this.dampingX * 0.6 * dt));
+        for (const layer of ParallaxLayer.all) layer.apply(this.position, zoom);
+    }
+
     /** Chỗ x (toạ độ lớp Gameplay) có đang thấy trong khung hình không, nới thêm margin hai bên. */
     inViewX(x: number, margin = 0): boolean {
         const halfW = this.frameWidth() / 2 / Math.max(0.1, this.zoom);
         return Math.abs(x - this.position.x) <= halfW + margin;
+    }
+
+    /** Giữ camera đứng yên ở chỗ hiện tại (true) hoặc bám theo lại (false). */
+    hold(on: boolean) {
+        this.held = on;
     }
 
     /** Đổi nhân vật cần bám theo (một hoặc nhiều node trong lớp Gameplay). */

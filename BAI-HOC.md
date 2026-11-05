@@ -119,6 +119,45 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Cách sửa: hỏi `asset-db` lấy uuid rồi gọi `assetManager.loadAny(uuid)` (xem `loadArtInEditor`).
 - Cách tránh lần sau: code chạy trong editor (`executeInEditMode`, nút bấm) không dùng `resources.load`.
 
+### Đổi tên file asset ngoài Creator làm sai tên file .meta
+- Ngày: 06/11/2026 · Nhóm: editor
+- Triệu chứng: đổi tên nhạc thành `bgm_boss.mp3` mà file kèm thành `bgm_boss.meta` (đúng phải là `bgm_boss.mp3.meta`).
+  Để vậy thì Creator tạo meta mới (mã uuid mới) và coi meta cũ là "mồ côi".
+- Cách sửa: đổi tên meta thành `<tên file đầy đủ kèm đuôi>.meta`, nội dung giữ nguyên.
+- Cách tránh lần sau: đổi tên asset trong Creator (chuột phải → Rename). Mỗi khi người dùng thêm / đổi file, kiểm tra từng file có đúng cặp `X.ext` + `X.ext.meta`.
+
+### Nhạc nặng làm chậm mọi tiếng hiệu ứng
+- Ngày: 06/11/2026 · Nhóm: code
+- Nguyên nhân: `resources.loadDir('sounds')` tải cả thư mục một lượt; thêm 2 bài nhạc 13 MB thì tiếng nhảy, chém... phải chờ tải xong hết mới kêu.
+- Cách sửa: `Sound.preload` chỉ tải tiếng hiệu ứng (bỏ file tên bắt đầu "bgm"); `Sound.music` tải riêng bài cần phát; `Sound.prefetch` tải sẵn nhạc boss lúc chiếu mở màn.
+- Cách tránh lần sau: file lớn (nhạc, ảnh nền to) không gộp chung với thứ nhỏ cần dùng ngay.
+
+### Về đích: mèo tự chạy mà không ra khỏi màn hình được
+- Ngày: 06/11/2026 · Nhóm: code
+- Triệu chứng: chạm cờ, camera đứng yên, mèo chạy sang phải nhưng đụng tường cuối màn ngay mép màn hình, đứng kẹt tới hết 4 giây chờ.
+- Nguyên nhân: cờ nằm gần cuối màn; chạy vào cờ thì camera nhìn trước (~380 px) nên đã chạm Max X, mép phải khung hình trùng tường.
+  Lúc thử đầu tiên tôi dịch mèo tới cạnh cờ nên camera chưa kịp nhìn trước, thấy chạy đúng và suýt bỏ sót.
+- Cách sửa: lúc giữ camera, nếu mép phải khung hình cách Max X ít hơn `holdExitRoom` (250) thì camera trượt nhẹ sang trái.
+- Cách tránh lần sau: thử hiệu ứng camera thì đặt camera đúng chỗ nó sẽ đứng khi chơi thật (đang chạy, sát giới hạn màn),
+  đừng chỉ dịch nhân vật tới rồi đo. Cờ, cửa ra... nằm sát cuối màn thì nhớ camera đã bị giới hạn chặn.
+- Bẫy khi thử: cờ đích đứng trên bậc đá cao ngay mép trái bậc; đặt mèo lùi về bên trái là rơi xuống dưới bậc, không tới cờ được.
+
+### Nhạc thường vẫn phát trong trận boss
+- Ngày: 06/11/2026 · Nhóm: code
+- Triệu chứng: vào đánh boss mà vẫn nghe `bgm_forest`, không chuyển sang `bgm_boss`.
+- Nguyên nhân: `prefetch('bgm_boss')` đang tải dở thì tới lúc đánh, `music('bgm_boss')` thấy "đang tải" nên thoát luôn;
+  `prefetch` tải xong chỉ cất bài đó lại, không ai bật. Nhạc thường cũng chưa được tắt lúc vào hang.
+- Cách sửa: `prefetch` tải xong thì kiểm tra, nếu game đang muốn phát đúng bài đó thì phát luôn. Vào hang thì `Sound.stopMusic()` ngay.
+- Cách tránh lần sau: có hai đường cùng tải một thứ thì đường nào tải xong trước cũng phải làm nốt việc của đường kia.
+  Khi thử, phải thử cả trường hợp file **chưa tải xong** lúc cần dùng, đừng chỉ thử khi đã có sẵn.
+
+### Slow motion: engine không có nút chỉnh tốc độ thời gian cho mọi thứ
+- Ngày: 06/11/2026 · Nhóm: code
+- Đã thử: `Scheduler.setTimeScale` chỉ ảnh hưởng hẹn giờ, không ảnh hưởng `update(dt)` của component.
+- Cách làm: `core/TimeScale.ts` thay `director.tick` bằng hàm nhân `dt` với tốc độ → mọi update, tween, hẹn giờ đều chậm theo.
+  Nhịp chậm dần / nhanh dần chạy bằng `setInterval` + `Date.now()` (giờ thật, không bị chậm theo chính nó). Vào màn mới gọi `TimeScale.reset()`.
+- Lưu ý: trong lúc chậm, `scheduleOnce(…, 0.6)` thành vài giây giờ thật; thứ cần hiện đúng lúc (chữ ĐÃ HẠ BOSS!) dùng `setTimeout`.
+
 ### Ảnh mới thả vào bị nhập dạng texture, code không lấy được
 - Ngày: 03/11/2026 · Nhóm: art
 - Triệu chứng: ảnh mới (`Button_*`, `MG_energy_*`) đã nằm trong `assets/resources/art` nhưng game vẫn dùng hình vẽ tạm.
@@ -160,6 +199,59 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Triệu chứng: chém hụt, đứng lơ lửng, hoặc bị đụng khi chưa chạm.
 - Nguyên nhân: `Size` của **Solid** và **PlatformerBody** không đổi khi scale node hay đổi ảnh.
 - Cách tránh lần sau: đổi cỡ hình thì nhắc chỉnh `Size`, rồi bật *Debug Colliders* và Play để kiểm tra.
+
+## Code giao diện (menu, bảng)
+
+### Đổi ngôn ngữ báo lỗi `keyCells is not iterable` sau khi chơi lại màn
+- Ngày: 06/11/2026 · Nhóm: code
+- Triệu chứng: Chơi lại / Về menu rồi đổi ngôn ngữ trong Cài đặt thì màn hình lỗi đỏ.
+- Nguyên nhân: PauseMenu đăng ký `Lang.onChange(...)` nhưng không gỡ. Scene cũ bị xoá, component cũ bị xoá sạch dữ liệu (`keyCells` thành null)
+  mà hàm nghe vẫn nằm trong danh sách, đổi ngôn ngữ là gọi vào nó.
+- Cách sửa: hàm nghe là thuộc tính cố định (`private readonly onLang = () => ...`), `onDestroy` gọi `Lang.offChange(this.onLang)`;
+  TutorialHint gỡ `Settings.onChange` trong `onDestroy`.
+- Cách tránh lần sau: mỗi `X.onChange(...)` / `input.on(...)` / danh sách tĩnh phải có cặp gỡ trong `onDestroy`. Đừng truyền hàm mũi tên viết tại chỗ (không gỡ được).
+
+### Hiệu ứng nổ bám theo thứ đang teo đi
+- Ngày: 06/11/2026 · Nhóm: code
+- Triệu chứng: cá bị ăn, quầng sáng đáng ra nở to rồi tan thì lại co về 0 cùng con cá.
+- Nguyên nhân: cỡ quầng tính theo bề ngang cá mỗi khung, mà lúc nổ cá đang teo (tween scale → 0).
+- Cách tránh lần sau: lúc bắt đầu hiệu ứng nổ thì "chốt" vị trí / cỡ của vật gốc, đừng bám theo nữa. Đo số từng khung (scale, opacity) để thấy ngay.
+
+### Bảng gợi ý bám theo mèo đè lên hàng tim
+- Ngày: 06/11/2026 · Nhóm: code
+- Triệu chứng: mèo đứng trên bậc cao thì bảng hướng dẫn trên đầu mèo bị đẩy lên mép trên, che tim và thanh năng lượng.
+- Cách sửa: `TutorialHint.follow` kẹp mép trên bảng dưới dải HUD (250 tính từ mép trên khung); bị kẹp tới đầu mèo thì dời sang bên cạnh.
+  Đổi toạ độ: chỗ trên màn hình = toạ độ trong lớp Gameplay + `Gameplay.position` (lớp là con của Canvas, tâm khung hình).
+- Cách tránh lần sau: mọi thứ vẽ trong thế giới mà bám theo nhân vật (chữ, bảng, mũi tên) phải thử cả lúc nhân vật ở bậc cao nhất và mép màn.
+
+### Quay lại trang trước thì khung chọn nhảy về ô đầu
+- Ngày: 06/11/2026 · Nhóm: code
+- Triệu chứng: Chơi lại màn → KHÔNG → về menu, khung chọn nhảy lên "Tiếp tục"; bấm Enter tiếp là đóng menu.
+- Cách sửa: `MenuNav.open(first, keep)`; PauseMenu quay về từ trang con (Quay lại, KHÔNG, Esc) thì `keep = true`. Mở mới (Esc) vẫn chọn ô đầu.
+- Cách tránh lần sau: thử bảng hỏi lại bằng bàn phím cả hai đường KHÔNG và CÓ, mỗi đường bấm tiếp một lần sau đó.
+
+### Tải lại màn bị hỏng vì bảng vẽ lại nút lúc đang bị xoá
+- Ngày: 06/11/2026 · Nhóm: code
+- Triệu chứng: bấm Về menu / Chơi lại ở bảng kết quả thì màn không tải lại, scene trống (không còn Canvas); console báo lỗi
+  `Cannot read properties of null (reading 'r')` trong `Graphics.fill` ← `MenuNav.close` ← `PauseMenu.onDestroy`.
+- Nguyên nhân: đổi scene thì mọi component bị xoá; `onDestroy` của PauseMenu đóng các bảng, bảng tắt viền chọn của từng nút
+  → vẽ lại trên Graphics đã bị xoá → lỗi văng giữa lúc engine đang xoá scene cũ, làm hỏng luôn việc chuyển scene.
+- Cách sửa: `MenuNav.close(false)` trong `onDestroy` (không vẽ lại); nút trong `UiKit` không vẽ khi `Graphics` đã `!isValid`.
+- Cách tránh lần sau: trong `onDestroy` chỉ dọn dẹp (gỡ đăng ký, huỷ hẹn giờ), **không vẽ, không đổi hình**.
+  Viết xong bảng nào cũng thử một lần đổi scene (Chơi lại / Về menu) và xem console.
+
+### Bảng vừa mở nhận luôn chính phím vừa mở nó
+- Ngày: 06/11/2026 · Nhóm: code
+- Triệu chứng: Esc mở menu tạm dừng rồi menu đóng ngay; Enter vào "Chơi lại màn" thì bảng hỏi lại tự chọn KHÔNG.
+- Nguyên nhân: nhiều chỗ cùng nghe sự kiện phím. Bảng mở ra trong lúc xử lý một lần bấm, rồi bộ nghe của bảng (chạy sau) lại xử lý tiếp chính lần bấm đó.
+  Lần đầu không bị vì bộ nghe của MenuNav chỉ đăng ký sau lần mở đầu tiên, nên thử một lần thấy đúng, mở lần hai mới lỗi.
+- Cách sửa: `MenuNav.open` đánh dấu `justOpened`, `setTimeout(0)` mới gỡ (chạy sau khi sự kiện hiện tại xử lý xong, kể cả lúc tạm dừng).
+- Cách tránh lần sau: thử mỗi bảng **hai lần liên tiếp** (mở, đóng, mở lại) bằng đúng phím người chơi bấm.
+
+### Định dạng thời gian ra "01:010.0"
+- Ngày: 06/11/2026 · Nhóm: code
+- Nguyên nhân: kiểm tra "giây < 10 thì thêm số 0" trước khi làm tròn; 9.96 làm tròn thành "10.0" nhưng vẫn bị thêm 0.
+- Cách tránh lần sau: làm tròn trước (đổi ra số phần mười), rồi mới tách phút / giây.
 
 ## Xếp màn theo ảnh demo
 
@@ -245,6 +337,16 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   (`cc.js.getClassByName('X').prototype.hàm = ...`), đo, rồi mới sửa code thật. Xong thì tải lại trang để bỏ bản vá.
   Combo trên không: đo vị trí cả hai bên ngay lúc chém (bọc hàm `slash`) mới thấy đòn trượt vì mèo rơi nhanh hơn địch.
 - Bẫy: thử chiêu có bấm W (chém hất) cạnh bàn/ghế thì W làm mèo nhảy lên bục trước. Đặt mèo và địch ở chỗ trống không có bục phía trên.
+- Bẫy (06/11/2026): trước khi kết luận "phím không ăn", đo số khung hình chạy trong 0.5 giây (`cc.director.getTotalFrames()`).
+  Ra 0 thì trình duyệt đang bóp khung hình (mèo không chạy, menu đọc phím trong update không đổi): chuyển sang tự tick.
+  Ảnh chụp lúc đó có thể là khung cũ: kiểm tra bằng số (node có tồn tại, opacity...) chứ đừng chỉ nhìn ảnh.
+- Bẫy (06/11/2026): ép cửa sổ (`resize_window`) thì trang xem trước của Creator đặt khung game 1920 lệch ra ngoài (left âm),
+  hai mép bị cắt; đừng tưởng HUD đặt sai rồi sửa theo `getVisibleSize`. Letterbox luôn giữ phần chơi đúng 1920×1080,
+  thứ bám mép màn hình đặt theo khung thiết kế. Đo `GameCanvas.getBoundingClientRect()` để biết trang có cắt không.
+- Bẫy (06/11/2026): sửa file bằng `node -e '...'` dài trong bash hay vỡ dấu nháy (chữ có dấu, `${}`, nháy đơn lồng nhau).
+  Đoạn sửa dài thì ghi ra file `.js` trong scratchpad (Write) rồi `node file.js đường-dẫn`.
+- Bẫy: đếm số lần bấm ↓ để tới một nút rất dễ sai (ô ẩn bị bỏ qua). Viết hàm "bấm ↓ tới khi ô đang chọn tên X" rồi mới bấm.
+- Phím ảo: `KeyboardEvent` phải có cả `code` lẫn `keyCode` (ghi đè bằng `Object.defineProperty`) thì Enter / Esc mới tới được engine.
 - Bẫy (05/11/2026): `getComponentsInChildren('PlayerController')[0]` có thể ra **Angelo đang bị ẩn** (đếm giữ J mãi bằng 0). Lọc `p.node.activeInHierarchy`.
   Trong trang, `getComponent(cc.UITransform)` có thể ra null; dùng tên chuỗi `getComponent('cc.UITransform')`.
 - Mẹo (05/11/2026): khung trình duyệt của app nhỏ, chụp màn hình không nhìn rõ chi tiết. Cắt thẳng từ canvas game:

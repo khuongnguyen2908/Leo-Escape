@@ -8,6 +8,7 @@ import { PlayerController } from '../player/PlayerController';
 import { AcidGlob } from './AcidGlob';
 import { AcidHazard } from './AcidHazard';
 import { AcidWarning } from './AcidWarning';
+import { BossArena } from './BossArena';
 import { EnemyPatrol } from './EnemyPatrol';
 const { ccclass, property } = _decorator;
 
@@ -20,7 +21,7 @@ type Attack = 1 | 2 | 3;
 
 /**
  * Bộ não boss (gắn cùng node với EnemyPatrol của boss; DemoLevelBuilder tự gắn khi chơi nếu chưa có).
- * Chỉ ra đòn khi mèo đã vào khu của boss (khối nền boss đứng).
+ * Khu boss (BossArena, tự gắn cùng node): mèo bước lên khối nền boss đứng thì chiếu cảnh mở màn, xong mới ra đòn.
  *  - Phase 1 (máu trên Phase 2 At, mặc định 2/3): đi chậm, đòn xong nghỉ Cooldown 1 giây rồi ra Axit 1.
  *  - Máu xuống Phase 2 At: nhảy múa (Dance, bất tử) rồi Phase 2: đi nhanh hơn, Axit 1 hoặc Axit 2 (1 bom), không lặp liền.
  *  - Máu xuống Phase 3 At (mặc định 1/3): nhảy múa rồi Phase 3: Axit 1, Axit 2 (2 bom) hoặc Axit 3 (6 cột dồn dập hơn), không lặp liền.
@@ -94,10 +95,13 @@ export class BossBrain extends Component {
     private startX = 0;
     private startY = 0;
     private warnings: AcidWarning[] = [];
+    private arena: BossArena | null = null;
     private readonly alive = () => !!this.boss && this.boss.isValid && !this.boss.defeated;
 
     onLoad() {
         this.boss = this.getComponent(EnemyPatrol);
+        this.arena = this.getComponent(BossArena) ?? this.addComponent(BossArena);
+        this.arena.onFight = () => { this.timer = 1; };
         for (const p of [DANCE, ACID_BOMB, ACID_PILLAR]) DustPuff.preload(p);
         AcidGlob.preload();
     }
@@ -109,6 +113,7 @@ export class BossBrain extends Component {
         this.startX = e.node.position.x;
         this.startY = e.node.position.y;
         this.findArena();
+        this.arena?.setup(e, this.left, this.right, this.groundY);
         GameManager.respawnListeners.push(this.retry);
     }
 
@@ -143,6 +148,7 @@ export class BossBrain extends Component {
         }
         for (const p of e.node.getComponentsInChildren(DustPuff)) p.node.destroy(); // nốt nhạc đang nhảy múa
         e.resetForRetry(this.startX, this.startY);
+        this.arena?.retry(); // boss về gặm xương, mở dấu X; vào lại thì chiếu bản ngắn
         e.speed = this.baseSpeed;
         this.phase = 1;
         this.timer = 1.5;
@@ -200,6 +206,14 @@ export class BossBrain extends Component {
             this.unscheduleAllCallbacks();
             this.clearWarnings();
             this.enabled = false;
+            return;
+        }
+
+        // Chưa vào trận: mèo bước lên khối đá thì chiếu cảnh mở màn; đang chiếu thì chờ
+        const arena = this.arena;
+        if (arena && !arena.fighting) {
+            const t = this.target();
+            if (!arena.busy && t && arena.isInside(t.node.position.x)) arena.enter();
             return;
         }
 
