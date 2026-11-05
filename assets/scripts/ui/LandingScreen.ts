@@ -24,6 +24,11 @@ export const MENU_ITEMS: [string, string][] = [
 const TITLE_OUTLINE = new Color(0x46, 0x2c, 0x22, 255);
 const SMALL = new Color(0x96, 0x87, 0x87, 255);
 const SMALL_OUTLINE = new Color(0x2c, 0x1d, 0x17, 255);
+/** Khung chọn selection.png rộng 385: hoa văn + mép bo mỗi đầu 70 (không giãn), phần đệm vuông nằm từ 38 tới 343. */
+const SELECTION_ART_WIDTH = 385;
+const SELECTION_EDGE = 70;
+/** Khung chọn = bề ngang chữ + phần ngoài đệm hai bên (38 + 42) + chừa 12 mỗi bên để chữ không chạm mép đệm. */
+const SELECTION_EXTRA = 38 + 42 + 24;
 
 /**
  * Màn mở đầu:
@@ -73,6 +78,8 @@ export class LandingScreen extends Component {
     private items: Node[] = [];
     private selection: Node | null = null;
     private selectionDy = 0;
+    /** Bề ngang gốc của khung chọn; dòng chữ dài hơn thì kéo giãn phần đệm giữa. */
+    private selectionWidth = 0;
     private focus = 0;
     private toast: Label | null = null;
     private quitRoot: Node | null = null;
@@ -185,8 +192,14 @@ export class LandingScreen extends Component {
         this.setActive('Start', false);
         this.items = MENU_ITEMS.map(([name]) => menu.getChildByName(name)).filter((n): n is Node => !!n && n.active);
         this.selection = menu.getChildByName('Selection');
-        // Giữ khoảng lệch giữa khung chọn và dòng đầu như bạn đặt trong editor
-        if (this.selection && this.items.length) this.selectionDy = this.selection.position.y - this.items[0].position.y;
+        // Giữ khoảng lệch giữa khung chọn và dòng gần nó nhất như bạn đặt trong editor
+        // (đặt khung ở dòng nào cũng được, không cần đúng dòng đầu)
+        const sel = this.selection;
+        if (sel && this.items.length) {
+            const near = this.items.reduce((a, n) => Math.abs(n.position.y - sel.position.y) < Math.abs(a.position.y - sel.position.y) ? n : a);
+            this.selectionDy = sel.position.y - near.position.y;
+        }
+        this.makeSelectionStretchy();
         this.items.forEach((n, i) => {
             n.on(Node.EventType.MOUSE_ENTER, () => {
                 if (this.page === 'start') this.focusMenu(i);
@@ -205,7 +218,33 @@ export class LandingScreen extends Component {
         if (!item) return;
         this.focus = i;
         const sel = this.selection;
-        if (sel) sel.setPosition(sel.position.x, item.position.y + this.selectionDy, sel.position.z);
+        if (sel) {
+            sel.setPosition(sel.position.x, item.position.y + this.selectionDy, sel.position.z);
+            // Chữ dài (ACHIEVEMENTS) thì kéo giãn phần đệm vuông ở giữa, hai hoa văn hai đầu giữ nguyên
+            const ui = sel.getComponent(UITransform);
+            const text = item.getComponent(UITransform)?.width ?? 0;
+            if (ui && this.selectionWidth > 0) {
+                ui.setContentSize(Math.max(this.selectionWidth, text + SELECTION_EXTRA), ui.height);
+            }
+        }
+    }
+
+    /**
+     * Khung chọn (selection.png 385×81): hai hoa văn hai đầu rộng 70, giữa là phần đệm vuông.
+     * Chuyển Sprite sang kiểu cắt 9 mảnh (Sliced) để chỉ phần giữa giãn ra.
+     */
+    private makeSelectionStretchy() {
+        const sp = this.selection?.getComponent(Sprite);
+        const ui = this.selection?.getComponent(UITransform);
+        const frame = sp?.spriteFrame;
+        if (!sp || !ui || !frame) return;
+        this.selectionWidth = ui.width;
+        const k = frame.rect.width / SELECTION_ART_WIDTH;
+        frame.insetLeft = Math.round(SELECTION_EDGE * k);
+        frame.insetRight = Math.round(SELECTION_EDGE * k);
+        sp.type = Sprite.Type.SLICED;
+        sp.sizeMode = Sprite.SizeMode.CUSTOM;
+        ui.setContentSize(this.selectionWidth, ui.height);
     }
 
     private chooseMenu(i: number) {

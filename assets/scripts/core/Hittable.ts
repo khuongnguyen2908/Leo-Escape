@@ -15,6 +15,10 @@ export interface Hittable {
     daze?(seconds: number): void;
     /** Không bắt buộc: bị hất tung lên cao height (Leo chém hất). Boss to xác không bị hất. */
     launch?(height: number): void;
+    /** Không bắt buộc: bị quét chân té nằm seconds giây (ngã ra xa khỏi fromX). Boss to xác không bị té. */
+    trip?(seconds: number, fromX?: number): void;
+    /** Không bắt buộc: to xác (boss) thì không bị quét chân, không bị hất. */
+    readonly big?: boolean;
 }
 
 export const Hittables: Hittable[] = [];

@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, EventTouch, Graphics, Label, Node, Sprite, SpriteFrame, sys, UITransform, Vec2, Vec3, view } from 'cc';
+import { _decorator, Color, Component, EventTouch, Graphics, Label, Node, resources, Sprite, SpriteFrame, sys, UITransform, Vec2, Vec3, view } from 'cc';
 import { PlayerInput, TouchButton } from '../player/PlayerInput';
 import { GameManager } from '../game/GameManager';
 import { GameSession } from '../game/GameSession';
@@ -14,9 +14,13 @@ const KEY_BG = new Color(250, 240, 222, 240);
 const KEY_EDGE = new Color(78, 60, 56, 255);
 const KEY_TEXT = new Color(70, 52, 48, 255);
 const _p = new Vec3();
+/** Ảnh joystick tách sẵn: đế (giữa là lỗ tối) và nút chân mèo, trong assets/resources/art */
+const JOY_BASE = 'art/MG_joystick_base/spriteFrame';
+const JOY_KNOB = 'art/MG_joystick_knob/spriteFrame';
 
 /**
- * Điều khiển cảm ứng: joystick góc dưới trái (kéo trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục),
+ * Điều khiển cảm ứng: joystick góc dưới trái (kéo trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục;
+ * đế đứng yên, nút chân mèo chạy theo ngón tay tới mép đế, thả tay thì bật về giữa),
  * nút chém (giữ để lướt chém) + nút nhảy góc dưới phải, nút kỹ năng (K), nút tương tác (L), nút đổi mèo (chơi 1 người). Chưa có ảnh thì tự vẽ; kéo ảnh vào các ô Frame là tự đổi.
  * Gắn lên một node con của Canvas. Nút luôn bám góc khung hình 16:9, kể cả khi node bị kéo lệch.
  * Chơi trên máy tính thì nút có thêm chữ phím (W A S D, J, SPACE) để người chơi biết bấm phím nào.
@@ -55,6 +59,9 @@ export class TouchControls extends Component {
 
     @property({ tooltip: 'Tâm joystick cách mép trái và đáy màn hình (x, y)' })
     joystickPos = new Vec2(217, 195);
+
+    @property({ tooltip: 'Nút chân mèo đi xa nhất bao nhiêu so với tâm đế' })
+    knobTravel = 85;
 
     @property({ tooltip: 'Tâm nút nhảy cách mép phải và đáy màn hình (x, y)' })
     jumpPos = new Vec2(165, 172);
@@ -112,8 +119,21 @@ export class TouchControls extends Component {
         const ui = n.addComponent(UITransform);
         ui.setContentSize(size * 1.4, size * 1.4); // vùng chạm rộng hơn hình một chút
 
+        // Đế đứng yên; nút chân mèo nằm trên, chạy theo ngón tay.
+        // Chưa tải xong ảnh tách (MG_joystick_base / _knob) thì tạm dùng ảnh liền, nghiêng nhẹ như cũ.
         const pad = this.child('Pad', n);
-        pad.addComponent(Sprite).spriteFrame = frame;
+        const padSprite = pad.addComponent(Sprite);
+        padSprite.spriteFrame = frame;
+        let knob: Node | null = null;
+        resources.load([JOY_BASE, JOY_KNOB], SpriteFrame, (err, frames) => {
+            if (err || !frames || frames.length < 2 || !pad.isValid) return;
+            padSprite.spriteFrame = frames[0];
+            const k = this.child('Knob', n);
+            k.addComponent(Sprite).spriteFrame = frames[1];
+            // Chữ phím (W A S D) nằm trên nút
+            k.setSiblingIndex(pad.getSiblingIndex() + 1);
+            knob = k;
+        });
         if (this.hints) {
             const k = size * 0.36;
             this.keyHint(n, 'W', 0, k);
@@ -132,9 +152,16 @@ export class TouchControls extends Component {
             PlayerInput.setTouch('down', _p.y < -size * 0.3);
             // Đẩy lên = đi lên bục phía trên (như phím W)
             PlayerInput.setTouch('up', _p.y > size * 0.3);
-            // Hình nghiêng nhẹ theo hướng kéo
-            const max = size * 0.08;
-            pad.setPosition(Math.max(-max, Math.min(max, _p.x * 0.2)), Math.max(-max, Math.min(max, _p.y * 0.2)), 0);
+            if (knob) {
+                // Nút chạy theo ngón tay, không ra quá mép đế
+                const len = Math.hypot(_p.x, _p.y);
+                const k = len > this.knobTravel ? this.knobTravel / len : 1;
+                knob.setPosition(_p.x * k, _p.y * k, 0);
+            } else {
+                // Chưa có ảnh tách: hình nghiêng nhẹ theo hướng kéo
+                const max = size * 0.08;
+                pad.setPosition(Math.max(-max, Math.min(max, _p.x * 0.2)), Math.max(-max, Math.min(max, _p.y * 0.2)), 0);
+            }
         };
         const release = () => {
             PlayerInput.setTouch('left', false);
@@ -142,6 +169,7 @@ export class TouchControls extends Component {
             PlayerInput.setTouch('down', false);
             PlayerInput.setTouch('up', false);
             pad.setPosition(0, 0, 0);
+            knob?.setPosition(0, 0, 0);
         };
         n.on(Node.EventType.TOUCH_START, steer);
         n.on(Node.EventType.TOUCH_MOVE, steer);

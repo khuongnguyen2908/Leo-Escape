@@ -1,5 +1,5 @@
 """
-Cắt bộ khói pixel (art-nguon/SmokeFX) và bộ vệt chém (art-nguon/SlashFX), mỗi file PNG là một dải nhiều ô,
+Cắt bộ khói pixel (art-nguon/SmokeFX), bộ vệt chém (art-nguon/SlashFX) và bộ gồng (art-nguon/ChargeFX), mỗi file PNG là một dải nhiều ô,
 thành ảnh FX_<tên>_<số>.png trong assets/resources/art/fx để DustPuff dùng. Mọi khung của một bộ cắt cùng một khung chữ nhật để hình không bị giật.
 
   python tools/cat_khoi.py          # chỉ đo, không ghi file
@@ -32,6 +32,8 @@ JOBS = [
     ('FX_airspin_', SLASH.format('SimpleCombo2'), 128, 'o'),     # J trên không: chém xoay nhỏ
     ('FX_sweep_', SLASH.format('Combo3'), 128, 'o'),             # S + J: quét sát đất
     ('FX_wave_', SLASH.format('Combo2'), 128, 'o'),              # giữ J rồi thả: sóng kiếm
+    # Gồng sóng kiếm (ChargeFx): dải 8 ô 96×96, chấm → vòng → ngôi sao → vòng toả ra
+    ('FX_charge_', 'art-nguon/ChargeFX/Hitspark FX Batch1 Star5 sheet.png', 96, 'o'),
 ]
 PAD = 2
 

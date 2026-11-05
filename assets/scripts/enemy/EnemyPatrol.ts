@@ -12,6 +12,9 @@ const _player = new Rect();
 const _self = new Rect();
 const HIT_TINT = new Color(255, 120, 120, 255);
 const HIT_SHAKE_TIME = 0.28;
+/** Té: ngã xuống trong chừng này giây, và đứng dậy trong chừng này giây cuối */
+const TRIP_FALL = 0.15;
+const TRIP_RISE = 0.2;
 const YARN = new Color(232, 92, 132, 255);
 
 /**
@@ -77,6 +80,10 @@ export class EnemyPatrol extends Component implements Hittable {
     private airborne = false;
     private airTime = 0;
     private floatTime = 0;
+    /** Bị quét chân: còn nằm bao lâu, tổng thời gian nằm, ngã về phía nào (1 phải, -1 trái) */
+    private tripped = 0;
+    private tripTotal = 0;
+    private tripDir = 1;
 
     /** Bị hất tung rơi xuống đất thì choáng thêm chừng này giây. */
     private static readonly LAND_DAZE = 0.4;
@@ -101,6 +108,9 @@ export class EnemyPatrol extends Component implements Hittable {
     get maxHp() { return this.maxHpValue; }
 
     get defeated() { return this.dead; }
+
+    /** To xác (boss): không bị quét chân, không bị hất. */
+    get big() { return this.targetHeight > 250; }
 
     /** Đánh trúng được không (còn sống và không vừa bị đánh). */
     get canBeHit() { return !this.dead && this.hitCooldown <= 0; }
@@ -161,6 +171,18 @@ export class EnemyPatrol extends Component implements Hittable {
             this.animate(dt);
             this.drawYarn();
             if (this.bound <= 0) this.drawYarn();
+            return;
+        }
+
+        // Bị Leo quét chân: té nằm trên đất, không đánh ai, vẫn bị chém được; hết giờ thì đứng dậy đi tiếp
+        if (this.tripped > 0) {
+            this.tripped -= dt;
+            if (this.stun > 0) this.stun -= dt;
+            this.knockVel = moveTowards(this.knockVel, 0, 1600 * dt);
+            if (b.grounded && !this.groundAt(Math.sign(this.knockVel))) this.knockVel = 0;
+            b.velocity.x = this.knockVel;
+            b.move(dt);
+            this.animate(dt);
             return;
         }
 
@@ -226,10 +248,10 @@ export class EnemyPatrol extends Component implements Hittable {
         const v = this.visual;
         if (!v) return;
         const frames = this.walkFrames;
-        if (this.sprite && frames.length > 1 && this.dazed <= 0) {
+        if (this.sprite && frames.length > 1 && this.dazed <= 0 && this.tripped <= 0) {
             this.sprite.spriteFrame = frames[Math.floor(this.animTime * this.walkFps) % frames.length];
         }
-        const hop = this.stun > 0 || this.dazed > 0 || this.airborne ? 0 : Math.abs(Math.sin(this.animTime * this.walkFps * Math.PI));
+        const hop = this.stun > 0 || this.dazed > 0 || this.tripped > 0 || this.airborne ? 0 : Math.abs(Math.sin(this.animTime * this.walkFps * Math.PI));
         const flip = this.dir * (this.artFacesRight ? 1 : -1);
 
         // Bị chém: bẹp ngang một nhịp rồi nảy lại, đồng thời rung giật qua lại và lắc nghiêng, nhỏ dần
@@ -244,7 +266,20 @@ export class EnemyPatrol extends Component implements Hittable {
         const sx = 1 + 0.04 * hop + 0.22 * this.pop;
         const sy = 1 - 0.04 * hop - 0.18 * this.pop;
         v.setScale(this.baseScale * flip * sx, this.baseScale * sy, 1);
-        v.setPosition(jx, hop * 6, 0);
+        // Té: xoay quanh chân, ngã nằm nghiêng 90° về phía bị quét tới; nâng lên nửa bề ngang để không lún xuống đất,
+        // dời ngang nửa chiều cao để thân nằm giữa chỗ đứng
+        let tx = 0, ty = 0;
+        if (this.tripped > 0) {
+            const t = this.tripTotal - this.tripped;
+            const k = Math.min(1, t / TRIP_FALL, this.tripped / TRIP_RISE);
+            const a = (k * Math.PI) / 2;
+            const ui = v.getComponent(UITransform);
+            const w = (ui?.width ?? 0) * this.baseScale, h = (ui?.height ?? 0) * this.baseScale;
+            ang += -this.tripDir * 90 * k;
+            tx = -this.tripDir * (h / 2) * Math.sin(a);
+            ty = (w / 2) * Math.sin(a);
+        }
+        v.setPosition(jx + tx, hop * 6 + ty, 0);
         v.angle = ang;
         if (this.sprite) this.sprite.color = this.stun > 0 && Math.floor(this.animTime * 16) % 2 === 0 ? HIT_TINT : Color.WHITE;
     }
@@ -275,15 +310,27 @@ export class EnemyPatrol extends Component implements Hittable {
             { scale: 4.5, fps: 8, center: true, loopFor: this.dazed });
     }
 
+    /** Bị quét chân: bật nhẹ lên rồi té nằm seconds giây, ngã ra xa khỏi fromX (boss to xác không bị té). */
+    trip(seconds: number, fromX?: number) {
+        if (this.dead || this.big) return;
+        this.tripDir = fromX === undefined ? -this.dir : (this.node.position.x >= fromX ? 1 : -1);
+        this.tripTotal = Math.max(seconds, TRIP_FALL + TRIP_RISE);
+        this.tripped = this.tripTotal;
+        this.dazed = 0;
+        this.clearStars();
+        this.body.velocity.y = 260;
+    }
+
     /** Bị hất tung lên cao height (boss to xác không bị hất). */
     launch(height: number) {
-        if (this.dead || this.targetHeight > 250) return;
+        if (this.dead || this.big) return;
         const b = this.body;
         this.airborne = true;
         this.airTime = 0;
         this.floatTime = 0;
         this.bound = 0;
         this.dazed = 0;
+        this.tripped = 0;
         this.clearStars();
         this.drawYarn();
         this.knockVel *= 0.15; // bay thẳng lên, gần như không văng ngang

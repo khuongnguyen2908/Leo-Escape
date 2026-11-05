@@ -13,11 +13,14 @@ import { Controls, PlayerInput } from './PlayerInput';
 import { PlayerVisual } from './PlayerVisual';
 import { preloadSlashImages, SlashFx } from './SlashFx';
 import { SkillFx } from './SkillFx';
+import { ChargeFx } from './ChargeFx';
 import { SwordWave } from './SwordWave';
 const { ccclass, property, requireComponent } = _decorator;
 
 const GHOST_TINT = new Color(255, 236, 200, 255);
 const CHARGE_TINT = new Color(120, 220, 255, 255);
+/** Giữ J quá chừng này giây mới hiện hiệu ứng gồng (bấm chém nhanh thì không hiện) */
+const CHARGE_SHOW = 0.15;
 /**
  * Theo nhịp combo 5 nhát: [tầm chém so với Attack Range, độ cao so với Attack Height, sức đẩy lùi, máu trừ, dừng hình (ms), rung].
  * Tầm chém khớp với vệt chém đã phóng to trong SlashFx (Attack Range 170: vệt nhát 1–2 tới ~210, nhát 3 ~260, nhát 5 ~350).
@@ -196,6 +199,9 @@ export class PlayerController extends Component {
     private dashTimer = 0;
     private dashGrace = 0;
     private holdTime = 0;
+    /** Hiệu ứng gồng sóng kiếm ở giữa thân mèo (ảnh FX_charge_) */
+    private chargeFx: ChargeFx | null = null;
+    private chargeFxTried = false;
     private charged = false;
     private prevDir = 0;
     private lastTapDir = 0;
@@ -215,6 +221,7 @@ export class PlayerController extends Component {
         preloadSlashImages();
         SwordWave.preload();
         DashFx.preload();
+        ChargeFx.preload();
         DustPuff.preload(DASH_DUST);
     }
 
@@ -326,20 +333,44 @@ export class PlayerController extends Component {
         const canHold = canControl && (this.skills?.canDash ?? true);
         if (this.controls.attackHeld && canHold) {
             this.holdTime += dt;
+            // Hiệu ứng gồng ở giữa thân: khung 1 → 4 lớn dần theo thời gian giữ
+            if (this.holdTime >= CHARGE_SHOW && !this.chargeFxTried) {
+                this.chargeFxTried = true;
+                this.chargeFx = ChargeFx.attach(this.node, b.size.height * 0.5);
+            }
+            this.chargeFx?.setProgress((this.holdTime - CHARGE_SHOW) / Math.max(0.01, this.chargeTime - CHARGE_SHOW));
             if (!this.charged && this.holdTime >= this.chargeTime) {
                 this.charged = true;
-                // Gồng xong: vòng sáng xanh quanh người, mèo nhấp nháy tới khi thả
-                const parent = this.node.parent;
-                const p = this.node.position;
-                if (parent) SkillFx.ring(parent, p.x, p.y + b.size.height * 0.5, 110, CHARGE_TINT, 0.3, 0);
+                // Gồng xong: vòng toả ra (ảnh FX_charge_ khung 5 → 8), quả cầu gồng chớp tới khi thả (mèo không nhấp nháy).
+                // Chưa có ảnh thì vòng sáng xanh vẽ bằng code và mèo nhấp nháy như cũ.
+                if (this.chargeFx) this.chargeFx.full();
+                else {
+                    const parent = this.node.parent;
+                    const p = this.node.position;
+                    if (parent) SkillFx.ring(parent, p.x, p.y + b.size.height * 0.5, 110, CHARGE_TINT, 0.3, 0);
+                }
                 Sound.play('checkpoint', 0.4);
             }
         } else {
+            let fired = false;
             if (canHold && !this.controls.attackHeld) {
-                if (this.holdTime >= this.chargeTime && this.spend(this.waveEnergy)) this.fireWave();
+                if (this.holdTime >= this.chargeTime && this.spend(this.waveEnergy)) {
+                    this.fireWave();
+                    fired = true;
+                }
             }
             this.holdTime = 0;
             this.charged = false;
+            if (this.chargeFx) {
+                // Phóng được thì quả cầu biến mất; thả sớm (hoặc thiếu năng lượng) thì xì hơi, không tốn gì
+                if (fired || !canHold) this.chargeFx.stop();
+                else {
+                    this.chargeFx.fizzle();
+                    Sound.play('dash', 0.35);
+                }
+            }
+            this.chargeFx = null;
+            this.chargeFxTried = false;
         }
 
         b.gravityScale = v.y < 0 ? this.fallGravityMultiplier : 1;
@@ -353,7 +384,7 @@ export class PlayerController extends Component {
             if (impact > 0.3) Sound.play('land', Math.min(1, impact));
         }
         this.wasGrounded = b.grounded;
-        this.visual?.sync(b.grounded, v.x / this.moveSpeed, v.y, this.facing, this.invincible > 0 || this.charged);
+        this.visual?.sync(b.grounded, v.x / this.moveSpeed, v.y, this.facing, this.invincible > 0 || (this.charged && !this.chargeFx));
     }
 
     /** Bị đánh từ vị trí fromX. Trả về false nếu đang bất tử. */

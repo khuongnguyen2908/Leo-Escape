@@ -90,7 +90,10 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
   mở từ itch.io, nên game thoát toàn màn hình, tắt nhạc, hiện "THANKS FOR PLAYING!" kèm nút BACK TO MENU.
 - Node trong `Landing` (nút ⚙ tạo, kéo chỉnh thoải mái): `MenuBg` (ảnh `Background`), `Logo/Pic` (ảnh `logo`),
   `Menu` gồm `Selection` (ảnh `selection`) và 5 dòng `NewGame`, `Options`, `Achievements`, `Credits`, `Quit`, rồi `Copyright`.
-  Khung chọn giữ đúng khoảng lệch với dòng đầu như bạn đặt. Tắt một dòng (bỏ tích node) là menu bỏ qua dòng đó.
+  Khung chọn giữ đúng khoảng lệch với dòng gần nó nhất như bạn đặt (đặt ở dòng nào cũng được). Tắt một dòng (bỏ tích node) là menu bỏ qua dòng đó.
+  Chữ dài hơn khung (ACHIEVEMENTS) thì lúc chạy khung tự giãn **phần đệm vuông ở giữa**, hai hoa văn hai đầu giữ nguyên
+  (kiểu cắt 9 mảnh, mỗi đầu 70px; số trong `SELECTION_*` của `LandingScreen.ts`). Trong editor khung vẫn hiện cỡ gốc.
+  Ở menu chính không có nút bánh răng, cài đặt mở bằng OPTIONS.
   Chữ trắng cỡ 60 viền 4px #462c22; chữ nâu nhỏ #968787 cỡ 30 viền 3px #2c1d17. Node `Start` (nút START cũ) chỉ bị tắt, không xoá.
 - **1 người:** điều khiển Leo. Bấm **Đổi mèo** (Tab, hoặc nút hai mũi tên trên điện thoại) để chuyển sang Angelo: một linh hồn
   phát sáng (màu của con được chọn) bay vòng từ con cũ sang con mới (`SoulWisp.ts`). Bấm bộ phím của Người 1 hay Người 2 đều được.
@@ -108,7 +111,7 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
 | | Leo (`LeoSkills.ts`) | Angelo (`AngeloSkills.ts`) |
 |---|---|---|
 | Nhảy | **Nhảy thêm 1 lần** trên không (miễn phí, cao 85%; LeoSkills nhóm *Nhảy 2 lần*) | **Nhảy thêm 1 lần** trên không. Đang bay đẩy vào tường thì **bám tường** trượt chậm, Nhảy để **bật tường** |
-| Đánh (J) | Bấm liên tục: **combo 5 nhát** (nhát 4 **chém xoay** trúng cả sau lưng, nhát 5 **kết liễu** trừ 2 máu, văng xa). Đang bay: combo **3 nhát đầu** như dưới đất, mỗi nhát khựng lại một nhịp. Giữ J đủ 0.8 giây (Leo nhấp nháy, có vòng sáng) rồi thả: **sóng kiếm** bay thẳng ~1000, trừ 2 máu mỗi địch, đụng tường thì tan (tốn 30; PlayerController nhóm *Sóng kiếm*). **Giữ Xuống + J** trên nền cứng: **quét chân** về phía đang quay mặt, địch choáng 0.8 giây (tốn 15; LeoSkills nhóm *Quét chân*). **Giữ Lên + J** dưới đất: **chém hất**, vệt xoáy quét từ sát đất trước mặt cong lên qua đầu (sau lưng mèo), hất địch bay lên (tốn 20); nhảy theo chém tiếp thì địch lơ lửng (chém trúng trên không thì Leo cũng nảy nhẹ lên, ô *Air Hit Lift*), đang bay thì địch không đánh mèo, rơi xuống choáng 0.4 giây. Boss không bị hất. Đứng ngay dưới bục một chiều thì bấm W sẽ nhảy lên bục trước | **Quất dây len**, tầm xa gấp đôi Leo |
+| Đánh (J) | Bấm liên tục: **combo 5 nhát** (nhát 4 **chém xoay** trúng cả sau lưng, nhát 5 **kết liễu** trừ 2 máu, văng xa). Đang bay: combo **3 nhát đầu** như dưới đất, mỗi nhát khựng lại một nhịp. Giữ J đủ 0.8 giây (quả cầu năng lượng xanh gom ở giữa thân, đủ lực thì quả cầu chớp chờ phóng) rồi thả: **sóng kiếm** bay thẳng ~1000, trừ 2 máu mỗi địch, đụng tường thì tan (tốn 30; PlayerController nhóm *Sóng kiếm*). Thả sớm thì quả cầu **xì hơi** tan mất, không tốn gì. **Giữ Xuống + J** trên nền cứng: **quét chân** về phía đang quay mặt, địch nhỏ (gà, chim...) **té nằm** 1.2 giây, không đánh mèo, vẫn chém tiếp được; **boss không bị quét** (không mất máu) (tốn 15; LeoSkills nhóm *Quét chân*, ô *Sweep Trip*). **Giữ Lên + J** dưới đất: **chém hất**, vệt xoáy quét từ sát đất trước mặt cong lên qua đầu (sau lưng mèo), hất địch bay lên (tốn 20); nhảy theo chém tiếp thì địch lơ lửng (chém trúng trên không thì Leo cũng nảy nhẹ lên, ô *Air Hit Lift*), đang bay thì địch không đánh mèo, rơi xuống choáng 0.4 giây. Boss không bị hất. Đứng ngay dưới bục một chiều thì bấm W sẽ nhảy lên bục trước | **Quất dây len**, tầm xa gấp đôi Leo |
 | Đập bụng (giữ Xuống + J khi đang bay) | **Đập bụng** lao xuống (tốn 20), sóng chấn đánh địch xung quanh và làm chúng **choáng** 1.5 giây; rơi càng cao sóng càng rộng (tối đa ×1.6 khi rơi từ cao 600). **Phím K chỉ dùng khi có Angelo**: K trên không đập bụng, K dưới đất **nằm ngửa làm đệm** (K lần nữa để dậy; Angelo rơi trúng bụng thì bật rất cao), S + K Mèo Nổ. Chưa có Angelo thì phím K không làm gì, trang phím và nút K trên điện thoại cũng ẩn | Bấm: **trói chân** địch gần nhất 2 giây (boss ngắn hơn), địch đứng yên và không đánh ai. Giữ: **nằm lì** / đứng dậy |
 | Tuyệt chiêu (giữ Xuống + L) | **Mèo Nổ**: cần đầy 100 năng lượng, tốn hết. Gồng 0.6 giây (bất tử) rồi nổ: mọi kẻ địch đang thấy trên màn hình mất 3 máu, văng ra, choáng 1 giây. Chỉ dùng trên nền cứng (trên bàn, thùng... bấm Xuống là rơi xuống) | — |
 | Tương tác (L) | Chưa có Angelo: **lướt chém** (kiểu Mega Man X, tốn 35). Cũng lướt được bằng **bấm đúp A/D** (ô *Double Tap Time*, 0 = tắt). Đang lướt trên đất mà bấm Nhảy: **dash jump**, bay ngang nhanh gấp 1.7 lần chạy tới khi chạm đất (ô *Dash Jump Speed*). Có Angelo: cạnh Angelo **bê** lên đầu, L lần nữa để **ném** | Ở mép bục cao, quay mặt ra ngoài: **thả dây len** xuống. L / Nhảy / đi để kéo dây lên |
@@ -128,14 +131,15 @@ Phím mặc định (đổi được trong menu **Esc → Cài đặt → Bàn p
 | Chạy | A / D | ← / → |
 | Đi lên bục một chiều ngay phía trên | W | ↑ |
 | Xuống khỏi bục một chiều | S | ↓ |
-| Nhảy (giữ lâu nhảy cao, nhả sớm nhảy thấp). Tốn năng lượng | Space | Num 0 |
+| Nhảy (giữ lâu nhảy cao, nhả sớm nhảy thấp). Leo nhảy miễn phí | Space | Num 0 |
 | Chém: bấm liên tục ra combo 5 nhát. Giữ đủ 0.8 giây rồi thả: **sóng kiếm** | J | Num 1 |
 | Kỹ năng riêng, chỉ khi có Angelo (xem bảng kỹ năng) | K | Num 2 |
 | Tương tác: bê/ném, thả dây, giữ để kéo đồng đội dậy. **Chưa có Angelo thì là Lướt** (trang phím ghi "Lướt"; bấm đúp A/D cũng lướt) | L | Num 3 |
 | Đổi mèo (chơi 1 người) | Tab | — |
 | Menu tạm dừng | Esc | Esc |
 
-Cảm ứng: joystick trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục; nút J để chém (giữ để lướt), nút SPACE để nhảy,
+Cảm ứng: joystick trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục (đế `MG_joystick_base` đứng yên, nút chân mèo
+`MG_joystick_knob` chạy theo ngón tay, xa nhất *Knob Travel* = 85; hai ảnh tách từ `MG_joystick`); nút J để chém (giữ để gồng sóng kiếm), nút SPACE để nhảy,
 nút ngôi sao (K) để dùng kỹ năng, nút bàn tay (L) để tương tác, nút hai mũi tên để đổi mèo. Trên máy tính bật **Touch On Desktop** (Canvas) để thấy nút, nút có ghi phím tương ứng.
 
 ## Menu (Esc hoặc nút bánh răng góc trên phải)
@@ -173,6 +177,8 @@ Không đủ năng lượng thì không làm được và thanh nháy đỏ. Ch�
   `FX_spin_` (nhát 4 chém xoay), `FX_finish_` (nhát 5 kết liễu); `FX_airspin_` vệt xoáy của chém hất; `FX_sweep_` quét chân;
   Lướt: vệt `FX_sweep_` giãn dài theo đường lướt (`DashFx.ts`) + bụi `FX_run_` sau gót + bóng mờ.
   `FX_wave_` sóng kiếm (`SwordWave.ts`, phóng ra cách mèo 220, ngang ngực).
+  `FX_charge_` gồng sóng kiếm ở giữa thân mèo, phóng to ×2.5 (`ChargeFx.ts`, cắt từ `art-nguon/ChargeFX`): giữ J quá 0.15 giây thì khung 1 → 4 lớn dần,
+  đủ lực thì chớp bằng chính hình gốc (khung 3 ↔ 4) tới khi thả J; thả sớm thì xì hơi (khung 5 → 8, vòng tan). Chưa có ảnh thì dùng vòng sáng vẽ bằng code.
   Vị trí, độ phóng to, lật ngang, vẽ sau lưng mèo của từng nhát: bảng `IMAGE_STYLES` trong `SlashFx.ts`
   (nhát 1 và 5 lật ngang; nhát 1, 3 và 5 vẽ sau mèo, trên node `SlashBack` nằm dưới hình mèo).
   Ảnh vệt cam cũ `FX_slash_` và cơn lốc `FX_tornado_` vẫn để trong thư mục nhưng không dùng nữa.
@@ -232,7 +238,7 @@ assets/scripts/
 │  ├─ GameFont.ts         font chung cho mọi chữ (assets/resources/fonts/SuperBouncer.ttf)
 │  ├─ CoinCounter.ts      bộ đếm cá vàng (MG_coin_backing)
 │  ├─ BossHealthBar.ts    thanh máu boss (MG_boss_hpgauge, MG_boss_hp, MG_icon_boss)
-│  └─ TouchControls.ts    joystick (MG_joystick) + nút nhảy
+│  └─ TouchControls.ts    joystick (đế MG_joystick_base + nút MG_joystick_knob) + nút nhảy
 └─ level/
    ├─ GroundBlock.ts      khối nền đá (mép ảnh tile + thân tường + va chạm)
    ├─ PlaceholderBox.ts   khối màu thay cho ảnh còn thiếu

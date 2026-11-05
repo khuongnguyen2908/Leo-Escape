@@ -88,8 +88,11 @@ export class LeoSkills extends Component implements CatSkills {
     @property({ group: 'Quét chân', tooltip: 'Quét xa bao nhiêu về phía trước' })
     sweepRange = 290;
 
-    @property({ group: 'Quét chân', tooltip: 'Địch trúng bị choáng bao lâu (giây)' })
+    @property({ group: 'Quét chân', tooltip: 'Thứ bị quét mà không té được thì choáng bao lâu (giây)' })
     sweepDaze = 0.8;
+
+    @property({ group: 'Quét chân', tooltip: 'Địch nhỏ (gà, chim...) bị quét thì té nằm bao lâu (giây). Boss không bị quét' })
+    sweepTrip = 1.2;
 
     @property({ group: 'Mèo Nổ', tooltip: 'Thời gian gồng trước khi nổ (giây), Leo bất tử trong lúc gồng' })
     burstCharge = 0.6;
@@ -297,7 +300,7 @@ export class LeoSkills extends Component implements CatSkills {
 
     // ---------- Quét chân ----------
 
-    /** S + J trên nền cứng: vệt quét sát đất về phía đang quay mặt, địch trúng bị đẩy lùi và choáng ngắn. */
+    /** S + J trên nền cứng: vệt quét sát đất về phía đang quay mặt, địch nhỏ trúng thì té nằm; boss to xác không bị quét. */
     private sweep() {
         const c = this.cat, b = c.body;
         if (!c.useEnergy(this.sweepEnergy)) return;
@@ -315,10 +318,11 @@ export class LeoSkills extends Component implements CatSkills {
         _zone.set(f > 0 ? cx - back : cx - this.sweepRange, r.y - 10, this.sweepRange + back, 100);
         let hits = 0;
         for (const h of Hittables.slice()) {
-            if (!h.canBeHit || !overlaps(_zone, h.getHitRect(_hit))) continue;
+            if (!h.canBeHit || h.big || !overlaps(_zone, h.getHitRect(_hit))) continue;
             const hx = _hit.x + _hit.width / 2;
             h.takeHit(p.x, 0.8, 1);
-            h.daze?.(this.sweepDaze);
+            if (h.trip) h.trip(this.sweepTrip, p.x);
+            else h.daze?.(this.sweepDaze);
             hits++;
             if (parent) HitSpark.spawn(parent, clamp(hx, _zone.x, _zone.x + _zone.width), _zone.y + 40, f, false);
         }

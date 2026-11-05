@@ -35,6 +35,8 @@ export class PauseMenu extends Component {
     private capturing: { p: number; a: Action } | null = null;
     private ignoreEscUntil = 0;
     private refreshSettings: (() => void) | null = null;
+    /** Nút bánh răng: ẩn khi đang ở menu chính (ở đó đã có OPTIONS). */
+    private gear: Node | null = null;
     /** Đang mở từ OPTIONS của menu chính (không qua trang Tạm dừng). */
     private fromLanding = false;
 
@@ -65,6 +67,11 @@ export class PauseMenu extends Component {
 
     onEnable() {
         input.on(Input.EventType.KEY_DOWN, this.onKey, this);
+    }
+
+    update() {
+        // Đang ở menu chính (cả màn chọn số người, chọn mèo) thì ẩn bánh răng, cài đặt dùng OPTIONS
+        if (this.gear) this.gear.active = !LandingScreen.instance?.showing;
     }
 
     onDisable() {
@@ -285,6 +292,7 @@ export class PauseMenu extends Component {
     private makeGear(w: number, h: number) {
         const r = 40;
         const n = uiNode('Gear', this.node, r * 2.4, r * 2.4);
+        this.gear = n;
         n.setPosition(w / 2 - this.gearRight, h / 2 - this.gearTop, 0);
         const g = n.addComponent(Graphics);
         const paint = (down: boolean) => {

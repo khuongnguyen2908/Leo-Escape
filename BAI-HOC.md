@@ -139,6 +139,14 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Bẫy PowerShell: tên biến không phân biệt hoa thường. Tham số `$Jobs` và biến `$jobs` trong script là **một biến**, ghi đè nhau. Đặt tên khác hẳn (`$JobSpec`).
 - Hình to hơn ô lưới (vòng sóng khung cuối) thì bị cắt mất viền: kiểm tra số điểm ảnh chạm mép (`edge`) khi đo trước, khung nào bị cắt thì bỏ.
 
+### Khung chọn menu lệch 2 dòng so với dòng đang chọn
+- Ngày: 05/11/2026 · Nhóm: code
+- Triệu chứng: chọn NEW GAME mà khung chọn nằm ở ACHIEVEMENTS (thấp hơn 2 dòng).
+- Nguyên nhân: code lấy khoảng lệch giữa node `Selection` và **dòng đầu** làm mốc; người dùng kéo `Selection` xuống dòng ACHIEVEMENTS trong editor
+  để xem thử, nên khoảng lệch thành −152.
+- Cách sửa: lấy khoảng lệch so với **dòng gần khung nhất** (`setupMenu` trong `LandingScreen.ts`).
+- Cách tránh lần sau: đồ vật người dùng kéo trong editor để "xem thử" có thể nằm bất kỳ đâu. Đừng giả định nó ở chỗ ban đầu; lấy mốc gần nhất.
+
 ### Đặt ảnh theo ảnh mẫu mà tâm bị lệch (Sprite tự cắt viền trong suốt)
 - Ngày: 04/11/2026 · Nhóm: art
 - Triệu chứng: đo tâm logo, khung chọn trên ảnh mẫu rồi đặt đúng số đó, nhưng hình vẫn lệch vài chục px.
@@ -237,6 +245,13 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   (`cc.js.getClassByName('X').prototype.hàm = ...`), đo, rồi mới sửa code thật. Xong thì tải lại trang để bỏ bản vá.
   Combo trên không: đo vị trí cả hai bên ngay lúc chém (bọc hàm `slash`) mới thấy đòn trượt vì mèo rơi nhanh hơn địch.
 - Bẫy: thử chiêu có bấm W (chém hất) cạnh bàn/ghế thì W làm mèo nhảy lên bục trước. Đặt mèo và địch ở chỗ trống không có bục phía trên.
+- Bẫy (05/11/2026): `getComponentsInChildren('PlayerController')[0]` có thể ra **Angelo đang bị ẩn** (đếm giữ J mãi bằng 0). Lọc `p.node.activeInHierarchy`.
+  Trong trang, `getComponent(cc.UITransform)` có thể ra null; dùng tên chuỗi `getComponent('cc.UITransform')`.
+- Mẹo (05/11/2026): khung trình duyệt của app nhỏ, chụp màn hình không nhìn rõ chi tiết. Cắt thẳng từ canvas game:
+  `cc.game.pause(); cc.director.tick(1/60)` rồi `drawImage(GameCanvas, ...)` sang một canvas nhỏ, đặt ảnh đó (phóng to) đè lên trang bằng thẻ `<img>` rồi chụp.
+  Toạ độ canvas: `cameraComponent.worldToScreen(node.worldPosition)`, trục y lật (`canvas.height - y`). Đổi gì xong phải chờ vài khung rồi mới cắt.
+- Bẫy (05/11/2026): file ảnh mình ghi vào `assets` **sau** lúc người dùng bấm vào Creator thì chưa được nhập (`.meta` còn `"imported": false`),
+  trang chạy thử không thấy ảnh. Ghi hết file trước rồi mới nhờ người dùng bấm vào Creator.
 
 ### Kiểm tra lỗi TypeScript khi không mở được Creator
 - Ngày: 03/11/2026 · Nhóm: code
