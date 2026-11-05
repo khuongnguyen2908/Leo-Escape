@@ -12,6 +12,9 @@ const _player = new Rect();
 const _self = new Rect();
 const HIT_TINT = new Color(255, 120, 120, 255);
 const HIT_SHAKE_TIME = 0.28;
+/** Quái nhỏ chết: tia nổ (folder art/fx/Enemy death). Boss chết: đầu lâu nổ (art/fx/Boss/Death) */
+const ENEMY_DEATH = 'Enemy death/frame';
+const BOSS_DEATH = 'Boss/Death/frame';
 /** Té: ngã xuống trong chừng này giây, và đứng dậy trong chừng này giây cuối */
 const TRIP_FALL = 0.15;
 const TRIP_RISE = 0.2;
@@ -85,6 +88,11 @@ export class EnemyPatrol extends Component implements Hittable {
     private tripTotal = 0;
     private tripDir = 1;
 
+    /** Boss (BossBrain điều khiển): đứng yên tại chỗ, vẫn đụng mèo là đánh */
+    paused = false;
+    /** Boss: không bị chém trúng (đang nhảy múa chuyển phase) */
+    invulnerable = false;
+
     /** Bị hất tung rơi xuống đất thì choáng thêm chừng này giây. */
     private static readonly LAND_DAZE = 0.4;
     /** Đang bị hất mà bị chém trúng thì lơ lửng (rơi chậm) chừng này giây. */
@@ -113,13 +121,32 @@ export class EnemyPatrol extends Component implements Hittable {
     get big() { return this.targetHeight > 250; }
 
     /** Đánh trúng được không (còn sống và không vừa bị đánh). */
-    get canBeHit() { return !this.dead && this.hitCooldown <= 0; }
+    get canBeHit() { return !this.dead && this.hitCooldown <= 0 && !this.invulnerable; }
+
+    /** Đang quay mặt về phía nào (1 phải, -1 trái). */
+    get facingDir() { return this.dir; }
+
+    /** Quay mặt về phía toạ độ x (cùng lớp Gameplay). */
+    face(x: number) {
+        this.dir = x >= this.node.position.x ? 1 : -1;
+    }
+
+    /** Lấy đà trước khi ra đòn: phồng người một nhịp. */
+    windup() {
+        this.pop = 0.9;
+    }
+
+    /** Nhảy lên tại chỗ (đang đứng trên đất). */
+    hop(speed: number) {
+        if (this.body.grounded) this.body.velocity.y = speed;
+    }
 
     getHitRect(out: Rect): Rect {
         return this.body.getRect(out);
     }
 
     start() {
+        DustPuff.preload(this.big ? BOSS_DEATH : ENEMY_DEATH);
         this.maxHpValue = Math.max(1, this.hp);
         this.dir = this.startDirection >= 0 ? 1 : -1;
         this.startX = this.node.position.x;
@@ -200,6 +227,18 @@ export class EnemyPatrol extends Component implements Hittable {
             b.move(dt);
             this.animate(dt);
             if (this.dazed <= 0) this.clearStars();
+            return;
+        }
+
+        // Boss đang ra đòn / nhảy múa: đứng yên (vẫn bị đẩy lùi khi bị chém), đụng mèo vẫn đánh
+        if (this.paused) {
+            if (this.stun > 0) this.stun -= dt;
+            this.knockVel = moveTowards(this.knockVel, 0, 1600 * dt);
+            if (b.grounded && !this.groundAt(Math.sign(this.knockVel))) this.knockVel = 0;
+            b.velocity.x = this.knockVel;
+            b.move(dt);
+            this.animate(dt);
+            this.checkPlayer();
             return;
         }
 
@@ -387,6 +426,13 @@ export class EnemyPatrol extends Component implements Hittable {
         this.dead = true;
         this.clearStars();
         Sound.play('enemy_die');
+        // Nổ ở giữa thân: quái nhỏ tia nổ vàng, boss đầu lâu nổ to (gắn vào lớp Gameplay để không mất theo xác)
+        const parent = this.node.parent;
+        if (parent) {
+            const p0 = this.node.position;
+            if (this.big) DustPuff.spawn(BOSS_DEATH, parent, p0.x, p0.y + this.targetHeight * 0.5, { scale: 7, fps: 12, center: true });
+            else DustPuff.spawn(ENEMY_DEATH, parent, p0.x, p0.y + this.targetHeight * 0.5, { scale: 2.6, fps: 16, center: true });
+        }
         const v = this.visual ?? this.node;
         const fade = v.getComponent(UIOpacity) ?? v.addComponent(UIOpacity);
         const p = this.node.position;

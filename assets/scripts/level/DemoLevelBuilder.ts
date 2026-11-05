@@ -5,6 +5,7 @@ import { ParallaxLayer } from '../camera/ParallaxLayer';
 import { ColliderDebug } from '../core/ColliderDebug';
 import { PlatformerBody } from '../core/PlatformerBody';
 import { Solid } from '../core/Solid';
+import { BossBrain } from '../enemy/BossBrain';
 import { EnemyPatrol } from '../enemy/EnemyPatrol';
 import { GameManager } from '../game/GameManager';
 import { PlayerController } from '../player/PlayerController';
@@ -212,6 +213,7 @@ export class DemoLevelBuilder extends Component {
             const dbg = play.getComponent(ColliderDebug) ?? (this.debugColliders ? play.addComponent(ColliderDebug) : null);
             if (dbg) dbg.showInGame = this.debugColliders;
             this.ensureTouchControls();
+            if (!EDITOR) this.ensureBossBrain(play);
             return;
         }
         const infos = resources.getDirWithPath(this.artFolder, SpriteFrame);
@@ -289,6 +291,13 @@ export class DemoLevelBuilder extends Component {
         }
         // HUD của Angelo: lật ngang, bám góc trên phải
         this.node.getChildByName('HUD_Angelo')?.setPosition(d.width / 2 - HUD_LEFT, d.height / 2 - HUD_TOP, 0);
+    }
+
+    /** Bộ não boss (phase, đòn axit): gắn khi chơi vào kẻ địch to xác nếu chưa có, không lưu vào scene. */
+    private ensureBossBrain(play: Node) {
+        for (const e of play.getComponentsInChildren(EnemyPatrol)) {
+            if (e.big && !e.getComponent(BossBrain)) e.addComponent(BossBrain);
+        }
     }
 
     /** Menu tạm dừng (Esc / nút bánh răng): tạo khi chơi, không lưu vào scene. */
@@ -436,6 +445,46 @@ export class DemoLevelBuilder extends Component {
             if (body && Math.abs(body.size.width - 85) < 0.5) {
                 body.size = new Size(LEO_BODY_WIDTH, body.size.height);
                 done.push(`thân va chạm của ${c.node.name}: rộng 85 → ${LEO_BODY_WIDTH} (hình mèo không lấn vào tường)`);
+            }
+        }
+
+        // 17. Kẻ địch (boss) mà hình (node con Visual) bị kéo lệch khỏi node: dời cả node tới chỗ hình, hình về (0, 0),
+        //     chân đặt lên mặt đá ngay dưới. Khi chơi hình luôn bám node, nên kéo riêng hình thì con địch vẫn ở chỗ cũ.
+        for (const e of play.getComponentsInChildren(EnemyPatrol)) {
+            const v = e.visual;
+            if (!v || (Math.abs(v.position.x) < 1 && Math.abs(v.position.y) < 1)) continue;
+            const p = e.node.position;
+            const x = p.x + v.position.x;
+            const feet = p.y + v.position.y;
+            // Mặt đá cao nhất ngay dưới chân (cho lệch lên 60 vì kéo tay khó khớp đúng mặt đá)
+            let y = feet;
+            let best = -Infinity;
+            for (const g of play.getComponentsInChildren(GroundBlock)) {
+                const gx = g.node.position.x, gy = g.node.position.y;
+                if (x >= gx && x <= gx + g.width && gy <= feet + 60 && gy > best) best = gy;
+            }
+            if (best > -Infinity) y = best;
+            e.node.setPosition(x, y, p.z);
+            v.setPosition(0, 0, v.position.z);
+            done.push(`${e.node.name}: dời tới chỗ hình (${Math.round(x)}, ${Math.round(y)}), hình Visual về (0, 0)`);
+        }
+
+        // 18. Màn dài thêm (có khối nền vượt quá tường cuối): dời tường tàng hình cuối màn và giới hạn camera tới hết khối nền xa nhất
+        let endX = -Infinity;
+        for (const g of play.getComponentsInChildren(GroundBlock)) endX = Math.max(endX, g.node.position.x + g.width);
+        if (endX > -Infinity) {
+            const walls = play.children.filter((n) => n.name === 'Wall' && n.getComponent(Solid));
+            const last = walls.reduce<Node | null>((a, n) => (!a || n.position.x > a.position.x ? n : a), null);
+            if (last && last.position.x < endX) {
+                const from = Math.round(last.position.x);
+                last.setPosition(Math.round(endX + 30), last.position.y, last.position.z);
+                done.push(`tường cuối màn: x ${from} → ${Math.round(endX + 30)} (hết khối nền xa nhất)`);
+            }
+            const rig = this.getComponent(CameraRig);
+            if (rig && rig.maxX < endX) {
+                const from = rig.maxX;
+                rig.maxX = Math.round(endX);
+                done.push(`camera: Max X ${from} → ${rig.maxX}`);
             }
         }
 

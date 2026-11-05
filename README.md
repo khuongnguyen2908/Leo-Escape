@@ -58,6 +58,9 @@ Lưu ý khi sắp xếp:
       GroundBlock có ô *Lit Frame*, *Lit From*, *Lit To*);
     - máu kẻ địch gấp 4 (chim 3 → 12, boss 10 → 40; chỉ đổi khi còn đúng số cũ, số trong `ENEMY_HP`);
     - thân va chạm của Leo rộng 85 → 150 để hình mèo không lấn vào tường;
+    - kẻ địch (boss) mà bạn kéo riêng hình (node con `Visual`): dời cả node tới chỗ hình, chân đặt lên mặt đá ngay dưới, `Visual` về (0, 0)
+      (khi chơi hình luôn bám node, nên muốn dời con địch thì kéo node cha `Boss`, đừng kéo `Visual`);
+    - màn dài thêm (khối nền vượt quá tường cuối): dời tường tàng hình `Wall` cuối màn tới hết khối nền xa nhất (+30) và tăng *Max X* của camera;
     - thùng giấy + viên gạch + cây gỗ (`mg_up`) và thùng rác chặn cả hai bên (không đi xuyên, phải nhảy lên), khung va chạm ôm đúng hình.
       Cây gỗ nghiêng là 5 khung nhỏ xếp bậc thang theo đường chéo (khung va chạm chỉ là hình chữ nhật thẳng, không xoay được).
       Viên gạch có Solid thứ hai trên cùng node. Số đo nằm trong `SOLID_PROPS` (DemoLevelBuilder.ts); muốn thêm đồ khác thì thêm vào đó.
@@ -122,6 +125,28 @@ Con đang nằm (Leo nằm làm đệm, Angelo nằm lì) hoặc đang giữ dâ
 Hiệu ứng dây len, dây thả vẽ tạm bằng code (`SkillFx.ts`, `YarnRope.ts`); hiệu ứng chém và đập bụng của Leo dùng ảnh (xem mục Animation). Số liệu kỹ năng chỉnh ngay trong hai file kỹ năng.
 Đập bụng chạm đất sẽ báo cho `LeoSkills.poundListeners` (để dành cho sàn yếu ở bước câu đố).
 
+## Boss
+
+Boss (`EnemyPatrol` 40 máu + `BossBrain.ts`, DemoLevelBuilder tự gắn khi chơi) chỉ ra đòn khi mèo đã lên bậc đá của boss.
+
+| Phase | Máu | Đòn | Nghỉ giữa hai đòn |
+|---|---|---|---|
+| 1 | 40 → 27 | ngẫu nhiên Axit 1 / 2 / 3 (không lặp liền) | 2.6 giây |
+| 2 | 26 → 14 | Axit 2 (2 bom: chỗ mèo + trước mặt mèo) hoặc Axit 3; đi nhanh ×1.3 | 2 giây |
+| 3 | 13 → 0 | chỉ Axit 3, cột ra dồn dập hơn; đi nhanh ×1.5 | 1.5 giây |
+
+- Chuyển phase: boss nhảy múa 1.5 giây tại chỗ, nốt nhạc `Boss/Dance` quanh đầu, **bất tử** lúc này.
+- Thời gian nghỉ tính từ lúc đòn trước xong (6 cột lửa mất khoảng 2 giây), nên từ đầu đòn này tới đầu đòn sau dài hơn số nghỉ.
+- **Axit 1**: phồng người 0.4 giây rồi phun cục độc bay vòng cung tới chỗ mèo, chạm đất (hoặc trúng mèo) nổ vũng `Boss/Axit`.
+- **Axit 2**: bom đầu lâu `Boss/Axit 2` mọc ngay chỗ mèo; vòng dưới đất là cảnh báo, tới lúc bốc khói (khung 6–11) mới gây đòn.
+- **Axit 3**: 6 cột lửa xanh `Boss/Axit 3` lần lượt từ trái sang phải khắp bậc đá; cột mới nhú là cảnh báo, cao hẳn (khung 4–19) mới gây đòn.
+- Dính axit: **trúng độc** 2 giây (`PoisonStatus.ts`), bọt độc quanh mèo, cứ 1 giây rút **nửa tim** (tổng 1 tim). Dính lại khi đang độc thì tính lại 2 giây.
+  Không bị đẩy lùi. Đang lướt thì né được axit. Thanh tim hiện được nửa tim.
+- Boss chết: đầu lâu nổ `Boss/Death`. Quái nhỏ chết: tia nổ `Enemy death`.
+- **Đích (`Goal`) khoá tới khi boss bị hạ**: cờ mờ, chạm vào không thắng; boss chết thì cờ sáng lại và nảy lên. Tắt bằng ô *Need Boss Defeated* của Goal.
+- Số liệu (mốc máu, nhịp đòn, khoảng cách bom, độ dồn cột) là ô của `BossBrain`, nhóm *Phase*, *Nhịp đòn*, *Axit 1/2/3*.
+  BossBrain chỉ gắn lúc chơi; muốn chỉnh số trong editor thì kéo component BossBrain vào node `Boss` (đã có thì không gắn thêm).
+
 ## Điều khiển
 
 Phím mặc định (đổi được trong menu **Esc → Cài đặt → Bàn phím**, lưu trên máy):
@@ -179,6 +204,11 @@ Không đủ năng lượng thì không làm được và thanh nháy đỏ. Ch�
   `FX_wave_` sóng kiếm (`SwordWave.ts`, phóng ra cách mèo 220, ngang ngực).
   `FX_charge_` gồng sóng kiếm ở giữa thân mèo, phóng to ×2.5 (`ChargeFx.ts`, cắt từ `art-nguon/ChargeFX`): giữ J quá 0.15 giây thì khung 1 → 4 lớn dần,
   đủ lực thì chớp bằng chính hình gốc (khung 3 ↔ 4) tới khi thả J; thả sớm thì xì hơi (khung 5 → 8, vòng tan). Chưa có ảnh thì dùng vòng sáng vẽ bằng code.
+  Cùng lúc đó hào quang `Hold/frame*` lặp dưới chân (sau hình mèo, ×3) tới khi buông J.
+- **Ảnh để trong thư mục con của `art/fx`** (tên `frame0, frame1...`, đánh số từ 0): code gọi bằng tên thư mục, ví dụ `Boss/Axit 2/frame`.
+  `Boss/Axit` (vũng axit nổ), `Boss/Axit 2` (bom đầu lâu), `Boss/Axit 3` (cột lửa xanh), `Boss/Dance` (nốt nhạc chuyển phase),
+  `Boss/Death` (đầu lâu nổ khi boss chết), `Boss/Poison` (bọt độc quanh mèo), `Enemy death` (tia nổ khi quái nhỏ chết), `Hold` (giữ J).
+  `Boss/Gowth` để dành, chưa dùng (ảnh đang nhập dạng texture; khi dùng phải đổi Type sang sprite-frame).
   Vị trí, độ phóng to, lật ngang, vẽ sau lưng mèo của từng nhát: bảng `IMAGE_STYLES` trong `SlashFx.ts`
   (nhát 1 và 5 lật ngang; nhát 1, 3 và 5 vẽ sau mèo, trên node `SlashBack` nằm dưới hình mèo).
   Ảnh vệt cam cũ `FX_slash_` và cơn lốc `FX_tornado_` vẫn để trong thư mục nhưng không dùng nữa.

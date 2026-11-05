@@ -252,6 +252,10 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   Toạ độ canvas: `cameraComponent.worldToScreen(node.worldPosition)`, trục y lật (`canvas.height - y`). Đổi gì xong phải chờ vài khung rồi mới cắt.
 - Bẫy (05/11/2026): file ảnh mình ghi vào `assets` **sau** lúc người dùng bấm vào Creator thì chưa được nhập (`.meta` còn `"imported": false`),
   trang chạy thử không thấy ảnh. Ghi hết file trước rồi mới nhờ người dùng bấm vào Creator.
+- Bẫy (05/11/2026): giữa hai lệnh JS game vẫn chạy thật. Thử cạnh boss mà chỉ cho Leo bất tử trong lệnh, hết lệnh boss húc Leo tới thua,
+  màn tự tải lại, các biến `window.__...` mất, lệnh sau báo lỗi `null`. Mỗi lệnh thử tự dựng lại từ đầu (tìm lại Leo, boss), và đặt Leo xa boss.
+- Bẫy (05/11/2026): hiệu ứng gắn trên đầu boss to (cao 427) mà đặt cao hơn đầu (y = chiều cao + 90) thì nằm ngoài mép trên màn hình
+  khi camera theo mèo ở dưới. Đặt quanh đầu (khoảng 0.6 lần chiều cao) và chụp thử cả màn hình để chắc thấy được.
 
 ### Kiểm tra lỗi TypeScript khi không mở được Creator
 - Ngày: 03/11/2026 · Nhóm: code

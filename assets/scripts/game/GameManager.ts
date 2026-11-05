@@ -9,6 +9,7 @@ import { LeoSkills } from '../player/LeoSkills';
 import { PlayerController } from '../player/PlayerController';
 import { SoulWisp } from '../player/SoulWisp';
 import { PlayerInput } from '../player/PlayerInput';
+import { PoisonStatus } from '../player/PoisonStatus';
 import { ReviveRing } from '../player/ReviveRing';
 import { RunDust } from '../player/RunDust';
 import { CoinCounter } from '../ui/CoinCounter';
@@ -123,6 +124,9 @@ export class GameManager extends Component {
             c.idle = true; // chưa vào chơi thì chưa bị đánh
             this.attachSkills(c);
             if (!c.getComponent(ReviveRing)) c.addComponent(ReviveRing);
+            // Trúng độc (axit của boss): cứ 1 giây rút nửa tim
+            const poison = c.getComponent(PoisonStatus) ?? c.addComponent(PoisonStatus);
+            poison.onTick = (amount) => this.damage(c, amount);
             // Khói chạy, bụi nhảy / đáp đất; Angelo nhỏ nên khói bằng 70% của Leo
             if (!c.getComponent(RunDust)) {
                 const dust = c.addComponent(RunDust);
@@ -290,13 +294,19 @@ export class GameManager extends Component {
         if (!this.finished && cat.hurt(fromX)) this.damage(cat, 1);
     }
 
+    /** Mèo chạm axit của boss: trúng độc (không bị đẩy lùi). Đang lướt thì né được. */
+    acidHit(cat: PlayerController) {
+        if (this.finished || cat.downed || cat.idle || cat.evading) return;
+        cat.getComponent(PoisonStatus)?.apply();
+    }
+
     damage(cat: PlayerController, amount: number) {
-        if (cat.downed) return;
+        if (cat.downed || this.finished) return;
         // Chơi 1 người: con đi theo (máy điều khiển) mất tim nhưng không bao giờ gục
         const follower = !!this.active && cat !== this.active;
         cat.hp = Math.max(follower ? 1 : 0, cat.hp - amount);
         this.hudFor(cat)?.setHp(cat.hp, this.maxHp);
-        if (cat.hp <= 0) this.knockDown(cat);
+        if (cat.hp <= 0.001) this.knockDown(cat);
     }
 
     heal(cat: PlayerController, amount: number) {
@@ -401,7 +411,10 @@ export class GameManager extends Component {
     private end(message: string, restartDelay: number) {
         if (this.finished) return;
         this.finished = true;
-        for (const c of this.cats) c.controlEnabled = false;
+        for (const c of this.cats) {
+            c.controlEnabled = false;
+            c.getComponent(PoisonStatus)?.clear();
+        }
         this.hud?.showMessage(message);
         this.scheduleOnce(() => reloadScene(), restartDelay);
     }

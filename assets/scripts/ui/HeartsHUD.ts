@@ -4,6 +4,7 @@ const { ccclass, property } = _decorator;
 
 const HEART_RED = new Color(232, 72, 85, 255);
 const HEART_EMPTY = new Color(120, 110, 110, 160);
+const HEART_HALF = new Color(200, 120, 125, 220);
 const OUTLINE = new Color(60, 40, 40, 255);
 
 /**
@@ -45,8 +46,11 @@ export class HeartsHUD extends Component {
         while (this.hearts.length < max) this.hearts.push(this.makeHeart(this.hearts.length));
         this.hearts.forEach((h, i) => {
             h.active = i < max;
-            this.paintHeart(h, i < hp);
-            if (i === hp && this.shown > hp) {
+            // Mỗi tim: đầy (1), nửa (0.5) hoặc rỗng (0) — trúng độc rút nửa tim một lần
+            const fill = Math.max(0, Math.min(1, Math.round((hp - i) * 2) / 2));
+            const before = this.shown < 0 ? fill : Math.max(0, Math.min(1, Math.round((this.shown - i) * 2) / 2));
+            this.paintHeart(h, fill);
+            if (fill < before) {
                 h.setScale(1.5, 1.5, 1);
                 tween(h).to(0.25, { scale: Vec3.ONE }, { easing: 'backOut' }).start();
             }
@@ -116,11 +120,31 @@ export class HeartsHUD extends Component {
         return h;
     }
 
-    private paintHeart(h: Node, full: boolean) {
+    /** fill: 1 tim đầy, 0.5 nửa tim (nửa trái đầy đè lên tim rỗng), 0 tim rỗng. */
+    private paintHeart(h: Node, fill: number) {
+        const full = fill >= 1;
         const sp = h.getComponent(Sprite);
         if (sp) {
             sp.spriteFrame = full || !this.heartEmptyFrame ? this.heartFrame : this.heartEmptyFrame;
             sp.color = full || this.heartEmptyFrame ? Color.WHITE : HEART_EMPTY;
+            // Nửa tim: một tim đầy cắt nửa trái, đặt đè lên
+            let half = h.getChildByName('Half');
+            if (fill > 0 && fill < 1 && this.heartFrame) {
+                if (!half) {
+                    half = this.child('Half', h);
+                    const hs = half.addComponent(Sprite);
+                    hs.spriteFrame = this.heartFrame;
+                    hs.sizeMode = Sprite.SizeMode.CUSTOM;
+                    hs.type = Sprite.Type.FILLED;
+                    hs.fillType = Sprite.FillType.HORIZONTAL;
+                    hs.fillStart = 0;
+                    hs.fillRange = 0.5;
+                    half.getComponent(UITransform)!.setContentSize(h.getComponent(UITransform)!.contentSize);
+                }
+                half.active = true;
+            } else if (half) {
+                half.active = false;
+            }
             return;
         }
         const g = h.getComponent(Graphics)!;
@@ -128,7 +152,7 @@ export class HeartsHUD extends Component {
         g.clear();
         g.lineWidth = 4;
         g.strokeColor = OUTLINE;
-        g.fillColor = full ? HEART_RED : HEART_EMPTY;
+        g.fillColor = full ? HEART_RED : fill > 0 ? HEART_HALF : HEART_EMPTY;
         g.moveTo(0, -s * 0.85);
         g.bezierCurveTo(-s * 1.5, -s * 0.05, -s * 0.75, s * 1.15, 0, s * 0.45);
         g.bezierCurveTo(s * 0.75, s * 1.15, s * 1.5, -s * 0.05, 0, -s * 0.85);

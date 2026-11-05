@@ -45,6 +45,7 @@ function getSet(prefix: string): FrameSet {
  * vệt chém FX_cut1_ / FX_cut2_ / FX_cut3_ / FX_spin_ / FX_finish_ (combo 5 nhát, SlashFx), FX_airspin_ (chém hất),
  * FX_sweep_ (quét chân), FX_wave_ (sóng kiếm, SwordWave); FX_slash_ / FX_tornado_ là bộ cũ không dùng nữa,
  * FX_ring_ / FX_spike_ (đập bụng), FX_stun_ (sao choáng), FX_swirl_ / FX_burst_ / FX_shock_ (tuyệt chiêu).
+ * Tên đầu có thể kèm thư mục con: 'Boss/Axit/frame' lấy frame0, frame1... trong art/fx/Boss/Axit (đòn của boss, độc, Hold, quái chết).
  * Thường: chạy một lượt hết các khung rồi tự xoá. loopFor: lặp trong chừng ấy giây rồi tự xoá.
  * Khói giữ (hold): lặp qua lại 3 khung đầu (khói đang tung) cho tới khi gọi release(), lúc đó chạy nốt các khung còn lại (khói tan) rồi tự xoá.
  * Ảnh pixel art được giữ sắc nét (lọc NEAREST, không gộp vào atlas động) khi phóng to.
@@ -94,7 +95,9 @@ export class DustPuff extends Component {
         const set = getSet(prefix);
         if (set.loading || set.frames.length > 0) return;
         // Hỏi thư mục xem đang có những khung nào (FX_dust_1, FX_dust_2...), xếp theo số rồi mới tải
-        const re = new RegExp(`(?:^|/)${prefix}(\\d+)$`);
+        // Tên đầu có thể kèm thư mục con (ví dụ 'Boss/Axit 2/frame' cho các ảnh frame0, frame1... trong art/fx/Boss/Axit 2)
+        const esc = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp(`(?:^|/)${esc}(\\d+)$`);
         const paths = resources.getDirWithPath(FOLDER, SpriteFrame)
             .map((info) => info.path)
             .map((p) => ({ p, n: parseInt(re.exec(p.replace(/\/spriteFrame$/, ''))?.[1] ?? 'NaN', 10) }))

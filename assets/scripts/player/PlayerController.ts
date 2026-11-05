@@ -21,6 +21,8 @@ const GHOST_TINT = new Color(255, 236, 200, 255);
 const CHARGE_TINT = new Color(120, 220, 255, 255);
 /** Giữ J quá chừng này giây mới hiện hiệu ứng gồng (bấm chém nhanh thì không hiện) */
 const CHARGE_SHOW = 0.15;
+/** Hào quang dưới chân khi đang giữ J (folder art/fx/Hold), lặp tới khi buông */
+const HOLD_FX = 'Hold/frame';
 /**
  * Theo nhịp combo 5 nhát: [tầm chém so với Attack Range, độ cao so với Attack Height, sức đẩy lùi, máu trừ, dừng hình (ms), rung].
  * Tầm chém khớp với vệt chém đã phóng to trong SlashFx (Attack Range 170: vệt nhát 1–2 tới ~210, nhát 3 ~260, nhát 5 ~350).
@@ -201,6 +203,7 @@ export class PlayerController extends Component {
     private holdTime = 0;
     /** Hiệu ứng gồng sóng kiếm ở giữa thân mèo (ảnh FX_charge_) */
     private chargeFx: ChargeFx | null = null;
+    private holdFx: DustPuff | null = null;
     private chargeFxTried = false;
     private charged = false;
     private prevDir = 0;
@@ -222,6 +225,7 @@ export class PlayerController extends Component {
         SwordWave.preload();
         DashFx.preload();
         ChargeFx.preload();
+        DustPuff.preload(HOLD_FX);
         DustPuff.preload(DASH_DUST);
     }
 
@@ -337,6 +341,9 @@ export class PlayerController extends Component {
             if (this.holdTime >= CHARGE_SHOW && !this.chargeFxTried) {
                 this.chargeFxTried = true;
                 this.chargeFx = ChargeFx.attach(this.node, b.size.height * 0.5);
+                // Hào quang Hold dưới chân, nằm sau hình mèo, lặp tới khi buông J
+                this.holdFx = DustPuff.spawn(HOLD_FX, this.node, 0, 0, { scale: 3, fps: 14, loopFor: 999 });
+                this.holdFx?.node.setSiblingIndex(0);
             }
             this.chargeFx?.setProgress((this.holdTime - CHARGE_SHOW) / Math.max(0.01, this.chargeTime - CHARGE_SHOW));
             if (!this.charged && this.holdTime >= this.chargeTime) {
@@ -371,6 +378,8 @@ export class PlayerController extends Component {
             }
             this.chargeFx = null;
             this.chargeFxTried = false;
+            if (this.holdFx && this.holdFx.isValid) this.holdFx.node.destroy();
+            this.holdFx = null;
         }
 
         b.gravityScale = v.y < 0 ? this.fallGravityMultiplier : 1;
@@ -388,6 +397,9 @@ export class PlayerController extends Component {
     }
 
     /** Bị đánh từ vị trí fromX. Trả về false nếu đang bất tử. */
+    /** Đang lướt (hoặc vừa lướt xong): né được đòn, kể cả axit của boss. */
+    get evading() { return this.dashTimer > 0 || this.dashGrace > 0; }
+
     hurt(fromX: number): boolean {
         // Đang lướt và một chút sau khi lướt (lỡ dừng ngay chỗ kẻ địch) thì không bị đánh
         if (this.invincible > 0 || this.dashTimer > 0 || this.dashGrace > 0) return false;
