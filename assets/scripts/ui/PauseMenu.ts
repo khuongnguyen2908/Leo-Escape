@@ -207,10 +207,10 @@ export class PauseMenu extends Component {
         const panel = uiPanel(this.overlay!, 1180, 1000, 'Keys');
         const title = uiLabel(panel, 'BÀN PHÍM', 56, UI.text);
         title.node.setPosition(0, 435, 0);
-        // Không có Angelo: chỉ hiện phím của Người 1, bỏ dòng Đổi mèo
+        // Không có Angelo: chỉ hiện phím của Người 1, bỏ dòng Đổi mèo và Kỹ năng (K)
         const two = GameSession.angelo;
         const players = two ? 2 : 1;
-        const actions = two ? ACTIONS : ACTIONS.filter((a) => a !== 'swap');
+        const actions = two ? ACTIONS : ACTIONS.filter((a) => a !== 'swap' && a !== 'skill');
         const colX = two ? [-330, 100, 400] : [-200, 250];
         const head = (x: number, text: string, color: Color) => uiLabel(panel, text, 36, color).node.setPosition(x, 365, 0);
         head(colX[1], 'Người 1', UI.p1);
@@ -218,7 +218,8 @@ export class PauseMenu extends Component {
 
         actions.forEach((a, i) => {
             const y = 300 - i * 66;
-            const name = uiLabel(panel, ACTION_NAMES[a], 34, UI.text);
+            // Chưa có Angelo thì phím Tương tác dùng để lướt
+            const name = uiLabel(panel, !two && a === 'interact' ? 'Lướt' : ACTION_NAMES[a], 34, UI.text);
             name.node.setPosition(colX[0], y, 0);
             for (let p = 0; p < players; p++) {
                 const b = uiButton(panel, '', 260, 56, () => this.startCapture(p, a), { fontSize: 30 });

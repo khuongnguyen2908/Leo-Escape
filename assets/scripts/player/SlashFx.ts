@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, Graphics } from 'cc';
+import { _decorator, Color, Component, Graphics, Node } from 'cc';
 import { DustPuff } from './DustPuff';
 const { ccclass } = _decorator;
 
@@ -14,18 +14,30 @@ const STYLES: [number, number, number, number, number][] = [
 ];
 
 /**
- * Kiểu vệt chém bằng ảnh FX_slash_ theo nhịp combo: [x phía trước, y tâm, phóng to, lật dọc].
- * Ảnh gốc quét từ dưới lên; lật dọc thành chém từ trên xuống.
+ * Vệt chém bằng ảnh (bộ SlashFX Combos, cắt bằng tools/cat_khoi.py) theo nhịp combo 5 nhát:
+ * [bộ ảnh, x tâm ảnh phía trước, y tâm ảnh so với chân, phóng to, lật ngang ảnh, vẽ sau lưng mèo].
+ * Ảnh gốc quay mặt sang phải; lật ngang thì vệt cong ngược lại nhưng vẫn nằm phía trước (x không đổi dấu).
+ * Số đo 05/11/2026 bằng cách ghép từng khung lên hình Leo cao 207: vệt lớn nhất cỡ ngang thân mèo,
+ * nhát 3–5 to hơn (rộng 290–380). Ô ảnh cắt lấy tâm ô gốc làm tâm, nên y có thể lớn (phần vẽ nằm lệch dưới ô).
  */
-const IMAGE_STYLES: [number, number, number, boolean][] = [
-    [70, 85, 3.5, true],   // nhát 1: chém từ trên xuống
-    [70, 80, 3.5, false],  // nhát 2: hất từ dưới lên
-    [80, 90, 4.9, true],   // nhát 3: to nhất
+type ImageStyle = [string, number, number, number, boolean, boolean];
+const IMAGE_STYLES: ImageStyle[] = [
+    ['FX_cut1_', 90, 21, 4.3, true, true],       // nhát 1: quét từ thân mèo ra trước, sau lưng mèo
+    ['FX_cut2_', 61, 177, 4.8, false, false],    // nhát 2: quét từ dưới lên
+    ['FX_cut3_', 36, 69, 5.1, false, true],      // nhát 3: quét ngang rộng, vòng sau lưng mèo
+    ['FX_spin_', -40, 125, 4.6, false, false],   // nhát 4: chém xoay 360°, cao hơn tai mèo
+    ['FX_finish_', 225, 64, 6.2, true, true],    // nhát 5: kết liễu, cong ngược lại, sau lưng mèo
 ];
 
+/** Tải trước mọi bộ ảnh vệt chém (gọi lúc vào màn). */
+export function preloadSlashImages() {
+    for (const [prefix] of IMAGE_STYLES) DustPuff.preload(prefix);
+}
+
 /**
- * Vệt chém hình lưỡi liềm của Leo, gắn trên node con của mèo.
- * Có ảnh art/fx/FX_slash_1, 2... thì chạy ảnh; chưa có thì vẽ bằng code: quét nhanh theo cung tròn,
+ * Vệt chém của Leo, gắn trên node con của mèo.
+ * Có ảnh art/fx (FX_cut1_, FX_cut2_, FX_cut3_, FX_spin_, FX_finish_) thì chạy ảnh;
+ * vệt nào đánh dấu "sau lưng" (nhát 1, 3, 5) thì vẽ trên node back (PlayerController đặt dưới hình mèo); chưa có thì vẽ bằng code: quét nhanh theo cung tròn,
  * dày ở giữa, nhọn hai đầu, rồi mờ dần.
  */
 @ccclass('SlashFx')
@@ -36,21 +48,26 @@ export class SlashFx extends Component {
     fadeTime = 0.14;
     /** Tốc độ khung ảnh vệt chém (khung/giây) */
     imageFps = 24;
+    /** Node con của mèo nằm dưới hình mèo: vệt "sau lưng" vẽ ở đây. Không có thì vẽ trước mèo. */
+    back: Node | null = null;
 
     private g: Graphics | null = null;
     private t = -1;
     private facing = 1;
     private style = 0;
 
+    /** Vệt chém nhát combo (0..4). Ảnh chưa tải xong thì vẽ tạm bằng code. */
     play(facing: number, combo: number) {
         this.facing = facing >= 0 ? 1 : -1;
-        this.style = Math.max(0, Math.min(STYLES.length - 1, combo));
-        if (DustPuff.ready(DustPuff.SLASH)) {
-            const [x, y, scale, flipY] = IMAGE_STYLES[this.style];
-            DustPuff.spawn(DustPuff.SLASH, this.node, this.facing * x, y,
-                { dir: this.facing, flipY, scale, fps: this.imageFps, center: true });
+        const i = Math.max(0, Math.min(IMAGE_STYLES.length - 1, combo));
+        const [prefix, x, y, scale, flipX, behind] = IMAGE_STYLES[i];
+        if (DustPuff.ready(prefix)) {
+            const parent = behind && this.back && this.back.isValid ? this.back : this.node;
+            DustPuff.spawn(prefix, parent, this.facing * x, y,
+                { dir: flipX ? -this.facing : this.facing, scale, fps: this.imageFps, center: true });
             return;
         }
+        this.style = Math.min(STYLES.length - 1, i);
         this.t = 0;
         this.draw();
     }

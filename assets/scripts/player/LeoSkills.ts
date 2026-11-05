@@ -8,11 +8,14 @@ import { CatSkills } from './CatSkills';
 import { DustPuff } from './DustPuff';
 import { HitSpark } from './HitSpark';
 import { PlayerController } from './PlayerController';
+import { RunDust } from './RunDust';
 import { SkillFx } from './SkillFx';
 import { YarnRope } from './YarnRope';
 const { ccclass, property } = _decorator;
 
 const DUST = new Color(214, 186, 150, 255);
+const LAUNCH = 'FX_airspin_'; // vệt xoáy quét từ đất lên qua đầu mèo (chém hất)
+const SWEEP = 'FX_sweep_';   // vệt quét sát đất (S + J)
 const _hit = new Rect();
 const _me = new Rect();
 const _zone = new Rect();
@@ -32,12 +35,15 @@ type State = 'none' | 'pound' | 'lying' | 'climb' | 'burst';
 
 /**
  * Kỹ năng của Leo (mèo mập, nặng):
- *  - Kỹ năng (K) khi đang bay: ĐẬP BỤNG lao thẳng xuống, sóng chấn đẩy văng và làm choáng địch quanh chỗ đáp.
+ *  - Giữ Xuống (S) + Đánh (J) khi đang bay: ĐẬP BỤNG lao thẳng xuống, sóng chấn đẩy văng và làm choáng địch quanh chỗ đáp.
  *    Rơi càng cao thì sóng càng rộng.
- *  - Giữ Lên (W) + Đánh (J) dưới đất: CHÉM HẤT, cơn lốc hất địch trước mặt bay lên; nhảy theo chém tiếp thì địch lơ lửng.
- *  - Giữ Xuống (S) + Kỹ năng (K) trên nền cứng, đầy năng lượng: tuyệt chiêu MÈO NỔ, gồng rồi nổ đánh mọi địch trên màn hình.
- *  - Kỹ năng (K) khi đứng dưới đất: NẰM NGỬA làm đệm; Angelo rơi trúng bụng thì bật cao. Bấm K lần nữa để đứng dậy.
+ *  - Giữ Lên (W) + Đánh (J) dưới đất: CHÉM HẤT, vệt chém lên hất địch trước mặt bay lên; nhảy theo chém tiếp thì địch lơ lửng.
+ *  - Giữ Xuống (S) + Đánh (J) trên nền cứng: CHÉM QUÉT CHÂN, quét sát đất về phía đang quay mặt, địch trúng bị choáng ngắn.
+ *  - Giữ Xuống (S) + Lướt (L) trên nền cứng, đầy năng lượng: tuyệt chiêu MÈO NỔ, gồng rồi nổ đánh mọi địch trên màn hình.
+ *  - Phím Kỹ năng (K) chỉ dùng khi có Angelo trong màn: K dưới đất NẰM NGỬA làm đệm (Angelo rơi trúng bụng thì bật cao,
+ *    K lần nữa để dậy); K trên không đập bụng, S + K Mèo Nổ như cũ. Chưa có Angelo thì bỏ qua phím K.
  *  - Tương tác (L) cạnh Angelo: BÊ Angelo lên đầu; bấm L lần nữa để NÉM theo hướng đang quay mặt.
+ *    Chưa có Angelo trong màn thì phím Tương tác là phím LƯỚT CHÉM (PlayerController.tryDash).
  *  - Giữ Lên (W) cạnh dây len Angelo thả: LEO DÂY; thả phím thì đu lơ lửng, Xuống để tụt, Nhảy để buông.
  * GameManager tự gắn khi bắt đầu chơi; số liệu chỉnh ở đây.
  */
@@ -45,6 +51,12 @@ type State = 'none' | 'pound' | 'lying' | 'climb' | 'burst';
 export class LeoSkills extends Component implements CatSkills {
     /** Gọi khi Leo đập bụng chạm đất tại (x, y) trong lớp Gameplay (sàn yếu ở bước câu đố sẽ nghe ở đây). */
     static readonly poundListeners: ((x: number, y: number) => void)[] = [];
+
+    @property({ group: 'Nhảy 2 lần', tooltip: 'Bấm Nhảy khi đang bay được thêm mấy lần (chạm đất thì có lại). 0 = tắt' })
+    airJumps = 1;
+
+    @property({ group: 'Nhảy 2 lần', tooltip: 'Lần nhảy trên không mạnh bằng bao nhiêu so với nhảy thường (miễn phí)' })
+    airJumpPower = 0.85;
 
     @property({ tooltip: 'Tốc độ lao xuống khi đập bụng' })
     poundSpeed = 2200;
@@ -69,6 +81,15 @@ export class LeoSkills extends Component implements CatSkills {
 
     @property({ group: 'Chém hất', tooltip: 'Địch bị hất bay lên cao chừng này' })
     launchHeight = 350;
+
+    @property({ group: 'Quét chân', tooltip: 'Năng lượng tốn mỗi lần quét chân (S + J)' })
+    sweepEnergy = 15;
+
+    @property({ group: 'Quét chân', tooltip: 'Quét xa bao nhiêu về phía trước' })
+    sweepRange = 290;
+
+    @property({ group: 'Quét chân', tooltip: 'Địch trúng bị choáng bao lâu (giây)' })
+    sweepDaze = 0.8;
 
     @property({ group: 'Mèo Nổ', tooltip: 'Thời gian gồng trước khi nổ (giây), Leo bất tử trong lúc gồng' })
     burstCharge = 0.6;
@@ -102,11 +123,12 @@ export class LeoSkills extends Component implements CatSkills {
     private poundTime = 0;
     private poundFromY = 0;
     private burstTime = 0;
+    private airLeft = 1;
 
     onLoad() {
         // Ảnh hiệu ứng kỹ năng của Leo (art/fx): tải trước để lần dùng đầu tiên đã có hình
-        for (const p of [DustPuff.SLASH, DustPuff.RING, DustPuff.SPIKE, DustPuff.STUN,
-            DustPuff.TORNADO, DustPuff.SWIRL, DustPuff.BURST, DustPuff.SHOCK]) DustPuff.preload(p);
+        for (const p of [LAUNCH, SWEEP, DustPuff.RING, DustPuff.SPIKE, DustPuff.STUN,
+            DustPuff.SWIRL, DustPuff.BURST, DustPuff.SHOCK]) DustPuff.preload(p);
         HitSpark.preload();
     }
 
@@ -121,6 +143,7 @@ export class LeoSkills extends Component implements CatSkills {
 
     control(dt: number, canControl: boolean): boolean {
         const c = this.cat, b = c.body, ctl = c.controls;
+        if (b.grounded || this.state === 'climb') this.airLeft = this.airJumps;
         if (this.state === 'climb') return this.updateClimb(dt, canControl);
         if (this.state === 'pound') return this.updatePound(dt);
         if (this.state === 'burst') return this.updateBurst(dt);
@@ -148,7 +171,8 @@ export class LeoSkills extends Component implements CatSkills {
                 return true;
             }
         }
-        if (ctl.consumeSkill() && !this.carrying) {
+        // Phím K: chỉ khi có Angelo (chưa có thì nuốt phím, không làm gì)
+        if (ctl.consumeSkill() && !this.carrying && this.partner()) {
             if (!b.grounded) {
                 if (c.useEnergy(this.poundEnergy)) {
                     this.startPound();
@@ -164,7 +188,12 @@ export class LeoSkills extends Component implements CatSkills {
         }
         if (ctl.consumeInteract()) {
             if (this.carrying) this.throwPartner();
-            else this.tryPickUp();
+            else if (!this.partner()) {
+                // Chưa có Angelo: phím Tương tác = Lướt; giữ Xuống + Lướt trên nền cứng = Mèo Nổ
+                if (ctl.down && b.grounded && !b.groundSolid?.oneWay) {
+                    if (this.startBurst()) return true;
+                } else c.tryDash();
+            } else this.tryPickUp();
         }
         return false;
     }
@@ -172,15 +201,31 @@ export class LeoSkills extends Component implements CatSkills {
     attack(): boolean {
         // Đang bê hoặc đang nằm thì không chém
         if (this.carrying || this.state !== 'none') return true;
-        if (this.cat.controls.upHeld && this.cat.body.grounded) {
+        const c = this.cat, b = c.body;
+        // Giữ Xuống + J: trên không thì đập bụng, trên nền cứng thì quét chân
+        if (c.controls.down && !b.grounded) {
+            if (c.useEnergy(this.poundEnergy)) this.startPound();
+            return true;
+        }
+        if (c.controls.down && b.grounded && !b.groundSolid?.oneWay) {
+            this.sweep();
+            return true;
+        }
+        if (this.cat.controls.upHeld && b.grounded) {
             this.launcher();
             return true;
         }
         return false;
     }
 
+    /** Nhảy lần 2 trên không (đang bê Angelo, đập bụng, gồng... thì không). */
     airJump(): boolean {
-        return false;
+        if (this.state !== 'none' || this.carrying || this.airLeft <= 0) return false;
+        const c = this.cat;
+        this.airLeft--;
+        c.startJump(c.jumpSpeed * this.airJumpPower);
+        this.getComponent(RunDust)?.airJumpPuff();
+        return true;
     }
 
     beforeMove(_dt: number) {}
@@ -213,7 +258,7 @@ export class LeoSkills extends Component implements CatSkills {
 
     // ---------- Chém hất ----------
 
-    /** W + J dưới đất: vung vệt chém hất lên, cơn lốc trước mặt hất địch bay lên. */
+    /** W + J dưới đất: vung vệt chém hất lên, hất địch trước mặt bay lên. */
     private launcher() {
         const c = this.cat, b = c.body, f = c.facing;
         if (!c.useEnergy(this.launchEnergy)) return;
@@ -221,8 +266,10 @@ export class LeoSkills extends Component implements CatSkills {
         Sound.play('slash3', 0.8);
         const parent = c.node.parent;
         const p = c.node.position;
-        DustPuff.spawn(DustPuff.SLASH, c.node, f * 80, 95, { dir: f, scale: 4.9, fps: 24, center: true });
-        if (parent) DustPuff.spawn(DustPuff.TORNADO, parent, p.x + f * 110, p.y, { dir: f, scale: 3.2, fps: 16, loopFor: 0.5 });
+        // Vệt xoáy quét từ sát đất trước mặt cong lên qua đỉnh đầu, nằm sau lưng mèo
+        // (đo theo ảnh mẫu 05/11/2026: khung 1 rộng ~300 từ x -37 tới 261, cao từ 33 tới 316)
+        const fx = DustPuff.spawn(LAUNCH, c.node, f * 25, 138, { dir: f, scale: 6.2, scaleY: 8.1, fps: 20, center: true });
+        fx?.node.setSiblingIndex(0);
 
         // Vùng đánh trước mặt, cao hơn nhát chém thường
         const r = b.getRect(_me);
@@ -248,9 +295,43 @@ export class LeoSkills extends Component implements CatSkills {
         }
     }
 
+    // ---------- Quét chân ----------
+
+    /** S + J trên nền cứng: vệt quét sát đất về phía đang quay mặt, địch trúng bị đẩy lùi và choáng ngắn. */
+    private sweep() {
+        const c = this.cat, b = c.body;
+        if (!c.useEnergy(this.sweepEnergy)) return;
+        c.visual?.playAttack();
+        Sound.play('slash2', 0.9);
+        const f = c.facing;
+        // Sát mặt đất dưới chân mèo (quét vào chân địch)
+        DustPuff.spawn(SWEEP, c.node, f * 36, 20, { dir: f, scale: 4.55, fps: 20, center: true });
+
+        const r = b.getRect(_me);
+        const cx = r.x + r.width / 2;
+        const p = c.node.position;
+        const parent = c.node.parent;
+        const back = 30; // trúng cả thứ sát sau gót một chút
+        _zone.set(f > 0 ? cx - back : cx - this.sweepRange, r.y - 10, this.sweepRange + back, 100);
+        let hits = 0;
+        for (const h of Hittables.slice()) {
+            if (!h.canBeHit || !overlaps(_zone, h.getHitRect(_hit))) continue;
+            const hx = _hit.x + _hit.width / 2;
+            h.takeHit(p.x, 0.8, 1);
+            h.daze?.(this.sweepDaze);
+            hits++;
+            if (parent) HitSpark.spawn(parent, clamp(hx, _zone.x, _zone.x + _zone.width), _zone.y + 40, f, false);
+        }
+        if (hits > 0) {
+            Sound.play('hit', 0.9);
+            HitStop.trigger(60);
+            CameraRig.instance?.shake(9, 0.15);
+        }
+    }
+
     // ---------- Tuyệt chiêu Mèo Nổ ----------
 
-    /** S + K trên nền cứng: cần đầy năng lượng (không đủ thì thanh nháy đỏ). */
+    /** S + L (hoặc S + K khi có Angelo) trên nền cứng: cần đầy năng lượng (không đủ thì thanh nháy đỏ). */
     private startBurst(): boolean {
         const c = this.cat;
         if (c.energy < c.maxEnergy - 0.5) {
@@ -317,6 +398,7 @@ export class LeoSkills extends Component implements CatSkills {
         this.state = 'pound';
         this.poundTime = 0;
         this.poundFromY = this.cat.node.position.y;
+        this.getComponent(RunDust)?.markBigLanding();
         this.cat.visual?.playAttack();
         Sound.play('dash', 0.8);
     }

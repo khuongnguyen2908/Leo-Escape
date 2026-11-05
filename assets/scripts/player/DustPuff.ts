@@ -23,6 +23,8 @@ export interface FxOptions {
     flipY?: boolean;
     /** Phóng to bao nhiêu lần. Mặc định 1 */
     scale?: number;
+    /** Phóng to theo chiều dọc, nếu muốn khác chiều ngang. Mặc định bằng scale */
+    scaleY?: number;
     /** Khung/giây. Mặc định 20 */
     fps?: number;
     /** true: neo ở giữa hình (nổ, vòng tròn); false: neo ở chân hình (bụi trên mặt đất). Mặc định false */
@@ -39,8 +41,10 @@ function getSet(prefix: string): FrameSet {
 
 /**
  * Hiệu ứng ảnh nhiều khung trong assets/resources/art/fx (flip-book), mỗi bộ một tên đầu:
- * FX_dust_ (khói chạy), FX_jump_ (bụi nhảy / đáp đất), FX_slash_ (vệt chém), FX_hit_ / FX_hitbig_ (trúng đòn),
- * FX_ring_ / FX_spike_ (đập bụng), FX_stun_ (sao choáng), FX_tornado_ (chém hất), FX_swirl_ / FX_burst_ / FX_shock_ (tuyệt chiêu).
+ * FX_run_ / FX_skid_ / FX_takeoff_ / FX_land_ / FX_airjump_ (khói của mèo, RunDust; FX_dust_ / FX_jump_ là bộ cũ không dùng nữa), FX_hit_ / FX_hitbig_ (trúng đòn),
+ * vệt chém FX_cut1_ / FX_cut2_ / FX_cut3_ / FX_spin_ / FX_finish_ (combo 5 nhát, SlashFx), FX_airspin_ (chém hất),
+ * FX_sweep_ (quét chân), FX_wave_ (sóng kiếm, SwordWave); FX_slash_ / FX_tornado_ là bộ cũ không dùng nữa,
+ * FX_ring_ / FX_spike_ (đập bụng), FX_stun_ (sao choáng), FX_swirl_ / FX_burst_ / FX_shock_ (tuyệt chiêu).
  * Thường: chạy một lượt hết các khung rồi tự xoá. loopFor: lặp trong chừng ấy giây rồi tự xoá.
  * Khói giữ (hold): lặp qua lại 3 khung đầu (khói đang tung) cho tới khi gọi release(), lúc đó chạy nốt các khung còn lại (khói tan) rồi tự xoá.
  * Ảnh pixel art được giữ sắc nét (lọc NEAREST, không gộp vào atlas động) khi phóng to.
@@ -70,6 +74,13 @@ export class DustPuff extends Component {
     private loopFor = 0;
     /** Khung bắt đầu chạy một lượt (0, hoặc khung khói tan sau khi release). */
     private startFrame = 0;
+
+    /** Các khung của bộ ảnh (rỗng nếu chưa tải xong; gọi preload luôn). */
+    static frames(prefix: string): SpriteFrame[] {
+        const set = getSet(prefix);
+        if (set.frames.length === 0) DustPuff.preload(prefix);
+        return set.frames;
+    }
 
     /** Bộ khung này đã tải xong chưa (chưa thì gọi preload luôn). */
     static ready(prefix: string): boolean {
@@ -125,7 +136,7 @@ export class DustPuff extends Component {
         n.layer = parent.layer;
         parent.addChild(n);
         n.setPosition(x, y, 0);
-        n.setScale(scale * ((opt.dir ?? 1) < 0 ? -1 : 1), scale * (opt.flipY ? -1 : 1), 1);
+        n.setScale(scale * ((opt.dir ?? 1) < 0 ? -1 : 1), (opt.scaleY ?? scale) * (opt.flipY ? -1 : 1), 1);
         const puff = n.addComponent(DustPuff);
         puff.frames = frames;
         puff.fps = opt.fps ?? 20;

@@ -97,12 +97,34 @@ type PlatformOpts = PropOpts & { oneWay?: boolean; widthFrac?: number; topInset?
 /**
  * Đồ vật chặn cả hai bên (không đi xuyên, phải nhảy lên), đo trên ảnh gốc cỡ 1:1, toạ độ so với tâm đáy ảnh.
  * cx, w: tâm và bề ngang thân đồ vật (độ cao mặt đứng giữ như đang có trong scene).
- * extra: bậc phụ thêm một Solid trên cùng node, h = độ cao mặt đứng (viên gạch cạnh thùng giấy).
+ * extras: các khung phụ, mỗi khung một Solid trên cùng node (Solid phải là con trực tiếp của Gameplay nên không tách node con).
+ *   cx, w: tâm và bề ngang; y: đáy khung; h: chiều cao khung.
  */
-const SOLID_PROPS: Record<string, { cx: number; w: number; extra?: { cx: number; w: number; h: number } }> = {
-    mg_up: { cx: 60.5, w: 232, extra: { cx: -90, w: 119, h: 116 } },   // thùng giấy + viên gạch chung một ảnh
+type SolidBox = { cx: number; w: number; y: number; h: number };
+const SOLID_PROPS: Record<string, { cx: number; w: number; extras?: SolidBox[] }> = {
+    // Thùng giấy + viên gạch + cây gỗ chung một ảnh. Cây gỗ nghiêng: 5 khung xếp bậc thang ôm theo đường chéo (dưới lên trên)
+    mg_up: {
+        cx: 60.5, w: 232, extras: [
+            { cx: -90, w: 119, y: 0, h: 116 },          // viên gạch
+            { cx: 106, w: 59, y: 204, h: 39.2 },        // cây gỗ
+            { cx: 118.5, w: 68, y: 243.2, h: 39.2 },
+            { cx: 138, w: 61, y: 282.4, h: 39.2 },
+            { cx: 154.5, w: 56, y: 321.6, h: 39.2 },
+            { cx: 164, w: 39, y: 360.8, h: 39.2 },
+        ],
+    },
     mg_thungrac: { cx: 2, w: 268 },
 };
+/**
+ * Mặt đá có nắng (MG_tile_3), đo trên 4 ảnh demo 05/11/2026: chỉ ô đá ngay trước khe hở ở khung 1
+ * (ảnh demo x 500 → 820) có vệt nắng; mọi ô khác, kể cả hai bậc đá cao, là MG_tile_2.
+ * Toạ độ lớp Gameplay [x đầu, x cuối]; ô đá nào có tâm nằm trong đoạn thì dùng tile_3.
+ */
+const SUNLIT_X: [number, number][] = [[450, 933]];
+/** Máu kẻ địch: số cũ → số mới (gấp 4, để chém cho đã tay). Chỉ đổi khi còn đúng số cũ. */
+const ENEMY_HP: [number, number][] = [[3, 12], [10, 40]];
+/** Thân va chạm của Leo: rộng 85 thì hình mèo (rộng 200) lấn vào tường; nới lên 150. */
+const LEO_BODY_WIDTH = 150;
 type EnemyOpts = { name?: string; frames?: string[]; scale?: number; range?: number; hp?: number; speed?: number; body?: [number, number] };
 type Built = { node: Node; w: number; h: number };
 /** [tên ảnh, x, y, tỉ lệ so với cỡ gốc, lật?] */
@@ -387,9 +409,35 @@ export class DemoLevelBuilder extends Component {
             console.warn('[DemoLevelBuilder] Không thêm được menu chính:', e);
         }
 
-        // 13. Thùng giấy + viên gạch, thùng rác: chặn hai bên, khung va chạm ôm đúng hình (đã đúng thì để yên)
+        // 13. Thùng giấy + viên gạch + cây gỗ, thùng rác: chặn hai bên, khung va chạm ôm đúng hình (đã đúng thì để yên)
         const solidProps = play.children.filter((n) => this.applySolidProp(n)).length;
-        if (solidProps) done.push(`${solidProps} đồ vật (thùng giấy + viên gạch, thùng rác): chặn hai bên, khung va chạm ôm đúng hình`);
+        if (solidProps) done.push(`${solidProps} đồ vật (thùng giấy + viên gạch + cây gỗ, thùng rác): chặn hai bên, khung va chạm ôm đúng hình`);
+
+        // 14. Mặt đá: mọi khối dùng MG_tile_2, chỉ các ô có nắng (SUNLIT_X, đo trên ảnh demo) dùng MG_tile_3
+        let tiles = 0;
+        for (const g of play.getComponentsInChildren(GroundBlock)) if (this.applySunlit(g)) tiles++;
+        if (tiles) done.push(`${tiles} khối nền đá: mặt đá tối dùng tile_2, chỉ ô có nắng dùng tile_3`);
+
+        // 15. Máu kẻ địch gấp 4 (chỉ đổi khi còn đúng số cũ, bạn tự chỉnh số khác thì để yên)
+        let hpChanged = 0;
+        for (const e of play.getComponentsInChildren(EnemyPatrol)) {
+            const to = ENEMY_HP.find(([from]) => e.hp === from)?.[1];
+            if (to !== undefined) {
+                e.hp = to;
+                hpChanged++;
+            }
+        }
+        if (hpChanged) done.push(`${hpChanged} kẻ địch: máu gấp 4 (chim 12, boss 40)`);
+
+        // 16. Thân va chạm của Leo rộng 150 để hình mèo không lấn vào tường (chỉ đổi khi còn số cũ 85)
+        for (const c of play.getComponentsInChildren(PlayerController)) {
+            if (c.catName === 'Angelo') continue;
+            const body = c.getComponent(PlatformerBody);
+            if (body && Math.abs(body.size.width - 85) < 0.5) {
+                body.size = new Size(LEO_BODY_WIDTH, body.size.height);
+                done.push(`thân va chạm của ${c.node.name}: rộng 85 → ${LEO_BODY_WIDTH} (hình mèo không lấn vào tường)`);
+            }
+        }
 
         try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
         console.log(done.length
@@ -1145,9 +1193,9 @@ export class DemoLevelBuilder extends Component {
         const grounds: [number, number, number, string][] = [
             [LEVEL_START, gap[0], 0, 'mg_tile_2'],
             [gap[1], raised1[0], 0, 'mg_tile_2'],
-            [raised1[0], raised1[1], RAISED, 'mg_tile_3'],
+            [raised1[0], raised1[1], RAISED, 'mg_tile_2'],
             [raised1[1], raised2[0], 0, 'mg_tile_2'],
-            [raised2[0], raised2[1], RAISED, 'mg_tile_3'],
+            [raised2[0], raised2[1], RAISED, 'mg_tile_2'],
         ];
         for (const [x0, x1, top, tile] of grounds) this.ground(play, x0, x1, top, tile);
         this.wall(play, LEVEL_START - 30);
@@ -1199,7 +1247,7 @@ export class DemoLevelBuilder extends Component {
         this.hazard(play, 'mg_cone', x(4, 857), RAISED);
         this.boss = this.enemy(play, x(4, 1040), RAISED, {
             // Thân va chạm thấp hơn hình để nhảy từ bậc đá (cao 300) vẫn đạp được lên lưng
-            name: 'Boss', frames: ['mg_boss'], hp: 10, speed: 150, body: [230, 220],
+            name: 'Boss', frames: ['mg_boss'], hp: 40, speed: 150, body: [230, 220],
         });
 
         // ── Đích ở cuối bậc đá, sau boss
@@ -1230,7 +1278,7 @@ export class DemoLevelBuilder extends Component {
         const n = this.mk('Player', parent);
         n.setPosition(x, y, 0);
         const body = n.addComponent(PlatformerBody);
-        body.size = new Size(85, 135);
+        body.size = new Size(LEO_BODY_WIDTH, 135);
         body.offset = new Vec2(0, 67.5);
 
         const vis = this.mk('Visual', n);
@@ -1275,7 +1323,7 @@ export class DemoLevelBuilder extends Component {
         e.walkFrames = frames;
         e.targetHeight = h;
         e.patrolRange = o.range ?? 0;
-        e.hp = o.hp ?? 3; // gà cần chém 3 nhát
+        e.hp = o.hp ?? 12;
         e.speed = o.speed ?? 110;
         e.refresh();
         return e;
@@ -1293,7 +1341,30 @@ export class DemoLevelBuilder extends Component {
         // Mặt đá sáng trên ảnh MG_tile nằm từ px 20 đến 95 (cao 285). Như ảnh demo, chân đồ vật đứng
         // ở khoảng giữa mặt đá (px ~60), nên nâng ảnh lên để mặt va chạm (y = 0) rơi vào đó.
         block._sink = block._tileHeight * TILE_FOOT;
+        this.applySunlit(block);
         block.redraw();
+    }
+
+    /**
+     * Mặt đá tối dùng MG_tile_2; ô có nắng (SUNLIT_X) dùng MG_tile_3. Cần ảnh đã nạp (this.art).
+     * Trả về true nếu có đổi.
+     */
+    private applySunlit(g: GroundBlock): boolean {
+        const dark = this.frame('mg_tile_2');
+        const sun = this.frame('mg_tile_3');
+        if (!dark) return false;
+        let changed = false;
+        if (g.tileFrame !== dark) {
+            g.tileFrame = dark;
+            changed = true;
+        }
+        // Đoạn có nắng đổi sang toạ độ của khối (tính từ mép trái), chỉ lấy đoạn đầu tiên chạm khối
+        const x0 = g.node.position.x;
+        const hit = SUNLIT_X.find(([a, b]) => b > x0 && a < x0 + g.width);
+        const from = hit ? Math.max(0, hit[0] - x0) : 0;
+        const to = hit ? Math.min(g.width, hit[1] - x0) : 0;
+        if (g.setLit(hit ? sun : null, from, to)) changed = true;
+        return changed;
     }
 
     private wall(parent: Node, x: number) {
@@ -1316,7 +1387,7 @@ export class DemoLevelBuilder extends Component {
 
     /**
      * Đồ vật có trong SOLID_PROPS: bỏ một chiều (chặn cả hai bên), hộp va chạm ôm đúng thân, giữ độ cao mặt đứng đang có;
-     * thêm bậc phụ (Solid thứ hai) nếu có. Đã đúng thì để yên. Trả về true nếu có đổi.
+     * thêm các khung phụ (viên gạch, cây gỗ) thành Solid thứ 2, 3... trên cùng node. Đã đúng thì để yên. Trả về true nếu có đổi.
      */
     private applySolidProp(node: Node): boolean {
         const spec = SOLID_PROPS[node.name];
@@ -1324,19 +1395,20 @@ export class DemoLevelBuilder extends Component {
         if (!spec || !solids.length) return false;
         const sx = node.scale.x, sy = node.scale.y;
         let changed = false;
-        const fit = (s: Solid, cx: number, w: number, h: number) => {
+        const fit = (s: Solid, cx: number, w: number, y: number, h: number) => {
             const same = (a: number, b: number) => Math.abs(a - b) < 0.01;
-            if (!s.oneWay && same(s.size.width, w) && same(s.size.height, h) && same(s.offset.x, cx) && same(s.offset.y, h / 2)) return;
+            const oy = y + h / 2;
+            if (!s.oneWay && same(s.size.width, w) && same(s.size.height, h) && same(s.offset.x, cx) && same(s.offset.y, oy)) return;
             s.oneWay = false;
             s.size = new Size(w, h);
-            s.offset = new Vec2(cx, h / 2);
+            s.offset = new Vec2(cx, oy);
             changed = true;
         };
-        fit(solids[0], spec.cx * sx, spec.w * Math.abs(sx), solids[0].size.height);
-        if (spec.extra) {
-            const e = spec.extra;
-            fit(solids[1] ?? node.addComponent(Solid), e.cx * sx, e.w * Math.abs(sx), e.h * Math.abs(sy));
-        }
+        fit(solids[0], spec.cx * sx, spec.w * Math.abs(sx), 0, solids[0].size.height);
+        (spec.extras ?? []).forEach((e, i) => {
+            const s = solids[i + 1] ?? node.addComponent(Solid);
+            fit(s, e.cx * sx, e.w * Math.abs(sx), e.y * Math.abs(sy), e.h * Math.abs(sy));
+        });
         return changed;
     }
 

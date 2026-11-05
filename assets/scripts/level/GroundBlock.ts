@@ -12,6 +12,7 @@ const LIP = new Color(176, 168, 156, 255);
  * Các ô đá chồng lên nhau một đoạn (Overlap) để không lộ khe giữa 2 ô, và giãn nhẹ cho vừa khít
  * bề dài khối, nên 2 đầu khối luôn là mép đá bo tròn chứ không bị cắt ngang giữa ô.
  * Gốc node là góc trên-trái mặt đất. Kéo node để đổi chỗ / độ cao, đổi Width để dài ngắn.
+ * Ô có nắng: ô đá nào có tâm nằm trong đoạn Lit From → Lit To (tính từ mép trái khối) thì dùng ảnh Lit Frame (MG_tile_3).
  */
 @ccclass('GroundBlock')
 @executeInEditMode
@@ -34,6 +35,15 @@ export class GroundBlock extends Component {
 
     @property
     _overlap = 24;
+
+    @property({ type: SpriteFrame })
+    _litFrame: SpriteFrame | null = null;
+
+    @property
+    _litFrom = 0;
+
+    @property
+    _litTo = 0;
 
     @property({ tooltip: 'Chiều dài khối' })
     get width() { return this._width; }
@@ -58,6 +68,28 @@ export class GroundBlock extends Component {
     @property({ tooltip: 'Hai ô đá cạnh nhau chồng lên nhau bao nhiêu (px trên ảnh gốc). Còn thấy khe thì tăng lên' })
     get overlap() { return this._overlap; }
     set overlap(v: number) { this._overlap = Math.max(0, v); this.redraw(); }
+
+    @property({ type: SpriteFrame, tooltip: 'Ảnh ô đá có nắng (MG_tile_3), dùng cho các ô nằm trong đoạn Lit From → Lit To' })
+    get litFrame() { return this._litFrame; }
+    set litFrame(v: SpriteFrame | null) { this._litFrame = v; this.redraw(); }
+
+    @property({ tooltip: 'Đoạn có nắng: bắt đầu (tính từ mép trái khối). Lit From = Lit To thì không ô nào có nắng' })
+    get litFrom() { return this._litFrom; }
+    set litFrom(v: number) { this._litFrom = v; this.redraw(); }
+
+    @property({ tooltip: 'Đoạn có nắng: kết thúc (tính từ mép trái khối)' })
+    get litTo() { return this._litTo; }
+    set litTo(v: number) { this._litTo = v; this.redraw(); }
+
+    /** Đặt ảnh ô có nắng và đoạn có nắng một lần (chỉ vẽ lại khi có đổi). Trả về true nếu có đổi. */
+    setLit(frame: SpriteFrame | null, from: number, to: number): boolean {
+        if (this._litFrame === frame && Math.abs(this._litFrom - from) < 0.5 && Math.abs(this._litTo - to) < 0.5) return false;
+        this._litFrame = frame;
+        this._litFrom = from;
+        this._litTo = to;
+        this.redraw();
+        return true;
+    }
 
     onLoad() {
         this.redraw();
@@ -117,6 +149,7 @@ export class GroundBlock extends Component {
         const sx = width / fw;
 
         const tiles = top.children.slice();
+        const lit = this._litFrame && this._litTo > this._litFrom ? this._litFrame : null;
         for (let i = 0; i < n; i++) {
             let t = tiles[i];
             if (!t) {
@@ -124,15 +157,20 @@ export class GroundBlock extends Component {
                 t.layer = this.node.layer;
                 top.addChild(t);
             }
+            // Ô có tâm nằm trong đoạn có nắng thì dùng ảnh có nắng (cùng khổ ảnh, giãn theo kích thước của chính nó)
+            const x = i * (width - ov);
+            const center = x + width / 2;
+            const f = lit && center >= this._litFrom && center <= this._litTo ? lit : frame;
+            const ffw = f.rect.width, ffh = f.rect.height;
             const sp = t.getComponent(Sprite) ?? t.addComponent(Sprite);
-            sp.spriteFrame = frame;
+            sp.spriteFrame = f;
             sp.type = Sprite.Type.SIMPLE;
             sp.sizeMode = Sprite.SizeMode.CUSTOM;
             const ui = t.getComponent(UITransform)!;
             ui.setAnchorPoint(0, 1);
-            ui.setContentSize(fw, fh);
-            t.setScale(sx, s, 1);
-            t.setPosition(i * (width - ov), 0, 0);
+            ui.setContentSize(ffw, ffh);
+            t.setScale(width / ffw, this._tileHeight / ffh, 1);
+            t.setPosition(x, 0, 0);
         }
         for (let i = n; i < tiles.length; i++) {
             tiles[i].removeFromParent();

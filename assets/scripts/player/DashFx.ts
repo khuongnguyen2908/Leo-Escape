@@ -1,15 +1,24 @@
-import { _decorator, Color, Component, Graphics, Node } from 'cc';
+import { _decorator, Color, Component, Graphics, Node, Sprite, UIOpacity, UITransform } from 'cc';
+import { DustPuff } from './DustPuff';
 const { ccclass } = _decorator;
 
-const GLOW = new Color(255, 196, 110, 255);
-const BODY = new Color(255, 247, 228, 255);
+// Cùng tông xanh với bộ vệt chém SlashFX
+const GLOW = new Color(90, 200, 255, 255);
+const BODY = new Color(170, 235, 255, 255);
 const CORE = new Color(255, 255, 255, 255);
-const LINE = new Color(255, 236, 200, 255);
+const LINE = new Color(190, 240, 255, 255);
 const FADE = 0.28;
+/** Vệt quét ngang xanh (bộ SlashFX Combo3) kéo dài theo đường lướt. */
+const STREAK = 'FX_sweep_';
+/** Khung 1 của ảnh vệt: phần có hình rộng 63 điểm ảnh, tâm lệch 23.5 về phía trước so với tâm ảnh. */
+const STREAK_W = 63;
+const STREAK_DX = 23.5;
+const STREAK_SY = 4.5;
 
 /**
- * Vệt chém dài khi lướt (vẽ bằng code, chưa cần ảnh): một dải sáng nằm ngang từ chỗ bắt đầu lướt
- * tới chỗ mèo đang ở, nhọn ở đuôi, dày ở đầu, kèm vài đường gió. Hết lướt thì mờ dần rồi tự xoá.
+ * Vệt lướt: vệt quét xanh (ảnh FX_sweep_) kéo dài từ chỗ bắt đầu lướt tới chỗ mèo đang ở, kèm vài đường gió.
+ * Hết lướt thì chạy nốt các khung còn lại của vệt (tan dần) rồi tự xoá.
+ * Ảnh chưa tải xong thì vẽ dải sáng xanh bằng code.
  */
 @ccclass('DashFx')
 export class DashFx extends Component {
@@ -18,6 +27,12 @@ export class DashFx extends Component {
     private length = 0;
     private fading = -1;
     private lines: { y: number; from: number; to: number }[] = [];
+    private streak: Sprite | null = null;
+    private streakOpacity: UIOpacity | null = null;
+
+    static preload() {
+        DustPuff.preload(STREAK);
+    }
 
     /** Tạo vệt tại (x, y) trong node cha (lớp Gameplay); dir là hướng lướt. */
     static spawn(parent: Node, x: number, y: number, dir: number): DashFx {
@@ -31,6 +46,19 @@ export class DashFx extends Component {
         for (let i = 0; i < 5; i++) {
             fx.lines.push({ y: (Math.random() - 0.5) * 140, from: Math.random() * 0.4, to: 0.5 + Math.random() * 0.45 });
         }
+        const frames = DustPuff.frames(STREAK);
+        if (frames.length > 0) {
+            const s = new Node('Streak');
+            s.layer = parent.layer;
+            n.addChild(s);
+            const sp = s.addComponent(Sprite);
+            sp.sizeMode = Sprite.SizeMode.RAW;
+            sp.trim = false;
+            sp.spriteFrame = frames[0];
+            s.getComponent(UITransform)!.setAnchorPoint(0.5, 0.5);
+            fx.streak = sp;
+            fx.streakOpacity = s.addComponent(UIOpacity);
+        }
         return fx;
     }
 
@@ -40,7 +68,7 @@ export class DashFx extends Component {
         this.draw(1);
     }
 
-    /** Hết lướt: mờ dần rồi xoá. */
+    /** Hết lướt: vệt tan dần rồi xoá. */
     release() {
         this.fading = 0;
     }
@@ -52,7 +80,14 @@ export class DashFx extends Component {
             this.node.destroy();
             return;
         }
-        this.draw(1 - this.fading / FADE);
+        const t = this.fading / FADE;
+        // Vệt ảnh: chạy nốt các khung còn lại (tan dần)
+        const frames = DustPuff.frames(STREAK);
+        if (this.streak && frames.length > 1) {
+            const i = Math.min(frames.length - 1, 1 + Math.floor(t * (frames.length - 1)));
+            this.streak.spriteFrame = frames[i];
+        }
+        this.draw(1 - t);
     }
 
     private draw(alpha: number) {
@@ -62,7 +97,7 @@ export class DashFx extends Component {
         if (len < 4) return;
         // Đường gió mảnh phía trên và dưới
         const line = LINE.clone();
-        line.a = Math.round(170 * alpha);
+        line.a = Math.round(150 * alpha);
         g.strokeColor = line;
         g.lineWidth = 4;
         for (const l of this.lines) {
@@ -70,7 +105,15 @@ export class DashFx extends Component {
             g.lineTo(this.dir * len * l.to, l.y);
             g.stroke();
         }
-        // Dải chém: nhọn ở đuôi (chỗ bắt đầu), dày nhất gần đầu (chỗ mèo)
+        if (this.streak) {
+            // Ảnh vệt giãn ngang cho phần có hình phủ đúng đoạn đã lướt
+            const sx = len / STREAK_W;
+            this.streak.node.setScale(this.dir * sx, STREAK_SY, 1);
+            this.streak.node.setPosition(this.dir * (len / 2 - STREAK_DX * sx), 0, 0);
+            if (this.streakOpacity) this.streakOpacity.opacity = Math.round(255 * Math.max(0, Math.min(1, alpha * 1.4)));
+            return;
+        }
+        // Chưa có ảnh: dải sáng xanh, nhọn ở đuôi (chỗ bắt đầu), dày nhất gần đầu (chỗ mèo)
         this.band(g, len, 44, GLOW, 0.35 * alpha);
         this.band(g, len, 26, BODY, 0.95 * alpha);
         this.band(g, len, 9, CORE, alpha);

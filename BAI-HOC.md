@@ -18,6 +18,14 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 
 ## Scene và editor
 
+### Chuyển thư mục ra khỏi `assets` khi Creator đang mở
+- Ngày: 05/11/2026 · Nhóm: editor
+- Triệu chứng: `mv "assets/resources/art/fx/SlashFX Combos" art-nguon/SlashFX` báo `Device or resource busy`.
+- Nguyên nhân: Creator vừa nhập thư mục mới (đã sinh `.meta`) và đang giữ nó. Thư mục chưa có `.meta` (như SmokeFX) thì vẫn chuyển được.
+- Cách sửa: chép sang chỗ mới (`cp`), xoá các `.meta` đã bị chép theo, rồi `rm -rf` thư mục cũ cùng file `.meta` của nó (xoá thì được).
+- Cách tránh lần sau: người dùng thả file nguồn (gif, `.ase`, dải sheet) vào `assets` thì chép ra `art-nguon/` rồi xoá bản trong `assets`.
+  Nhớ bỏ `.meta` ở bản chép, và nhắc người dùng lần sau thả thẳng vào `art-nguon/`.
+
 ### Mèo đi xuyên vào thùng, khung va chạm lệch khỏi hình
 - Ngày: 04/11/2026 · Nhóm: scene
 - Triệu chứng: Leo đứng lẫn vào giữa thùng giấy có viên gạch (`mg_up`), không bị chặn. Không nhảy lên viên gạch được.

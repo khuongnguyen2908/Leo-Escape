@@ -40,8 +40,8 @@ export class EnemyPatrol extends Component implements Hittable {
     @property
     speed = 120;
 
-    @property({ tooltip: 'Số nhát chém để hạ' })
-    hp = 3;
+    @property({ tooltip: 'Máu (nhát chém thường trừ 1, nhát kết liễu / sóng kiếm / lướt trừ 2)' })
+    hp = 12;
 
     @property({ tooltip: 'Bị chém thì văng ra xa bao nhiêu (tốc độ)' })
     knockback = 380;
