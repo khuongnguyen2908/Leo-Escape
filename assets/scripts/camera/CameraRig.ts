@@ -20,6 +20,11 @@ const { ccclass, property, executeInEditMode } = _decorator;
 export class CameraRig extends Component {
     static instance: CameraRig | null = null;
 
+    /** Khung kế camera nhảy thẳng tới chỗ mèo, không trôi từ từ (dùng khi hồi sinh ở checkpoint). */
+    snapNext() {
+        this.snapped = false;
+    }
+
     @property
     _editorPreview = false;
 

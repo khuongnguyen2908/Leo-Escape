@@ -7,7 +7,7 @@ const { ccclass, executeInEditMode } = _decorator;
 const POLE = new Color(90, 70, 60, 255);
 const FLAG = new Color(250, 200, 70, 255);
 
-/** Điểm lưu: rơi xuống vực sẽ hồi sinh tại đây. Chưa có Sprite thì tự vẽ lá cờ. */
+/** Điểm lưu: rơi xuống vực, hoặc gục hết tim, sẽ hồi sinh tại đây (gục hết thì đủ tim, boss đánh lại từ đầu). Chưa có Sprite thì tự vẽ lá cờ. */
 @ccclass('Checkpoint')
 @executeInEditMode
 export class Checkpoint extends PlayerTrigger {

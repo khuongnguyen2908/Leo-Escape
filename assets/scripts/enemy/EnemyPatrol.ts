@@ -92,6 +92,8 @@ export class EnemyPatrol extends Component implements Hittable {
     paused = false;
     /** Boss: không bị chém trúng (đang nhảy múa chuyển phase) */
     invulnerable = false;
+    /** Boss: máu không tụt dưới số này (BossBrain đặt: chưa ra đủ đòn của phase thì chưa qua mốc phase) */
+    hpFloor = 0;
 
     /** Bị hất tung rơi xuống đất thì choáng thêm chừng này giây. */
     private static readonly LAND_DAZE = 0.4;
@@ -134,6 +136,26 @@ export class EnemyPatrol extends Component implements Hittable {
     /** Lấy đà trước khi ra đòn: phồng người một nhịp. */
     windup() {
         this.pop = 0.9;
+    }
+
+    /** Đánh lại từ đầu (mèo gục hết, hồi sinh ở checkpoint): đầy máu, về chỗ (x, y), bỏ mọi trạng thái đang bị. */
+    resetForRetry(x: number, y: number) {
+        if (this.dead) return;
+        this.hp = this.maxHpValue;
+        this.hpFloor = 0;
+        this.paused = false;
+        this.invulnerable = false;
+        this.stun = 0;
+        this.knockVel = 0;
+        this.dazed = 0;
+        this.tripped = 0;
+        this.bound = 0;
+        this.airborne = false;
+        this.clearStars();
+        this.drawYarn();
+        this.node.setPosition(x, y, this.node.position.z);
+        this.body.velocity.set(0, 0);
+        this.body.gravityScale = 1;
     }
 
     /** Nhảy lên tại chỗ (đang đứng trên đất). */
@@ -402,7 +424,7 @@ export class EnemyPatrol extends Component implements Hittable {
     }
 
     takeHit(fromX?: number, power = 1, damage = 1) {
-        this.hp -= damage;
+        this.hp = Math.max(this.hpFloor, this.hp - damage);
         this.hitCooldown = 0.12; // chỉ để một nhát chém không tính 2 lần
         const heavy = this.targetHeight > 250; // boss to xác: văng ít, giật ít
         const away = fromX === undefined ? -this.dir : (this.node.position.x >= fromX ? 1 : -1);

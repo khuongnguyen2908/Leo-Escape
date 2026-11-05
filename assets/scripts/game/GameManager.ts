@@ -35,6 +35,8 @@ const ANGELO_SOUL = new Color(150, 196, 240, 255);
 @ccclass('GameManager')
 export class GameManager extends Component {
     static instance: GameManager | null = null;
+    /** Gọi khi mèo gục hết rồi hồi sinh ở checkpoint (BossBrain đăng ký để đánh lại trận boss từ đầu). */
+    static respawnListeners: (() => void)[] = [];
 
     @property({ type: PlayerController, tooltip: 'Leo' })
     player: PlayerController | null = null;
@@ -78,6 +80,9 @@ export class GameManager extends Component {
     coins = 0;
     readonly respawnPoint = new Vec3();
     private finished = false;
+    private respawning = false;
+    /** Gục hết thì chờ chừng này giây (hiện "Try again!") rồi hồi sinh ở checkpoint */
+    private respawnDelay = 1.2;
     private playing = false;
     private active: PlayerController | null = null;
     private readonly revive = new Map<PlayerController, number>();
@@ -347,8 +352,7 @@ export class GameManager extends Component {
         Sound.play('hurt');
         const standing = this.cats.filter((c) => !c.downed);
         if (standing.length === 0) {
-            Sound.play('lose');
-            this.end('Try again!', 2);
+            this.respawnAtCheckpoint();
             return;
         }
         // Chơi 1 người: con đang điều khiển gục thì chuyển sang con kia để đi kéo dậy
@@ -406,6 +410,39 @@ export class GameManager extends Component {
         if (buddy) _pos.set(buddy.node.position.x - buddy.facing * 120, buddy.node.position.y + 40, 0);
         else _pos.set(this.respawnPoint);
         cat.respawn(_pos);
+    }
+
+    /**
+     * Gục hết: hiện "Try again!" một chút rồi mọi con mèo đứng dậy ở checkpoint gần nhất (chưa chạm checkpoint nào thì đầu màn),
+     * đủ tim, bất tử 1.5 giây. Boss đánh lại từ đầu (respawnListeners). Quái đã hạ, cá đã ăn giữ nguyên.
+     */
+    private respawnAtCheckpoint() {
+        if (this.finished || this.respawning) return;
+        this.respawning = true;
+        Sound.play('lose');
+        for (const c of this.cats) {
+            c.controlEnabled = false;
+            c.getComponent(PoisonStatus)?.clear();
+        }
+        this.hud?.showMessage('Try again!');
+        this.scheduleOnce(() => {
+            this.respawning = false;
+            if (this.finished) return;
+            this.hud?.hideMessage();
+            this.cats.forEach((c, i) => {
+                this.revive.delete(c);
+                c.getComponent(ReviveRing)?.hide();
+                _pos.set(this.respawnPoint.x - i * 120, this.respawnPoint.y + 20, 0);
+                c.respawn(_pos);
+                c.hp = this.maxHp;
+                c.setDowned(false);
+                c.controlEnabled = true;
+                this.hudFor(c)?.setHp(c.hp, this.maxHp);
+            });
+            for (const f of GameManager.respawnListeners.slice()) f();
+            CameraRig.instance?.snapNext();
+            Sound.play('heal');
+        }, this.respawnDelay);
     }
 
     private end(message: string, restartDelay: number) {

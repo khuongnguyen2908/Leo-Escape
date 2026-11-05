@@ -126,6 +126,8 @@ const SUNLIT_X: [number, number][] = [[450, 933]];
 const ENEMY_HP: [number, number][] = [[3, 12], [10, 40]];
 /** Thân va chạm của Leo: rộng 85 thì hình mèo (rộng 200) lấn vào tường; nới lên 150. */
 const LEO_BODY_WIDTH = 150;
+/** Máu boss (mốc phase theo % trong BossBrain; mỗi phase boss ra đủ 2 đòn mới qua mốc). Thử 150 thấy đánh lâu quá, về lại 40. */
+const BOSS_HP = 40;
 type EnemyOpts = { name?: string; frames?: string[]; scale?: number; range?: number; hp?: number; speed?: number; body?: [number, number] };
 type Built = { node: Node; w: number; h: number };
 /** [tên ảnh, x, y, tỉ lệ so với cỡ gốc, lật?] */
@@ -467,6 +469,14 @@ export class DemoLevelBuilder extends Component {
             e.node.setPosition(x, y, p.z);
             v.setPosition(0, 0, v.position.z);
             done.push(`${e.node.name}: dời tới chỗ hình (${Math.round(x)}, ${Math.round(y)}), hình Visual về (0, 0)`);
+        }
+
+        // 19. Máu boss 150 → 40 (thử 150 thấy đánh lâu quá; chỉ đổi khi còn đúng 150)
+        for (const e of play.getComponentsInChildren(EnemyPatrol)) {
+            if (e.big && e.hp === 150) {
+                e.hp = BOSS_HP;
+                done.push(`${e.node.name}: máu 150 → ${BOSS_HP}`);
+            }
         }
 
         // 18. Màn dài thêm (có khối nền vượt quá tường cuối): dời tường tàng hình cuối màn và giới hạn camera tới hết khối nền xa nhất
@@ -1296,7 +1306,7 @@ export class DemoLevelBuilder extends Component {
         this.hazard(play, 'mg_cone', x(4, 857), RAISED);
         this.boss = this.enemy(play, x(4, 1040), RAISED, {
             // Thân va chạm thấp hơn hình để nhảy từ bậc đá (cao 300) vẫn đạp được lên lưng
-            name: 'Boss', frames: ['mg_boss'], hp: 40, speed: 150, body: [230, 220],
+            name: 'Boss', frames: ['mg_boss'], hp: BOSS_HP, speed: 150, body: [230, 220],
         });
 
         // ── Đích ở cuối bậc đá, sau boss

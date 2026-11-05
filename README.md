@@ -60,6 +60,7 @@ Lưu ý khi sắp xếp:
     - thân va chạm của Leo rộng 85 → 150 để hình mèo không lấn vào tường;
     - kẻ địch (boss) mà bạn kéo riêng hình (node con `Visual`): dời cả node tới chỗ hình, chân đặt lên mặt đá ngay dưới, `Visual` về (0, 0)
       (khi chơi hình luôn bám node, nên muốn dời con địch thì kéo node cha `Boss`, đừng kéo `Visual`);
+    - máu boss 150 → 40 (bản thử 150 đánh lâu quá; chỉ đổi khi còn đúng 150);
     - màn dài thêm (khối nền vượt quá tường cuối): dời tường tàng hình `Wall` cuối màn tới hết khối nền xa nhất (+30) và tăng *Max X* của camera;
     - thùng giấy + viên gạch + cây gỗ (`mg_up`) và thùng rác chặn cả hai bên (không đi xuyên, phải nhảy lên), khung va chạm ôm đúng hình.
       Cây gỗ nghiêng là 5 khung nhỏ xếp bậc thang theo đường chéo (khung va chạm chỉ là hình chữ nhật thẳng, không xoay được).
@@ -105,8 +106,8 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
 - **2 người:** màn chọn mèo. Mỗi người bấm trái/phải để đưa thẻ (N1, N2) tới dưới con mèo muốn chơi, bấm **Nhảy** để chốt, **Xuống** để bỏ chọn.
   Hai người chốt xong thì đếm 3-2-1 rồi vào game. Hai con không đi xa nhau quá một màn hình (`Max Gap` trên GameManager).
 - Mỗi con một dãy tim và một thanh năng lượng (Leo góc trên trái, Angelo góc trên phải). Hết tim thì **gục**;
-  con kia tới gần, **giữ phím Tương tác 1 giây** để kéo dậy (còn 2 tim). Cả hai cùng gục thì thua.
-- Thua rồi chơi lại thì giữ nguyên số người và mèo đã chọn. Menu → **Về màn hình chính** thì chọn lại từ đầu.
+  con kia tới gần, **giữ phím Tương tác 1 giây** để kéo dậy (còn 2 tim). Gục hết (chơi 1 người: Leo gục) thì hiện "Try again!" rồi **hồi sinh ở checkpoint** gần nhất đã chạm (chưa chạm thì đầu màn), đủ tim, bất tử 1.5 giây; trận boss đánh lại từ đầu, quái đã hạ và cá đã ăn giữ nguyên.
+- Thua hẳn (hiện chưa có cách thua hẳn, gục hết là hồi sinh ở checkpoint) thì chơi lại vẫn giữ nguyên số người và mèo đã chọn. Menu → **Về màn hình chính** thì chọn lại từ đầu.
 - **Angelo tạm** là Leo nhuộm xám xanh, bóp gầy (ô *Tint*, *Width Scale* trên PlayerVisual của node `Angelo`).
 
 ## Kỹ năng hai con mèo
@@ -127,19 +128,23 @@ Hiệu ứng dây len, dây thả vẽ tạm bằng code (`SkillFx.ts`, `YarnRop
 
 ## Boss
 
-Boss (`EnemyPatrol` 40 máu + `BossBrain.ts`, DemoLevelBuilder tự gắn khi chơi) chỉ ra đòn khi mèo đã lên bậc đá của boss.
+Boss (`EnemyPatrol` 40 máu + `BossBrain.ts`, DemoLevelBuilder tự gắn khi chơi) chỉ ra đòn khi mèo đã vào khu của boss (khối nền boss đứng).
+Mốc phase tính theo phần máu: còn 2/3 sang phase 2, còn 1/3 sang phase 3 (ô *Phase 2 At*, *Phase 3 At*).
+**Mỗi phase boss phải ra đủ 2 đòn** thì máu mới tụt qua mốc (phase 3: mới chết được) - ô *Min Attacks Per Phase*. Chém trước đó vẫn trúng nhưng máu dừng ngay trên mốc.
 
 | Phase | Máu | Đòn | Nghỉ giữa hai đòn |
 |---|---|---|---|
-| 1 | 40 → 27 | ngẫu nhiên Axit 1 / 2 / 3 (không lặp liền) | 2.6 giây |
-| 2 | 26 → 14 | Axit 2 (2 bom: chỗ mèo + trước mặt mèo) hoặc Axit 3; đi nhanh ×1.3 | 2 giây |
-| 3 | 13 → 0 | chỉ Axit 3, cột ra dồn dập hơn; đi nhanh ×1.5 | 1.5 giây |
+| 1 | 40 → 28 | Axit 1 | 2.6 giây |
+| 2 | 27 → 14 | Axit 1 hoặc Axit 2 (1 bom), không lặp liền; đi nhanh ×1.3 | 2 giây |
+| 3 | 13 → 0 | Axit 1, Axit 2 (2 bom: chỗ mèo + trước mặt mèo) hoặc Axit 3 (cột ra dồn dập hơn), không lặp liền; đi nhanh ×1.5 | 1.5 giây |
 
 - Chuyển phase: boss nhảy múa 1.5 giây tại chỗ, nốt nhạc `Boss/Dance` quanh đầu, **bất tử** lúc này.
 - Thời gian nghỉ tính từ lúc đòn trước xong (6 cột lửa mất khoảng 2 giây), nên từ đầu đòn này tới đầu đòn sau dài hơn số nghỉ.
 - **Axit 1**: phồng người 0.4 giây rồi phun cục độc bay vòng cung tới chỗ mèo, chạm đất (hoặc trúng mèo) nổ vũng `Boss/Axit`.
 - **Axit 2**: bom đầu lâu `Boss/Axit 2` mọc ngay chỗ mèo; vòng dưới đất là cảnh báo, tới lúc bốc khói (khung 6–11) mới gây đòn.
-- **Axit 3**: 6 cột lửa xanh `Boss/Axit 3` lần lượt từ trái sang phải khắp bậc đá; cột mới nhú là cảnh báo, cao hẳn (khung 4–19) mới gây đòn.
+- **Axit 3**: 6 **dấu cảnh báo** (vệt sáng xanh dưới đất + dấu ! đỏ, `AcidWarning.ts`) hiện cùng lúc khắp khu boss; 1 giây sau (ô *Pillar Warning*)
+  6 cột lửa xanh `Boss/Axit 3` lần lượt mọc từ trái sang phải đúng chỗ dấu, dấu nào tới lượt thì tắt. Cột cao hẳn (khung 4–19) mới gây đòn,
+  vùng gây đòn rộng 100: **đứng giữa hai dấu thì không bị trúng**.
 - Dính axit: **trúng độc** 2 giây (`PoisonStatus.ts`), bọt độc quanh mèo, cứ 1 giây rút **nửa tim** (tổng 1 tim). Dính lại khi đang độc thì tính lại 2 giây.
   Không bị đẩy lùi. Đang lướt thì né được axit. Thanh tim hiện được nửa tim.
 - Boss chết: đầu lâu nổ `Boss/Death`. Quái nhỏ chết: tia nổ `Enemy death`.
