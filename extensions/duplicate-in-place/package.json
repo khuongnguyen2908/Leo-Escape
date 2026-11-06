@@ -1,0 +1,34 @@
+{
+    "package_version": 2,
+    "version": "1.0.0",
+    "name": "duplicate-in-place",
+    "title": "Duplicate tại chỗ",
+    "description": "Nhân bản node đang chọn, bản sao nằm ngay dưới node gốc trong Hierarchy (Ctrl+Shift+D)",
+    "author": "Leo Escape",
+    "editor": ">=3.8.0",
+    "main": "./main.js",
+    "contributions": {
+        "scene": {
+            "script": "./scene.js"
+        },
+        "messages": {
+            "duplicate-in-place": {
+                "methods": ["duplicateInPlace"]
+            }
+        },
+        "shortcuts": [
+            {
+                "message": "duplicate-in-place",
+                "win": "ctrl+shift+d",
+                "mac": "cmd+shift+d"
+            }
+        ],
+        "menu": [
+            {
+                "path": "i18n:menu.extension",
+                "label": "Duplicate tại chỗ (Ctrl+Shift+D)",
+                "message": "duplicate-in-place"
+            }
+        ]
+    }
+}

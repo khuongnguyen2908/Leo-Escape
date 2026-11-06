@@ -23,6 +23,8 @@ import { CoinGlow } from './CoinGlow';
 import { CoinPickup } from './CoinPickup';
 import { DEMO_CAMERA_OFFSET_Y, DEMO_ENEMIES, DEMO_GROUNDS, DEMO_LAYERS, DEMO_NODES, DEMO_PLAYER, DEMO_SPRITES } from './DemoLayout';
 import { DemoReference } from './DemoReference';
+import { DustDrift } from './DustDrift';
+import { RiverFlow } from './RiverFlow';
 import { DustMotes } from './DustMotes';
 import { Goal } from './Goal';
 import { GroundBlock } from './GroundBlock';
@@ -334,6 +336,7 @@ export class DemoLevelBuilder extends Component {
         const demoSink = new Map(DEMO_GROUNDS.map((e) => [e.id, e.sink]));
         let grounds = 0;
         for (const g of play.getComponentsInChildren(GroundBlock)) {
+            if (g.autoTiled >= 2) continue; // ⚙ đã đặt xong khối này: để yên Sink bạn chỉnh
             // Ảnh mép đá cao (MG_tile_high, có cả thân tường): chỗ đặt chân vẫn tính theo phần mép đá ở đỉnh ảnh (cao 285 px gốc)
             const k = g.tileFrame ? g.tileHeight / g.tileFrame.rect.height : 1;
             const want = demoSink.get(g.node.uuid) ?? Math.min(g.tileHeight, 285 * k) * TILE_FOOT;
@@ -446,8 +449,23 @@ export class DemoLevelBuilder extends Component {
         // 14. Mặt đá: nền thấp dùng MG_tile_1, bậc đá cao dùng MG_tile_high_1/2/3 thay phiên (ảnh cao có cả thân tường);
         //     ô có nắng (SUNLIT_X, đo trên ảnh demo) dùng MG_tile_3. Chưa có ảnh mới thì dùng MG_tile_2 như cũ
         let tiles = 0;
-        for (const g of play.getComponentsInChildren(GroundBlock)) if (this.applySunlit(g)) tiles++;
-        if (tiles) done.push(`${tiles} khối nền đá: nền thấp dùng MG_tile_1, bậc cao dùng MG_tile_high_1/2/3, ô có nắng dùng tile_3`);
+        const allGrounds = play.getComponentsInChildren(GroundBlock);
+        for (const g of allGrounds) if (this.applySunlit(g, allGrounds)) tiles++;
+        if (tiles) done.push(`${tiles} khối nền đá: thấp xếp ngẫu nhiên MG_tile_1/2, đầu phải lộ ra dùng góc MG_tile_3, đầu trái lộ ra dùng góc MG_tile_4; cao xếp ngẫu nhiên MG_tile_high_1/2/3`);
+        if (!this.art.get('mg_tile_4')) done.push('chưa có MG_tile_4 dạng sprite-frame: chọn ảnh trong Assets, Type = sprite-frame, Apply, rồi bấm ⚙ lại (khối thấp sẽ thêm góc tile_4)');
+
+        // 28. Vệt nắng MG_nắng hắt lên thân đá dưới mép đường, ngay trước cái hố ở khung 1 (như ảnh demo 1). Có node mg_nang rồi thì để yên
+        const sun = this.art.get('mg_nang');
+        if (!sun) done.push('chưa có MG_nắng dạng sprite-frame (nên đổi tên file thành MG_nang, không dấu): đổi Type = sprite-frame, Apply, rồi bấm ⚙ lại');
+        else if (!this.findNamed('mg_nang')) {
+            const n = this.mk('mg_nang', play);
+            n.addComponent(Sprite).spriteFrame = sun;
+            n.getComponent(UITransform)!.setAnchorPoint(0.5, 1);
+            n.setPosition(666, -80, 0);
+            const lastGround = Math.max(...allGrounds.map((g) => g.node.getSiblingIndex()));
+            n.setSiblingIndex(lastGround + 1);
+            done.push('thêm vệt nắng mg_nang dưới mép đường trước cái hố ở khung 1 (nằm trên nền đá, dưới đồ vật; kéo để dời, Ctrl+D để thêm chỗ khác)');
+        }
 
         // 15. Máu kẻ địch gấp 4 (chỉ đổi khi còn đúng số cũ, bạn tự chỉnh số khác thì để yên)
         let hpChanged = 0;
@@ -549,6 +567,37 @@ export class DemoLevelBuilder extends Component {
 
         // 23. Ảnh mới theo 4 ảnh demo: bàn xanh, ghế đỏ, nhà vẽ lại, quán Lợi Ký, mây, nhà nền, lớp lọc màu, bụi, tán lá tiền cảnh
         done.push(...this.applyNewArt(play));
+
+        // 25. Lớp BG (mây, cây, cổng thành, nhà) trôi chậm theo đường (hệ số 0.3) và xếp rải khắp màn; bụi sang lớp đứng yên, có anim
+        done.push(...this.arrangeBackground());
+
+        // 26. Miếng đá thấp sát khối cao: hình lấn 40 đè lên mép khối cao (khung va chạm giữ nguyên), khối cao vẽ trước khối thấp
+        done.push(...this.overlapGrounds(play));
+
+        // 27. bg_filter đứng yên theo màn hình: chuyển từ MG sang lớp mới Filter (hệ số 0) nằm ngay trên MG
+        const filter = this.findNamed('bg_filter');
+        if (filter && filter.parent?.name === 'MG') {
+            const layer = this.node.getChildByName('Filter') ?? this.insertLayer('Filter', 0, 0, -270, 'MG');
+            filter.removeFromParent();
+            layer.addChild(filter);
+            filter.setPosition(0, 270, 0);
+            done.push('bg_filter sang lớp Filter (đứng yên theo màn hình, ngay trên MG), đặt giữa khung hình');
+        }
+
+        // 29. Dòng sông BG_river sát đáy màn hình, sau lớp chơi (lộ ra ở hố, khe giữa các khối đá), trôi 0.9, nước trôi + nhún nhẹ
+        done.push(...this.ensureRiver());
+
+        // 30. Nền đá xếp tay: khối nào còn tự xếp thì tạo ô đá thành node con thật (Tile_1, Tile_2...), bật Manual để bạn tự chỉnh từng ô
+        let baked = 0, bakedTiles = 0;
+        for (const g of play.getComponentsInChildren(GroundBlock)) {
+            // Bản bake cũ (06/11 16:19, chưa lưu) làm ô thò ra / hụt khỏi mép khối: làm lại cho ô đầu, ô cuối khớp đúng mép
+            const n = g.rebakeOld() || g.bake();
+            if (n) {
+                baked++;
+                bakedTiles += n;
+            }
+        }
+        if (baked) done.push(`${baked} khối nền đá chuyển sang xếp tay: ${bakedTiles} ô đá thành node con Tile_... (ảnh nguyên, cỡ gốc), kéo / đổi ảnh / xoá / Ctrl+D thoải mái`);
 
         // 24. Tán lá tối (fr_bush) bị bước 9 ghim mép trên như dây cờ (Overlap mặc định 4) nên tán lá lớn tụt xuống che màn hình:
         //     đặt Overlap để mép trên nhô ra ngoài khung đúng như đo trên ảnh demo (chỉ khi Overlap còn đúng 4)
@@ -972,7 +1021,8 @@ export class DemoLevelBuilder extends Component {
                 const g = find(e.id, 'Ground')?.getComponent(GroundBlock);
                 if (!g) continue;
                 if (e.width !== undefined) g.width = e.width;
-                g.tileHeight = e.tileHeight;
+                // Số đo tính trên MG_tile_2 (cao 281 sau khi cắt viền trong suốt): quy đổi theo ảnh ô đá đang dùng (tile_1, tile_high...)
+                g.tileHeight = e.tileHeight * (g.tileFrame ? g.tileFrame.rect.height / 281 : 1);
                 g.sink = e.sink;
                 grounds++;
             }
@@ -1508,7 +1558,16 @@ export class DemoLevelBuilder extends Component {
      * Chưa có ảnh mới thì dùng MG_tile_2. Ô có nắng (SUNLIT_X) dùng MG_tile_3. Cần ảnh đã nạp (this.art).
      * Đổi ảnh thì giữ nguyên tỉ lệ phóng (Tile Height / cao ảnh) của khối. Trả về true nếu có đổi.
      */
-    private applySunlit(g: GroundBlock): boolean {
+    private applySunlit(g: GroundBlock, all: GroundBlock[] = []): boolean {
+        // Bản trước bốc ngẫu nhiên tile_3 / tile_4 cho cả hai đầu: tile_3 là góc PHẢI, tile_4 là góc TRÁI (mép trái nét liền).
+        // Khối nào còn đúng cách đặt cũ của ⚙ thì sửa lại một lần (đánh dấu 3)
+        if (g.autoTiled === 2 && g.endFrames.length === 2 && g.endFrames[0]?.uuid === this.art.get('mg_tile_3')?.uuid && g.endFrames[1]?.uuid === this.art.get('mg_tile_4')?.uuid) {
+            g.setCaps([g.endFrames[0]], g.capLeft, g.capRight, g.endFrames[1]);
+            g.autoTiled = 3;
+            return true;
+        }
+        // ⚙ đã đặt xong khối này: để yên Tile Frame, Variants, góc... bạn tự chỉnh
+        if (g.autoTiled >= 2) return false;
         const high = g.node.position.y > RAISED / 2;
         const has = (n: string) => this.art.get(n) ?? null;
         const main = high ? has('mg_tile_high_1') : has('mg_tile_1');
@@ -1522,8 +1581,31 @@ export class DemoLevelBuilder extends Component {
             g.tileHeight = dark.rect.height * k;
             changed = true;
         }
-        const variants = high && main ? [has('mg_tile_high_2'), has('mg_tile_high_3')].filter((f): f is SpriteFrame => !!f) : [];
-        if (g.setVariants(variants)) changed = true;
+        // Xếp ngẫu nhiên: bậc cao lấy high_1/2/3, nền thấp lấy tile_1/2 (tile_3, tile_4 là góc ngoài, chỉ đặt ở đầu khối lộ ra)
+        const others = !main ? [] : high ? ['mg_tile_high_2', 'mg_tile_high_3'] : ['mg_tile_2'];
+        const variants = others.map(has).filter((f): f is SpriteFrame => !!f);
+        if (g.setVariants(variants)) {
+            changed = true;
+            // Nền thấp: kéo dài đáy ô đá 60 để lúc rung màn hình không hở đáy (đã bỏ màu nền bên dưới)
+            if (!high && main && g.extend === 0) g.extend = 60;
+        }
+        if (main) {
+            // Có ảnh mới thì bỏ chỗ nắng cố định (SUNLIT_X)
+            if (g.setLit(null, 0, 0)) changed = true;
+            if (!high) {
+                // Đầu khối lộ ra ngoài (không sát khối cao) dùng ảnh góc tile_3 / tile_4
+                const ends = [has('mg_tile_3')].filter((f): f is SpriteFrame => !!f);
+                const leftEnd = has('mg_tile_4');
+                const highs = all.filter((h) => h !== g && h.node.position.y > RAISED / 2);
+                const x0 = g.node.position.x, x1 = x0 + g.width;
+                const left = !highs.some((h) => Math.abs(h.node.position.x + h.width - x0) < 60);
+                const right = !highs.some((h) => Math.abs(h.node.position.x - x1) < 60);
+                if (g.setCaps(ends, left && (ends.length > 0 || !!leftEnd), right && ends.length > 0, leftEnd)) changed = true;
+            }
+            // Đặt xong (đủ ảnh) thì đánh dấu, lần bấm ⚙ sau để yên phần bạn chỉnh. Thiếu tile_4 thì lần sau đặt tiếp
+            if (high || has('mg_tile_4')) g.autoTiled = 3;
+            return changed;
+        }
         // Đoạn có nắng đổi sang toạ độ của khối (tính từ mép trái), chỉ lấy đoạn đầu tiên chạm khối
         const x0 = g.node.position.x;
         const hit = SUNLIT_X.find(([a, b]) => b > x0 && a < x0 + g.width);
@@ -1566,9 +1648,27 @@ export class DemoLevelBuilder extends Component {
         swap('mg_nhao_1', 5431, 'mg_nhao_1', 'mg_nhao_4', 'mg_nhao_4', [5630, 22]);
 
         /** Thêm ảnh (gốc đáy-giữa, hoặc giữa nếu ay = 0.5) khi cha chưa có node tên này. index < 0 = cuối danh sách. */
+        const named = (name: string) => {
+            const found: Node[] = [];
+            const walk = (n: Node) => { if (n.name === name) found.push(n); n.children.forEach(walk); };
+            walk(canvas);
+            return found;
+        };
+        // Bản trước chỉ tìm trong lớp cũ nên thêm lại bg_filter vào BG (bạn đã chuyển sang MG) và bg_nha vào Gameplay
+        // (bạn đã chuyển sang BG): xoá bản trùng đó, giữ bản của bạn
+        for (const [name, wrongParent] of [['bg_filter', 'BG'], ['bg_nha', 'Gameplay']]) {
+            const all = named(name);
+            const dup = all.find((n) => n.parent?.name === wrongParent);
+            if (dup && all.length > 1) {
+                dup.removeFromParent();
+                dup.destroy();
+                out.push(`xoá ${name} bị thêm trùng vào ${wrongParent} (giữ bản bạn đã chuyển sang lớp khác)`);
+            }
+        }
         const add = (parent: Node | null, art: string, name: string, x: number, y: number, sx: number, sy: number, index: number, ay = 0) => {
             const sf = has(art);
-            if (!parent || !sf || parent.getChildByName(name)) return;
+            // Tìm theo tên trên cả Canvas: bạn chuyển node sang lớp khác thì vẫn coi là đã có
+            if (!parent || !sf || named(name).length) return;
             const n = this.mk(name, parent);
             const sp = n.addComponent(Sprite);
             sp.spriteFrame = sf;
@@ -1588,7 +1688,7 @@ export class DemoLevelBuilder extends Component {
         add(play, 'bg_nha', 'bg_nha', 4431.5, 31, 1, 1, 0);
         // Tán lá tối ở mép trên (FR_Top), nằm sau dây cờ
         const frTop = canvas.getChildByName('FR_Top');
-        if (frTop && !frTop.children.some((c) => c.name.startsWith('fr_bush'))) {
+        if (frTop && !named('fr_bush_1').length && !named('fr_bush_2').length) {
             const flagAt = frTop.children.findIndex((c) => c.name === 'fr_co');
             const bushes: [string, number, number][] = [
                 ['fr_bush_2', 1549.5, 519], ['fr_bush_1', 4293, 600], ['fr_bush_2', 6865, 640], ['fr_bush_1', 7957, 580],
@@ -1606,6 +1706,149 @@ export class DemoLevelBuilder extends Component {
             });
             if (added) out.push(`thêm ${added} tán lá tối (fr_bush) vào FR_Top`);
         }
+        return out;
+    }
+
+    /**
+     * Lớp BG trôi chậm theo đường (hệ số 0.3: đường đi 10 thì nền đi 3) thay vì gần như dính theo màn hình (0.0622).
+     * Vì trôi nên phải rải đủ một dải dài (camera từ đầu tới cuối màn thấy lớp BG từ x -762 tới 4277): mây, cây, 1 cổng thành
+     * ở giữa, nhà. Bố cục chọn sẵn, đã ghép thử với lớp chơi ở 4 khung demo (BG_LAYOUT). Dùng lại node bạn đã đặt làm bản đầu
+     * của mỗi loại, thiếu thì nhân bản. Thứ tự vẽ: mây, cây, cổng, nhà (như bạn sắp). Bụi bg_bui sang lớp Light_Far
+     * (đứng yên theo màn hình) và gắn DustDrift; tắt bụi sáng BuiSang (trông như đom đóm). Chỉ làm khi hệ số BG còn đúng 0.0622.
+     */
+    private arrangeBackground(): string[] {
+        const bg = this.node.getChildByName('BG');
+        const par = bg?.getComponent(ParallaxLayer);
+        if (!bg || !par || Math.abs(par.factor.x - 0.0622) > 0.0005) return [];
+        const out: string[] = [];
+        par.factor = new Vec2(0.3, par.factor.y);
+        out.push('lớp BG trôi chậm theo đường: hệ số 0.0622 → 0.3');
+
+        // [loại, x, y, tỉ lệ, lật]
+        const BG_LAYOUT: Record<string, [number, number, number, boolean][]> = {
+            bg_may_2: [[-560, 560, 0.6, false], [1060, 600, 0.7, true], [1900, 640, 0.5, false], [3560, 580, 0.62, false]],
+            bg_may_1: [[420, 500, 0.55, false], [2420, 500, 0.6, true], [4700, 520, 0.55, true]],
+            mg_cay: [[-800, -166.2, 0.7, true], [420, -180, 0.66, false], [1000, -185, 0.62, false], [2450, -175, 0.68, true], [3600, -166.2, 0.7, false]],
+            bg_thanh: [[1750, -34.7, 1, false]],
+            bg_nha: [[-250, 31, 0.9, false], [3000, 31, 0.95, false], [4250, 31, 0.88, true]],
+        };
+        const ORDER = ['bg_may_2', 'bg_may_1', 'mg_cay', 'bg_thanh', 'bg_nha'];
+        // Node đang có của mỗi loại (cây: mg_cay_6, mg_cay_7...)
+        const kindOf = (n: Node) => ORDER.find((k) => n.name === k || n.name.startsWith(k + '_') || (k === 'mg_cay' && n.name.startsWith('mg_cay')));
+        const pools = new Map<string, Node[]>();
+        for (const c of bg.children) {
+            const k = kindOf(c);
+            if (k) pools.set(k, [...(pools.get(k) ?? []), c]);
+        }
+        let index = 0;
+        for (const k of ORDER) {
+            const have = pools.get(k) ?? [];
+            if (!have.length) continue;
+            const template = have[0];
+            BG_LAYOUT[k].forEach(([x, y, s, flip], i) => {
+                let n = have[i];
+                if (!n) {
+                    n = instantiate(template);
+                    n.name = k === 'mg_cay' ? `mg_cay_bg_${i + 1}` : `${k}_${i + 1}`;
+                    bg.addChild(n);
+                }
+                n.setPosition(x, y, n.position.z);
+                n.setScale(flip ? -s : s, s, 1);
+                n.setSiblingIndex(index++);
+            });
+            out.push(`${k}: ${BG_LAYOUT[k].length} cái`);
+        }
+
+        // Bụi: sang lớp đứng yên theo màn hình, giữa trên khung hình, có anim trôi + sáng mờ
+        const dust = bg.getChildByName('bg_bui');
+        const fixed = this.node.getChildByName('Light_Far');
+        if (dust && fixed) {
+            dust.removeFromParent();
+            fixed.addChild(dust);
+            dust.setPosition(0, 420, 0);
+            if (!dust.getComponent(DustDrift)) dust.addComponent(DustDrift);
+            out.push('bg_bui sang lớp Light_Far (đứng yên theo màn hình), có anim trôi và sáng mờ (DustDrift)');
+            let off = 0;
+            for (const m of this.node.getComponentsInChildren(DustMotes)) {
+                if (m.node.active) {
+                    m.node.active = false;
+                    off++;
+                }
+            }
+            if (off) out.push(`tắt ${off} node bụi sáng BuiSang (trông như đom đóm); tích lại ô active nếu muốn dùng`);
+        }
+        return out;
+    }
+
+    /**
+     * Lớp River (hệ số 0.9, nằm ngay trước lớp Light, tức sau lớp chơi): dải 8 ảnh BG_river nối liền, ảnh chẵn lật ngang
+     * để mối nối khớp nhau, phủ từ đầu tới cuối màn (camera thấy lớp này từ x -366 tới 10912). Đáy ảnh sát đáy khung hình.
+     * Node RiverStrip có RiverFlow: nước trôi ngang chậm, nhún nhẹ khi chơi. Có lớp River rồi thì để yên.
+     */
+    private ensureRiver(): string[] {
+        const sf = this.art.get('bg_river');
+        if (!sf || this.node.getChildByName('River')) return [];
+        const after = this.node.getChildByName('Filter') ? 'Filter' : 'MG';
+        const layer = this.insertLayer('River', 0.9, 0.6, -270, after);
+        const strip = this.mk('RiverStrip', layer);
+        // Lớp ở y -270 - 46 × 0.6 = -297.6 lúc chơi: đáy khung hình (-540) ứng với y -242.4 trong lớp; hạ thêm 8 cho khỏi hở khi nhún
+        strip.setPosition(0, -250, 0);
+        strip.addComponent(RiverFlow);
+        const w = sf.rect.width - 2; // chồng 2 cho khỏi lộ khe
+        for (let i = 0; i < 8; i++) {
+            const n = this.mk(`bg_river_${i + 1}`, strip);
+            n.addComponent(Sprite).spriteFrame = sf;
+            n.getComponent(UITransform)!.setAnchorPoint(0.5, 0);
+            n.setPosition(-500 + w / 2 + i * w, 0, 0);
+            n.setScale(i % 2 ? -1 : 1, 1, 1);
+        }
+        return [`thêm lớp River (trôi 0.9, sau lớp chơi): 8 ảnh BG_river nối liền sát đáy màn hình, nước trôi + nhún nhẹ (RiverFlow trên node RiverStrip)`];
+    }
+
+    /** Tìm node theo tên trên cả Canvas (node đầu tiên gặp). */
+    private findNamed(name: string): Node | null {
+        const walk = (n: Node): Node | null => {
+            if (n.name === name) return n;
+            for (const c of n.children) {
+                const r = walk(c);
+                if (r) return r;
+            }
+            return null;
+        };
+        return walk(this.node);
+    }
+
+    /**
+     * Khối đá thấp nằm sát khối cao: hình ô đá lấn 40 sang phía khối cao (Bleed Left / Right) để đè lên mép bo tròn của khối cao,
+     * không còn khe hở. Muốn đè được thì khối cao phải vẽ trước: dời các khối cao lên ngay trước khối thấp đầu tiên trong Gameplay
+     * (đồ vật vẫn vẽ trên nền). Chỉ đặt độ lấn khi khối thấp còn lấn 0.
+     */
+    private overlapGrounds(play: Node): string[] {
+        const out: string[] = [];
+        const gs = play.children.map((n) => n.getComponent(GroundBlock)).filter((g): g is GroundBlock => !!g);
+        const high = (g: GroundBlock) => g.node.position.y > RAISED / 2;
+        const highs = gs.filter(high), lows = gs.filter((g) => !high(g));
+        let bled = 0;
+        for (const low of lows) {
+            if (low.manual || low.bleedLeft > 0 || low.bleedRight > 0) continue;
+            const x0 = low.node.position.x, x1 = x0 + low.width;
+            const left = highs.some((h) => Math.abs(h.node.position.x + h.width - x0) < 60);
+            const right = highs.some((h) => Math.abs(h.node.position.x - x1) < 60);
+            if (left || right) {
+                low.setBleed(left ? 40 : 0, right ? 40 : 0);
+                bled++;
+            }
+        }
+        if (bled) out.push(`${bled} khối đá thấp: hình lấn 40 đè lên mép khối cao bên cạnh`);
+        let moved = 0;
+        for (const h of highs.slice().sort((a, b) => a.node.getSiblingIndex() - b.node.getSiblingIndex())) {
+            const firstLow = Math.min(...lows.map((g) => g.node.getSiblingIndex()));
+            if (h.node.getSiblingIndex() > firstLow) {
+                h.node.setSiblingIndex(firstLow);
+                moved++;
+            }
+        }
+        if (moved) out.push(`${moved} khối đá cao dời lên vẽ trước các khối thấp (để khối thấp đè lên mép)`);
         return out;
     }
 

@@ -62,6 +62,15 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   3. Sau khi người dùng bấm nút và Ctrl+S, so scene với bản trên git (script so `_id` giữa `git show HEAD:assets/scenes/Main.scene`
      và file hiện tại) để bắt những gì bị đổi ngoài ý muốn.
 
+### Bước ⚙ "thêm nếu chưa có" thêm lại node người dùng đã chuyển sang lớp khác
+- Ngày: 06/11/2026 · Nhóm: scene
+- Triệu chứng: người dùng chuyển `bg_filter` từ BG sang MG và `bg_nha` từ Gameplay sang BG; bấm ⚙ lần sau thì có thêm một
+  `bg_filter` trong BG và một `bg_nha` trong Gameplay (bản trùng, làm khung 1–2 mờ đục và hiện nhà nền ở khung 3).
+- Nguyên nhân: bước 23 chỉ kiểm tra "lớp cũ đã có node tên này chưa" (`parent.getChildByName`), không biết node đã sang lớp khác.
+- Cách sửa: tìm theo tên trên cả Canvas (`named()` trong `applyNewArt`), và xoá hai bản trùng do bản cũ thêm vào.
+- Cách tránh lần sau: bước ⚙ "thêm nếu chưa có" luôn tìm theo tên **trên cả scene**, không chỉ trong lớp cha.
+  Người dùng hay kéo node sang lớp khác; đó là phần của họ, ⚙ không được tạo lại.
+
 ### Bấm ⚙ rồi Ctrl+S mà scene không được lưu
 - Ngày: 06/11/2026 · Nhóm: editor
 - Triệu chứng: người dùng báo "đã bấm và lưu", log Creator có dòng "Đã cập nhật...", nhưng `Main.scene` trên đĩa vẫn là bản cũ (2 lần liền).
@@ -307,6 +316,15 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Cách làm: bản native gọi `game.end()`. Bản web thử `window.close()`, không được thì thoát toàn màn hình, tắt nhạc,
   hiện "THANKS FOR PLAYING!" kèm nút về menu (`LandingScreen.answerQuit`). Đây cũng là cách các game web hay làm.
 
+### Đoán sai ảnh góc trái / phải của ô đá
+- Ngày: 06/11/2026 · Nhóm: art
+- Triệu chứng: đầu khối đá ngay trước cái hố ở khung 1 hiện `MG_tile_4`, người dùng phải chỉ ra "chỗ này phải xài tile_3".
+- Nguyên nhân: người dùng nói tile_3 và tile_4 đều là "khối lộ ra ngoài"; mình coi cả hai là góc phải và bốc ngẫu nhiên cho mọi đầu khối,
+  không mở ảnh ra xem. Thật ra tile_3 có viền liền ở mép **phải** (góc phải), tile_4 có viền liền ở mép **trái** (góc trái).
+- Cách sửa: GroundBlock có ô *Left End Frame*; đầu phải dùng tile_3, đầu trái dùng tile_4 (không lật).
+- Cách tránh lần sau: ảnh mới để ghép (ô đá, góc, mép) thì **cắt riêng mép trái và mép phải ra xem** trước khi quyết định dùng ở đâu.
+  Hai ảnh "cùng loại" thường là một cặp trái / phải.
+
 ### Tên file asset có dấu tiếng Việt
 - Ngày: trước 03/11/2026 · Nhóm: art
 - Nguyên nhân: tên như `AS_câyquất` hay `FR_cờ` có thể lỗi khi build ra Android hoặc iOS.
@@ -378,6 +396,9 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   Đoạn sửa dài thì ghi ra file `.js` trong scratchpad (Write) rồi `node file.js đường-dẫn`.
 - Bẫy: đếm số lần bấm ↓ để tới một nút rất dễ sai (ô ẩn bị bỏ qua). Viết hàm "bấm ↓ tới khi ô đang chọn tên X" rồi mới bấm.
 - Phím ảo: `KeyboardEvent` phải có cả `code` lẫn `keyCode` (ghi đè bằng `Object.defineProperty`) thì Enter / Esc mới tới được engine.
+- Bẫy (06/11/2026): khung trình duyệt của app bị **ẩn** thì game không chạy khung nào (`cc.director.getTotalFrames()` đứng yên),
+  dù `document.visibilityState` vẫn là `visible`. Đo bằng `cc.director.tick(1/60)` trong vòng lặp (tween, update chạy theo);
+  phần chạy theo giờ thật (`setTimeout`, như màn logo / thanh tải) thì không qua được, gọi thẳng hàm của nó (ví dụ `dropMenu()`).
 - Bẫy (06/11/2026): node `Landing` trong file scene có thể đang **tắt** mà lúc chạy vẫn được code bật lên. Đọc file scene thấy tắt,
   mình bật thêm bằng JS → màn mở đầu chạy hai lần chồng nhau, đo ra số vô lý (logo vừa hiện đã mờ). Trước khi bật / tắt gì bằng JS,
   đọc trạng thái **lúc chạy** (`node.active`, component đang có) trước, đừng tin file scene.

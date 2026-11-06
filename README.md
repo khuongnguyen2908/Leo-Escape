@@ -41,6 +41,23 @@ Tuỳ chọn trên DemoLevelBuilder:
 
 Lưu ý khi sắp xếp:
 - Khối nền đá (`Ground`) có component **GroundBlock**: đổi `Width` để dài ngắn, kéo node để đổi chỗ và độ cao.
+  **Không còn màu nền bên dưới ô đá.** Các ô đá lấy **ngẫu nhiên** từ *Tile Frame* + *Variants* (hai ô liền nhau không trùng ảnh;
+  đổi ô *Seed* để xếp kiểu khác). Chỗ hai ô giáp nhau cắt bỏ viền tối (ô *Edge Cut*, px ảnh gốc, mặc định 16) rồi chồng nhẹ (*Overlap*),
+  nên viền tối chỉ còn ở hai đầu khối. Ô *Extend*: kéo dài phần đá tối ở đáy ô xuống (nền thấp 60, để lúc rung màn hình khỏi hở đáy).
+  Ô *Bleed Left / Bleed Right*: hình ô đá lấn sang hai bên (khung va chạm giữ nguyên). Khối thấp sát khối cao lấn 40 để **đè lên mép khối cao**
+  (khối cao phải nằm trên khối thấp trong Hierarchy, tức vẽ trước; nút ⚙ tự dời).
+  **Xếp tay (ô *Manual*, đang bật cho mọi khối):** các ô đá là node con thật `Tile_1`, `Tile_2`... của từng `Ground` (⚙ bước 30 tạo sẵn: ảnh nguyên, cỡ gốc,
+  không cắt viền, không giãn). Kéo, đổi ảnh (ô Sprite Frame), xoá, Ctrl+D từng ô tuỳ ý; ô nằm dưới trong Hierarchy thì vẽ đè lên ô trên.
+  Khung va chạm (viền xanh lá) vẫn theo *Width* / *Depth* của GroundBlock, đổi ô thì tự chỉnh Width nếu cần. Bỏ tích *Manual* thì code xếp lại như cũ
+  (các ô Tile_ vẫn còn, xoá tay nếu không dùng). Các mục dưới đây chỉ có tác dụng khi *Manual* tắt.
+  **Góc ngoài**: đầu khối lộ ra ngoài (tích *Cap Left* / *Cap Right*) dùng ảnh góc,
+  giữ nguyên viền ngoài: đầu phải dùng *End Frames* (`MG_tile_3`), đầu trái dùng *Left End Frame* (`MG_tile_4`, mép trái nét liền; để trống thì lật ngang ảnh góc phải, ô *Flip Left Cap*). Giữa khối thấp chỉ xếp `MG_tile_1/2`.
+  Nút ⚙ đặt ảnh, góc, Sink cho mỗi khối **một lần** (ô *Auto Tiled* khác 0), sau đó để yên phần bạn chỉnh; đặt *Auto Tiled* về 0 thì ⚙ đặt lại.
+  Vệt nắng `MG_nắng` (node `mg_nang` trong Gameplay, ⚙ đặt ở thân đá trước cái hố khung 1): kéo để dời, Ctrl+D để thêm chỗ khác.
+- **Dòng sông** (lớp `River`, trôi 0.9, nằm sau lớp chơi nên chỉ lộ ra ở hố và khe giữa các khối đá): node `RiverStrip` chứa 8 ảnh `BG_river`
+  nối liền (ảnh chẵn lật ngang cho mối nối khớp), đáy sát đáy khung hình. Component **RiverFlow** trên `RiverStrip`: nước trôi ngang (*Speed*,
+  âm = sang trái), nhún nhẹ (*Bob*, *Bob Period*), chỉ khi chơi. Muốn sông cao / thấp hơn thì kéo `RiverStrip` lên xuống.
+  Ô đá do code dựng lại mỗi lần mở scene / chạy game, **không lưu vào scene và không hiện trong Hierarchy** (muốn đổi thì chỉnh trên GroundBlock).
 - Đồ đứng lên được có component **Solid**. Kích thước vùng va chạm (`Size`) không tự đổi theo khi bạn scale hình, nhớ chỉnh lại Size.
   Bật `Debug Colliders` rồi Play để thấy khung va chạm.
 - Lớp `MG`, `BG`, `FR` trôi theo parallax nên trong editor nhìn lệch so với lúc chơi. Đó là bình thường.
@@ -54,9 +71,13 @@ Lưu ý khi sắp xếp:
     - ảnh thanh năng lượng, nút nhảy, nút đánh nếu ô ảnh còn trống;
     - độ lún mép đá theo số đo ảnh demo, chai nước đứng trên mặt đường, chim/boss/cá vẽ trên đồ vật;
     - **xoá Angelo** và HUD của Angelo nếu còn (game không còn Angelo); **xoá các vùng hướng dẫn `TutorialHint`** (dấu !) trong màn chính;
-    - mặt đá: nền thấp dùng `MG_tile_1`, **bậc đá cao dùng `MG_tile_high_1/2/3` thay phiên** (ảnh cao có cả thân tường), ô có nắng dùng `MG_tile_3`
-      (đoạn `SUNLIT_X`, đo trên ảnh demo: ô ngay trước khe hở khung 1). GroundBlock có ô *Lit Frame*, *Lit From*, *Lit To* và
-      **Variants** (ảnh thay phiên: ô 1 dùng *Tile Frame*, ô 2 ảnh đầu danh sách...). Chưa có ảnh mới thì dùng `MG_tile_2` như cũ;
+    - mặt đá: **nền thấp xếp ngẫu nhiên `MG_tile_1/2/3`**, **bậc đá cao xếp ngẫu nhiên `MG_tile_high_1/2/3`** (ảnh cao có cả thân tường),
+      không trộn thấp với cao; bỏ chỗ nắng cố định cũ (`SUNLIT_X`, *Lit Frame* để trống). Chưa có ảnh mới thì dùng `MG_tile_2` như cũ;
+    - **lớp BG trôi chậm theo đường** (hệ số 0.0622 → 0.3, chỉ đổi khi còn đúng 0.0622) và rải khắp màn: 7 đám mây, 5 cây, 1 cổng thành
+      ở giữa màn, 3 nhà nền (dùng lại node bạn đã đặt làm bản đầu, thiếu thì nhân bản; bố cục đã ghép thử với 4 khung demo).
+      `bg_filter` sang lớp mới `Filter` (hệ số 0, đứng yên theo màn hình, nằm ngay trên MG) nếu đang ở MG.
+      Bụi `bg_bui` sang lớp `Light_Far` (đứng yên theo màn hình) với anim trôi lững lờ + sáng mờ (**DustDrift**: *Sway X/Y*, *Period*,
+      *Fade Min/Max*, *Twinkle*, *Breathe*); tắt bụi sáng `BuiSang` (trông như đom đóm, hợp ban đêm hơn; tích lại ô active nếu muốn);
     - **ảnh mới theo 4 ảnh demo** (chỉ đổi khi node còn đúng ảnh cũ ở chỗ cũ, chỉ thêm khi chưa có node cùng tên):
       bàn hồng khung 2 → `MG_ban_xanh`, ghế vàng cạnh đó → `MG_ghe_do`, nhà đầu màn → `MG_nhao_3` (bản vẽ lại),
       nhà ở cuối khung 3 / đầu khung 4 → **quán Lợi Ký `MG_nhao_4`** (dời tới (5630, 22) như ảnh demo 4);
@@ -85,6 +106,10 @@ Lưu ý khi sắp xếp:
 - **So với ảnh demo:** chọn node `DemoRef`, tích **Hiện ảnh demo**, kéo **Khung** 1–4 (camera xem trước tự nhảy tới đúng chỗ),
   chỉnh **Độ đậm**. Ảnh nằm ở `assets/ref/`, chỉ hiện trong editor và không vào bản build.
 - Nếu Ctrl+S không lưu (tên scene không có dấu `*`), kéo nhẹ một node bất kỳ rồi lưu lại.
+- **Nhân bản tại chỗ** (tiện ích `extensions/duplicate-in-place`): chọn node trong Hierarchy, bấm **Ctrl+Shift+D** (hoặc menu Extension →
+  Duplicate tại chỗ) → bản sao nằm **ngay dưới node gốc** thay vì cuối danh sách (Ctrl+D / Ctrl+V của Creator luôn đưa xuống cuối).
+  Lần đầu phải bật: menu Extension → Extension Manager → tab Project → bật `duplicate-in-place`.
+  Phím có sẵn của Hierarchy: `[` / `]` dời node lên / xuống một bậc, Ctrl+[ / Ctrl+] lên đầu / xuống cuối, Ctrl+Alt+V dán thành node con.
 
 ## Vào game: 1 người hay 2 người
 
@@ -93,7 +118,9 @@ Lưu ý khi sắp xếp:
 
 **Mở game** (lần đầu trong một lần mở): **Logo 1** → **Logo 2** (màn đen, bấm phím / chạm để bỏ qua logo đang hiện) →
 **banner** (nền + logo game) kèm **thanh tải** (tải trước ảnh hiệu ứng `art/fx`) → thanh tải đổi thành **PRESS ANY BUTTON** nhấp nháy →
-bấm phím bất kỳ / chạm thì **các dòng menu rơi xuống** lần lượt (`BootScreen.ts`). Về màn hình chính từ trong game thì bỏ qua logo, menu rơi xuống luôn.
+bấm phím bất kỳ / chạm thì **các dòng menu hiện dần** tại chỗ trong 0.25 giây (`BootScreen.ts`; không còn rơi xuống). Về màn hình chính từ trong game thì bỏ qua logo, menu hiện luôn.
+**Logo** (`LogoShine.ts`, tự gắn vào `Logo/Pic` khi chơi): vệt sáng trắng chéo lướt qua phần chữ và hình mỗi 4 giây (*Period*, *Sweep*, *Band Width*, *Strength*),
+ngôi sao nhỏ trên chữ O nhấp nháy ~2.2 giây một lần (*Star X/Y* là vị trí px trên ảnh logo, *Star Size*, *Twinkle*). Tạo lúc chạy, không lưu vào scene.
 Ảnh logo: `boot_logo1`, `boot_logo2` trong `assets/resources/art` (chưa có thì hiện khung chữ LOGO 1 / LOGO 2).
 
 Màn mở đầu là **menu chính**: logo, NEW GAME, OPTIONS, ACHIEVEMENTS, CREDITS, QUIT, dòng bản quyền ở đáy.
@@ -333,7 +360,7 @@ Mọi tiếng nằm trong `assets/resources/sounds`. Hiện là tiếng tạm t�
 | `ui_click` / `ui_back` | Bấm nút / quay lại, huỷ (mọi nút vẽ bằng `uiButton`, phím Esc trong bảng) |
 | `ui_deny` | Không được (ACHIEVEMENTS chưa có, chạm cờ đích khi boss còn sống, hỏi xoá ô lưu) |
 | `ui_delete` / `ui_saved` | Xoá ô lưu / bấm Lưu trong Cài đặt |
-| `ui_start` / `ui_drop` | Bấm PRESS ANY BUTTON / dòng menu rơi chạm chỗ |
+| `ui_start` / `ui_drop` | Bấm PRESS ANY BUTTON / (không dùng nữa: menu không rơi) |
 | `ui_zoom_in` / `ui_zoom_out` | Màn đen thu lại / nở ra |
 | `ui_page` / `ui_text` | Lật trang truyện / chữ thoại hiện dần |
 | `ui_door` | Ra cửa EXIT màn hướng dẫn |
@@ -378,7 +405,7 @@ assets/scripts/
 │  ├─ BossHealthBar.ts    thanh máu boss (MG_boss_hpgauge, MG_boss_hp, MG_icon_boss)
 │  └─ TouchControls.ts    joystick (đế MG_joystick_base + nút MG_joystick_knob) + nút nhảy
 └─ level/
-   ├─ GroundBlock.ts      khối nền đá (mép ảnh tile + thân tường + va chạm)
+   ├─ GroundBlock.ts      khối nền đá (ô đá xếp ngẫu nhiên, cắt viền chỗ giáp nhau + va chạm)
    ├─ PlaceholderBox.ts   khối màu thay cho ảnh còn thiếu
    ├─ SkyGradient.ts      nền trời chuyển màu
    ├─ PlayerTrigger.ts    nền chung cho các vùng chạm bên dưới
@@ -390,7 +417,8 @@ assets/scripts/
    ├─ LightRays.ts        tia nắng xiên vẽ bằng code
    ├─ SoftGlow.ts         quầng sáng mềm (sương sáng, hào quang cá)
    ├─ CoinGlow.ts         hào quang bám theo cá vàng: MG_coin_glow_1/2 kiểu bokeh (quầng trôi, đốm sáng trôi lên)
-   ├─ DustMotes.ts        bụi sáng lấp lánh
+   ├─ DustMotes.ts        bụi sáng lấp lánh (đang tắt, trông như đom đóm)
+   ├─ DustDrift.ts        anim cho ảnh bụi BG_bui: trôi lững lờ, sáng mờ
    └─ DemoLevelBuilder.ts dựng màn mẫu bằng code
 ```
 

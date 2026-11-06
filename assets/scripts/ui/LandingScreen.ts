@@ -1,4 +1,5 @@
 import { _decorator, Camera, Color, Component, EventKeyboard, game, Graphics, Input, input, KeyCode, Label, Node, RenderTexture, resources, screen, Sprite, SpriteFrame, sys, Texture2D, Tween, tween, UIOpacity, UITransform, Vec3, view } from 'cc';
+import { EDITOR } from 'cc/env';
 import { Settings } from '../core/Settings';
 import { Sound } from '../core/Sound';
 import { GameManager } from '../game/GameManager';
@@ -7,6 +8,7 @@ import { SlotData } from '../game/SaveSlots';
 import { BootScreen, MENU_MUSIC } from './BootScreen';
 import { DialogueBox } from './DialogueBox';
 import { IrisWipe } from './IrisWipe';
+import { LogoShine } from './LogoShine';
 import { SaveSlotPage } from './SaveSlotPage';
 import { StoryPages } from './StoryPages';
 import { PlayerInput } from '../player/PlayerInput';
@@ -528,6 +530,7 @@ export class LandingScreen extends Component {
         const n = this.items.length;
         // Về menu từ trong game (đã qua logo, thanh tải): bật nhạc menu luôn
         if (LandingScreen.booted) Sound.music(MENU_MUSIC);
+        // Chữ menu đứng yên đúng chỗ, hiện dần từ mờ tới rõ trong 0.25 giây (không rơi xuống nữa)
         this.items.forEach((item, i) => {
             let base = this.dropBase.get(item);
             if (!base) {
@@ -537,13 +540,9 @@ export class LandingScreen extends Component {
             const op = item.getComponent(UIOpacity) ?? item.addComponent(UIOpacity);
             Tween.stopAllByTarget(item);
             Tween.stopAllByTarget(op);
-            item.setPosition(base.x, base.y + 700, base.z);
+            item.setPosition(base);
             op.opacity = 0;
-            const b = base;
-            tween(op).delay(0.09 * i).to(0.2, { opacity: 255 }).start();
-            // bounceOut chạm chỗ lần đầu ở khoảng 36% thời gian: lúc đó kêu bụp
-            tween(item).delay(0.09 * i + 0.22).call(() => Sound.play('ui_drop', 0.5)).start();
-            tween(item).delay(0.09 * i).to(0.6, { position: b }, { easing: 'bounceOut' }).call(() => {
+            tween(op).to(0.25, { opacity: 255 }).call(() => {
                 if (i !== n - 1 || !this.isValid) return;
                 if (sel) sel.active = true;
                 this.page = 'start';
@@ -753,6 +752,8 @@ export class LandingScreen extends Component {
             if (!this.isValid) return;
             const pic = logo.getChildByName('Pic') ?? this.child('Pic', logo);
             (pic.getComponent(Sprite) ?? pic.addComponent(Sprite)).spriteFrame = sf;
+            // Vệt sáng lướt qua logo + ngôi sao nhấp nháy (chỉ khi chơi, không lưu vào scene)
+            if (!EDITOR) (pic.getComponent(LogoShine) ?? pic.addComponent(LogoShine)).setup(sf);
             const text = logo.getChildByName('Text');
             if (text) text.active = false;
         };

@@ -29,7 +29,7 @@ export const DEMO_NODES: { id: string; name: string; x?: number; y?: number; sx?
     { id: "e32/HqzahFxb346npcXtxD", x: 1177, y: 5, sx: 1, sy: 1, name: "mg_cottenduong" },
     { id: "e6rViPrpBOcKNriVNosx62", x: 1387, y: 37.5, sx: 1, sy: 1, name: "as_cayquat" },
     { id: "9fmur3YjhEkagVJQFBbRPq", x: 1645, y: 30.5, sx: 1, sy: 1, name: "mg_cafe" },
-    { id: "ac9dfhEjtPmbba5QVKyWYi", x: 354, y: -34.7, sx: 1, sy: 1, name: "bg_thanh" },
+    { id: "ac9dfhEjtPmbba5QVKyWYi", x: 1750, y: -34.7, sx: 1, sy: 1, name: "bg_thanh" },
     { id: "c7l/mNuxhO6r82IhY6GIII", x: 1092.5, name: "fr_co" },
     { id: "3bBBsx55FHV4X5XWZe1AfD", x: 1851.5, name: "fr_co" },
     { id: "ff0afyVwpNDaGVyuPBIG8I", x: 156.6, y: -396.9, sx: 0.975, sy: 0.975, name: "fr_cotduong" },
@@ -82,8 +82,8 @@ export const DEMO_NODES: { id: string; name: string; x?: number; y?: number; sx?
     { id: "98uu/kzTpISIUSvHDmagOW", x: 0, y: 0, name: "Visual" },
     { id: "afXPTUGPJPcLabqFuQm6jI", x: 9411.5, y: -434.9, sx: -1, sy: 1, name: "fr_cotduong" },
     { id: "a0KNTkkvlHCK6j6hyiPx0y", x: 9031.6, y: -671.5, sx: 0.9, sy: 0.9, name: "fr_tudien" },
-    { id: "9favFx7ZFHb6+LytsN8nhU", x: -134.3, y: -166.2, name: "mg_cay_6" },
-    { id: "c2PMBxhcBGv7y2UHfUB6r+", x: 874.6, y: -166.2, name: "mg_cay_7" },
+    { id: "9favFx7ZFHb6+LytsN8nhU", x: -800, y: -166.2, name: "mg_cay_6" },
+    { id: "c2PMBxhcBGv7y2UHfUB6r+", x: 420, y: -180, name: "mg_cay_7" },
     { id: "07KkfdRtdG65QT331Px8Ce", x: 553, y: 90, name: "HaoQuang" },
     { id: "f4+SAJo39Gb4XbrnCMzW/M", x: 731.5, y: 277.5, name: "HaoQuang" },
     { id: "4cjDEjPlBFC7J77iEpZSeh", x: 863.5, y: 91.5, name: "HaoQuang" },
@@ -122,5 +122,6 @@ export const DEMO_GROUNDS: { id: string; tileHeight: number; sink: number; width
 
 /** Hệ số trôi ngang của lớp (cổng thành ở BG trôi chậm hơn). */
 export const DEMO_LAYERS: { id: string; fx: number }[] = [
-    { id: "42Q5v8LutBMqo3DtadPHFS", fx: 0.0622 },
+    // Lớp BG trôi chậm theo đường (bước ⚙ 25 xếp lại mây, cây, cổng, nhà rải khắp màn)
+    { id: "42Q5v8LutBMqo3DtadPHFS", fx: 0.3 },
 ];
