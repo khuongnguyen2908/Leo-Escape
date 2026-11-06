@@ -2,6 +2,7 @@ import { _decorator, Color, Graphics, Label, Node, tween, Tween, UIOpacity, UITr
 import { EDITOR } from 'cc/env';
 import { Action, keyShort, Settings } from '../core/Settings';
 import { GameManager } from '../game/GameManager';
+import { GameSession } from '../game/GameSession';
 import { PlayerController } from '../player/PlayerController';
 import { Lang, T, TextKey } from '../ui/Lang';
 import { UI, uiLabel, uiNode } from '../ui/UiKit';
@@ -117,6 +118,11 @@ export class TutorialHint extends PlayerTrigger {
         const inside = this.inside;
         this.inside = false; // onPlayerEnter (chạy trước tick) bật lại nếu mèo còn trong vùng
         this.animateMark(dt);
+        // Chưa vào chơi (menu, truyện) hoặc đang cảnh diễn (hội thoại mở đầu, mở màn boss): chưa hiện bảng
+        if (GameSession.waitingForStart || GameManager.instance?.cutscene) {
+            this.hidePanel();
+            return;
+        }
         if (!inside) {
             // Ra khỏi vùng: tắt bảng, lần sau vào lại thì hiện (kể cả đã bấm X)
             this.closedByX = false;

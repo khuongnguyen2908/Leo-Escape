@@ -3,6 +3,7 @@ import { EDITOR } from 'cc/env';
 import { CameraRig } from '../camera/CameraRig';
 import { EnemyPatrol } from '../enemy/EnemyPatrol';
 import { GameManager } from '../game/GameManager';
+import { Sound } from '../core/Sound';
 import { T } from '../ui/Lang';
 import { UI, uiLabel, uiNode } from '../ui/UiKit';
 import { PlayerTrigger } from './PlayerTrigger';
@@ -96,6 +97,7 @@ export class Goal extends PlayerTrigger {
     private lockedHint() {
         if (this.lockedHintWait > 0 || !this.node.parent) return;
         this.lockedHintWait = 2;
+        Sound.play('ui_deny', 0.8);
         const p = this.node.position;
         const n = uiNode('LockedHint', this.node.parent);
         n.setPosition(p.x, p.y + 360, 0);

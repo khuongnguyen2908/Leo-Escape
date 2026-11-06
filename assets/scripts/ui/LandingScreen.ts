@@ -3,6 +3,12 @@ import { Settings } from '../core/Settings';
 import { Sound } from '../core/Sound';
 import { GameManager } from '../game/GameManager';
 import { GameSession } from '../game/GameSession';
+import { SlotData } from '../game/SaveSlots';
+import { BootScreen, MENU_MUSIC } from './BootScreen';
+import { DialogueBox } from './DialogueBox';
+import { IrisWipe } from './IrisWipe';
+import { SaveSlotPage } from './SaveSlotPage';
+import { StoryPages } from './StoryPages';
 import { PlayerInput } from '../player/PlayerInput';
 import { PlayerVisual } from '../player/PlayerVisual';
 import { CharacterSelect } from './CharacterSelect';
@@ -11,7 +17,7 @@ import { useGameFont } from './GameFont';
 import { UI, uiButton, UiButton, uiDim, uiLabel, uiNode, uiPanel } from './UiKit';
 const { ccclass, property } = _decorator;
 
-type Page = 'start' | 'mode' | 'pick' | 'quit' | 'thanks' | 'credits';
+type Page = 'boot' | 'drop' | 'start' | 'slots' | 'mode' | 'pick' | 'quit' | 'thanks' | 'credits' | 'intro';
 
 /** Dòng menu được chọn: chữ phóng lên chừng này rồi thu về (khung chọn tính theo cỡ lúc to nhất nên chữ không tràn) */
 const FOCUS_PULSE = 1.15;
@@ -37,7 +43,12 @@ const SELECTION_EDGE = 70;
 const SELECTION_EXTRA = 38 + 42 + 24;
 
 /**
- * Màn mở đầu:
+ * Màn mở đầu. Mở game lần đầu: logo 1 → logo 2 → banner + thanh tải → PRESS ANY BUTTON (BootScreen) → menu rơi xuống.
+ * NEW GAME → chọn 1 trong 3 ô lưu (SaveSlotPage) → màn đen zoom vào + vòng tải nhỏ (IrisWipe) →
+ *   ô mới: 3 trang truyện (StoryPages) → màn đen → zoom ra bản đồ → hội thoại mèo 3 câu (DialogueBox) → vào chơi;
+ *   ô đã lưu: zoom ra bản đồ ngay tại checkpoint đã lưu → vào chơi.
+ * Về màn hình chính từ trong game thì bỏ qua logo, menu rơi xuống luôn.
+ * Chi tiết các trang:
  *   1. Menu chính: logo, NEW GAME, OPTIONS, ACHIEVEMENTS, CREDITS, QUIT. W/S hoặc ↑/↓ dời khung chọn, rê chuột cũng được;
  *      Enter, phím Nhảy / Đánh hoặc chạm để chọn. Scene chưa có node Menu thì dùng nút START cũ.
  *   2. NEW GAME: chọn 1 NGƯỜI (điều khiển Leo, phím Đổi mèo để đổi) hoặc 2 NGƯỜI. Điện thoại bỏ qua bước này, vào thẳng 1 người.
@@ -52,6 +63,8 @@ const SELECTION_EXTRA = 38 + 42 + 24;
 export class LandingScreen extends Component {
     /** Đã bấm START trong lần mở game này (giữ qua các lần tải lại scene). */
     static passed = false;
+    /** Đã chạy logo / thanh tải trong lần mở game này (về menu từ trong game thì không chạy lại). */
+    static booted = false;
     static instance: LandingScreen | null = null;
     /** PauseMenu gắn vào: mở thẳng trang Cài đặt, và cho biết menu tạm dừng đang mở (để không nhận phím bên dưới). */
     static openOptions: (() => void) | null = null;
@@ -92,6 +105,9 @@ export class LandingScreen extends Component {
     private quitButtons: UiButton[] = [];
     private quitFocus = 1;
     private thanksRoot: Node | null = null;
+    private slotPage: SaveSlotPage | null = null;
+    /** Ô lưu vừa chọn (null = ô mới) */
+    private pendingSave: SlotData | null = null;
 
     /** Màn mở đầu đang hiện (chưa vào chơi). */
     get showing() { return this.node.activeInHierarchy && !this.leaving; }
@@ -113,6 +129,10 @@ export class LandingScreen extends Component {
         if (this.menu) this.setupMenu();
         else this.setupStart();
         input.on(Input.EventType.KEY_DOWN, this.onKey, this);
+        if (this.menu) {
+            if (!LandingScreen.booted) this.startBoot();
+            else this.dropMenu();
+        }
     }
 
     start() {
@@ -170,6 +190,12 @@ export class LandingScreen extends Component {
     /** Esc / nút quay lại: lùi một bước. Trả về false nếu đang ở bước đầu (để mở menu). */
     back(): boolean {
         if (!this.showing || this.capture) return false;
+        // Đang chạy logo / menu rơi / chuyển cảnh vào game: nuốt Esc, không mở menu tạm dừng
+        if (this.page === 'boot' || this.page === 'drop' || this.page === 'intro') return true;
+        if (this.page === 'slots') {
+            this.slotPage?.back();
+            return true;
+        }
         if (this.page === 'pick') {
             this.pick?.node.destroy();
             this.pick = null;
@@ -240,7 +266,10 @@ export class LandingScreen extends Component {
     private focusMenu(i: number, pulse = true) {
         const item = this.items[i];
         if (!item) return;
-        if (pulse && i !== this.focus) this.pulse(item);
+        if (pulse && i !== this.focus) {
+            this.pulse(item);
+            Sound.play('ui_move', 0.6);
+        }
         this.focus = i;
         const sel = this.selection;
         if (sel) {
@@ -293,8 +322,9 @@ export class LandingScreen extends Component {
     private chooseMenu(i: number) {
         const item = this.items[i];
         if (!item || this.leaving) return;
+        Sound.play(item.name === 'Achievements' ? 'ui_deny' : 'ui_click', 0.8);
         switch (item.name) {
-            case 'NewGame': this.onStart(); break;
+            case 'NewGame': this.showSlots(); break;
             case 'Options': LandingScreen.openOptions?.(); break;
             case 'Quit': this.showQuit(); break;
             case 'Credits': this.showCredits(); break;
@@ -352,12 +382,14 @@ export class LandingScreen extends Component {
     }
 
     private focusQuit(i: number) {
+        if (i !== this.quitFocus && this.quitRoot?.active) Sound.play('ui_move', 0.6);
         this.quitFocus = i;
         this.quitButtons.forEach((b, k) => b.setFocus(k === i));
     }
 
     private answerQuit(yes: boolean) {
         if (this.quitRoot) this.quitRoot.active = false;
+        Sound.play(yes ? 'ui_click' : 'ui_back', 0.8);
         this.page = 'start';
         PlayerInput.clearQueues();
         if (!yes) return;
@@ -469,8 +501,95 @@ export class LandingScreen extends Component {
         if (this.thanksRoot) this.thanksRoot.active = false;
         this.page = 'start';
         PlayerInput.clearQueues();
-        const music = GameManager.instance?.music;
-        if (music) Sound.music(music);
+        Sound.music(MENU_MUSIC);
+    }
+
+    // ---------- Logo, thanh tải, menu rơi xuống ----------
+
+    /** Mở game lần đầu: logo 1 → logo 2 → banner + thanh tải → PRESS ANY BUTTON, xong thì menu rơi xuống. */
+    private startBoot() {
+        this.page = 'boot';
+        if (this.menu) this.menu.active = false;
+        const boot = this.addComponent(BootScreen);
+        boot.onDone = () => {
+            LandingScreen.booted = true;
+            this.dropMenu();
+        };
+    }
+
+    /** Các dòng menu rơi từ trên xuống lần lượt (nảy nhẹ khi chạm chỗ), xong mới hiện khung chọn và nhận phím. */
+    private dropMenu() {
+        const menu = this.menu;
+        if (!menu) return;
+        this.page = 'drop';
+        menu.active = true;
+        const sel = this.selection;
+        if (sel) sel.active = false;
+        const n = this.items.length;
+        // Về menu từ trong game (đã qua logo, thanh tải): bật nhạc menu luôn
+        if (LandingScreen.booted) Sound.music(MENU_MUSIC);
+        this.items.forEach((item, i) => {
+            let base = this.dropBase.get(item);
+            if (!base) {
+                base = item.position.clone();
+                this.dropBase.set(item, base);
+            }
+            const op = item.getComponent(UIOpacity) ?? item.addComponent(UIOpacity);
+            Tween.stopAllByTarget(item);
+            Tween.stopAllByTarget(op);
+            item.setPosition(base.x, base.y + 700, base.z);
+            op.opacity = 0;
+            const b = base;
+            tween(op).delay(0.09 * i).to(0.2, { opacity: 255 }).start();
+            // bounceOut chạm chỗ lần đầu ở khoảng 36% thời gian: lúc đó kêu bụp
+            tween(item).delay(0.09 * i + 0.22).call(() => Sound.play('ui_drop', 0.5)).start();
+            tween(item).delay(0.09 * i).to(0.6, { position: b }, { easing: 'bounceOut' }).call(() => {
+                if (i !== n - 1 || !this.isValid) return;
+                if (sel) sel.active = true;
+                this.page = 'start';
+                this.focusMenu(this.focus, false);
+                PlayerInput.clearQueues();
+            }).start();
+        });
+        if (n === 0) this.page = 'start';
+    }
+
+    private dropBase = new Map<Node, Vec3>();
+
+    // ---------- Ô lưu ----------
+
+    private showSlots() {
+        if (this.capture) return;
+        this.page = 'slots';
+        if (this.menu) this.menu.active = false;
+        this.setActive('Logo', false);
+        if (!this.slotPage) {
+            const n = uiNode('Slots', this.node);
+            const page = n.addComponent(SaveSlotPage);
+            page.onPick = (slot, data) => this.pickSlot(slot, data);
+            page.onBack = () => this.hideSlots();
+            this.slotPage = page;
+        } else {
+            this.slotPage.node.active = true;
+        }
+        this.slotPage.node.setSiblingIndex(this.node.children.length - 1);
+    }
+
+    private hideSlots() {
+        if (this.slotPage) this.slotPage.node.active = false;
+        this.setActive('Logo', true);
+        // Về menu từ trang ô lưu: các dòng menu rơi xuống lại
+        if (this.menu) this.dropMenu();
+        else this.page = 'start';
+        PlayerInput.clearQueues();
+    }
+
+    /** Chọn ô lưu: ô này nhận tiến độ từ giờ; rồi vào game (chọn số người nếu có Angelo). */
+    private pickSlot(slot: number, data: SlotData | null) {
+        GameSession.slot = slot;
+        this.pendingSave = data;
+        if (this.slotPage) this.slotPage.node.active = false;
+        this.onStart();
     }
 
     private onStart() {
@@ -518,6 +637,7 @@ export class LandingScreen extends Component {
     }
 
     private focusMode(i: number) {
+        if (i !== this.modeFocus && this.page === 'mode') Sound.play('ui_move', 0.6);
         this.modeFocus = i;
         this.modeButtons.forEach((b, k) => {
             b.setFocus(k === i);
@@ -661,24 +781,84 @@ export class LandingScreen extends Component {
         });
     }
 
-    /** Vào chơi: màn mở đầu mờ dần, xong thì mèo mới chạy được (để phím bấm chọn không làm mèo nhảy). */
+    /**
+     * Vào game: màn đen zoom vào + vòng tải nhỏ; ô mới thì 3 trang truyện rồi zoom ra bản đồ + hội thoại,
+     * ô đã lưu thì zoom ra bản đồ ngay ở checkpoint. Mèo chỉ chạy được khi xong hết (phím bấm chọn không làm mèo nhảy).
+     */
     private go() {
-        if (this.leaving || this.capture) return;
-        this.leaving = true;
+        if (this.leaving || this.capture || this.page === 'intro') return;
+        this.page = 'intro';
         LandingScreen.passed = true;
         input.off(Input.EventType.KEY_DOWN, this.onKey, this);
-        const fade = this.getComponent(UIOpacity) ?? this.addComponent(UIOpacity);
-        tween(fade)
-            .to(this.fadeTime, { opacity: 0 })
-            .call(() => {
-                GameSession.waitingForStart = false;
-                GameManager.instance?.beginPlay();
-                this.node.active = false;
-            })
-            .start();
-        // Phóng nhẹ logo lên khi biến mất
-        const logo = this.node.getChildByName('Logo');
-        if (logo && logo.active) tween(logo).by(this.fadeTime, { position: new Vec3(0, 40, 0) }).start();
+        const data = this.pendingSave;
+        IrisWipe.close(0.6, () => {
+            IrisWipe.showLoading(true);
+            // Giờ thật: vòng tải nhỏ đứng chừng 1 giây
+            setTimeout(() => {
+                IrisWipe.showLoading(false);
+                if (!this.isValid) return;
+                if (data && !data.cleared) {
+                    GameManager.instance?.applySave(data);
+                    this.revealMap(false);
+                } else {
+                    this.playStory();
+                }
+            }, 900);
+        });
+    }
+
+    /** 3 trang truyện trên nền riêng (che hết menu), lật hết thì màn đen rồi ra bản đồ. */
+    private playStory() {
+        for (const c of this.node.children) c.active = false;
+        const n = uiNode('Story', this.node);
+        const story = n.addComponent(StoryPages);
+        IrisWipe.open(0.6);
+        story.onDone = () => {
+            IrisWipe.close(0.6, () => {
+                n.destroy();
+                this.revealMap(true);
+            });
+        };
+    }
+
+    /** Màn đen nở ra từ chỗ Leo đứng, lộ bản đồ; ô mới thì hội thoại mèo 3 câu, xong mới vào chơi. */
+    /**
+     * Màn đen nở ra từ chỗ Leo đứng, lộ bản đồ.
+     * Ô mới: có màn hướng dẫn (TutorialRoom) thì vào đó trước (nhạc menu chạy tiếp; ra cửa EXIT thì TutorialRoom lo hội thoại + nhạc rừng),
+     * không có thì hội thoại mèo 3 câu luôn. Ô đã lưu: vào chơi ngay.
+     */
+    private revealMap(withDialogue: boolean) {
+        const gm = GameManager.instance;
+        const canvas = this.node.parent;
+        this.leaving = true;
+        this.node.active = false;
+        if (!canvas) return;
+        const tutorial = withDialogue ? GameSession.tutorial : null;
+        if (tutorial) tutorial.enter();
+        // Ô mới không có màn hướng dẫn: hội thoại không có nhạc; nhạc rừng bật khi vào chơi (GameManager.beginPlay)
+        else if (withDialogue) Sound.stopMusic();
+        const startPlay = () => {
+            GameSession.waitingForStart = false;
+            GameManager.instance?.beginPlay();
+        };
+        // Chờ camera nhảy tới chỗ mèo (sau khi đặt mèo ở checkpoint / màn hướng dẫn) rồi mới lấy tâm lỗ tròn
+        setTimeout(() => {
+            const [cx, cy] = IrisWipe.centerOf(gm?.player?.node);
+            IrisWipe.open(0.8, () => {
+                if (tutorial) {
+                    // Màn hướng dẫn: điều khiển được, chưa bật nhạc rừng
+                    GameSession.waitingForStart = false;
+                    GameManager.instance?.beginPlay(false);
+                    return;
+                }
+                if (!withDialogue || !canvas.isValid) {
+                    startPlay();
+                    return;
+                }
+                const portrait = gm?.player?.visual?.idleFrame ?? null;
+                DialogueBox.show(canvas, portrait, 'dialog.name', ['dialog.1', 'dialog.2', 'dialog.3'], startPlay);
+            }, cx, cy);
+        }, 120);
     }
 
     private child(name: string, parent: Node): Node {

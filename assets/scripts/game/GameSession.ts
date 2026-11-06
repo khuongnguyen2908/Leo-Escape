@@ -15,9 +15,18 @@ export const GameSession = {
     angelo: false,
     /** Màn mở đầu đang hiện, chưa vào chơi (GameManager chờ tới khi bấm START). */
     waitingForStart: false,
+    /** Ô lưu đang chơi (0..2), -1 = chưa chọn (không lưu tiến độ). Giữ qua các lần tải lại màn. */
+    slot: -1,
+    /**
+     * Màn hướng dẫn của scene đang chơi (TutorialRoom tự gắn vào đây khi nạp, gỡ khi bị xoá).
+     * Để ở đây cho LandingScreen gọi mà không phải import TutorialRoom (import thẳng tạo vòng: LandingScreen → TutorialRoom →
+     * TutorialExit → PlayerTrigger → GameManager → LandingScreen, lớp PlayerTrigger chưa có đã bị kế thừa → "Missing class").
+     */
+    tutorial: null as { enter(): void } | null,
 
     reset() {
         this.mode = 1;
+        this.slot = -1;
         this.leoPlayer = 0;
         this.angeloPlayer = 1;
     },

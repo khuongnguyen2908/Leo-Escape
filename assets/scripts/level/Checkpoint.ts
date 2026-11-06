@@ -29,7 +29,7 @@ export class Checkpoint extends PlayerTrigger {
     protected onPlayerEnter(gm: GameManager) {
         this.used = true;
         Sound.play('checkpoint');
-        gm.setRespawn(this.node.position);
+        gm.reachCheckpoint(this.node);
         const s = this.node.scale;
         tween(this.node)
             .to(0.12, { scale: new Vec3(s.x * 1.2, s.y * 1.2, 1) })

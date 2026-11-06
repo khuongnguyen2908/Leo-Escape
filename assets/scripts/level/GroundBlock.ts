@@ -13,6 +13,7 @@ const LIP = new Color(176, 168, 156, 255);
  * bề dài khối, nên 2 đầu khối luôn là mép đá bo tròn chứ không bị cắt ngang giữa ô.
  * Gốc node là góc trên-trái mặt đất. Kéo node để đổi chỗ / độ cao, đổi Width để dài ngắn.
  * Ô có nắng: ô đá nào có tâm nằm trong đoạn Lit From → Lit To (tính từ mép trái khối) thì dùng ảnh Lit Frame (MG_tile_3).
+ * Ảnh thay phiên (Variants): ô 1 dùng Tile Frame, ô 2 dùng ảnh đầu danh sách, ô 3 ảnh kế... hết thì quay lại Tile Frame.
  */
 @ccclass('GroundBlock')
 @executeInEditMode
@@ -41,6 +42,9 @@ export class GroundBlock extends Component {
 
     @property
     _litFrom = 0;
+
+    @property({ type: [SpriteFrame] })
+    _variants: SpriteFrame[] = [];
 
     @property
     _litTo = 0;
@@ -80,6 +84,19 @@ export class GroundBlock extends Component {
     @property({ tooltip: 'Đoạn có nắng: kết thúc (tính từ mép trái khối)' })
     get litTo() { return this._litTo; }
     set litTo(v: number) { this._litTo = v; this.redraw(); }
+
+    @property({ type: [SpriteFrame], tooltip: 'Ảnh mép đá thay phiên: ô 1 dùng Tile Frame, ô 2 dùng ảnh đầu danh sách này, ô 3 ảnh kế... (để trống = mọi ô dùng Tile Frame)' })
+    get variants() { return this._variants; }
+    set variants(v: SpriteFrame[]) { this._variants = v ?? []; this.redraw(); }
+
+    /** Đặt danh sách ảnh thay phiên (chỉ vẽ lại khi có đổi). Trả về true nếu có đổi. */
+    setVariants(list: SpriteFrame[]): boolean {
+        const cur = this._variants ?? [];
+        if (cur.length === list.length && cur.every((f, i) => f === list[i])) return false;
+        this._variants = list.slice();
+        this.redraw();
+        return true;
+    }
 
     /** Đặt ảnh ô có nắng và đoạn có nắng một lần (chỉ vẽ lại khi có đổi). Trả về true nếu có đổi. */
     setLit(frame: SpriteFrame | null, from: number, to: number): boolean {
@@ -150,6 +167,7 @@ export class GroundBlock extends Component {
 
         const tiles = top.children.slice();
         const lit = this._litFrame && this._litTo > this._litFrom ? this._litFrame : null;
+        const pool = [frame, ...(this._variants ?? []).filter((f) => !!f)];
         for (let i = 0; i < n; i++) {
             let t = tiles[i];
             if (!t) {
@@ -160,7 +178,7 @@ export class GroundBlock extends Component {
             // Ô có tâm nằm trong đoạn có nắng thì dùng ảnh có nắng (cùng khổ ảnh, giãn theo kích thước của chính nó)
             const x = i * (width - ov);
             const center = x + width / 2;
-            const f = lit && center >= this._litFrom && center <= this._litTo ? lit : frame;
+            const f = lit && center >= this._litFrom && center <= this._litTo ? lit : pool[i % pool.length];
             const ffw = f.rect.width, ffh = f.rect.height;
             const sp = t.getComponent(Sprite) ?? t.addComponent(Sprite);
             sp.spriteFrame = f;

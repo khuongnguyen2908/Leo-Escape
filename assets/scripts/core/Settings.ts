@@ -22,7 +22,10 @@ export const ACTION_NAMES: Record<Action, string> = {
 
 type KeyMap = Record<Action, number>;
 
-/** Kiểu phím có sẵn: WASD (+ Space/J/K/L) hoặc Mũi tên (+ Z/X/C/V). 'custom' = đã đổi lẻ phím. */
+/**
+ * Kiểu phím có sẵn: WASD (J đánh, K nhảy) hoặc Mũi tên (X đánh, Z nhảy). 'custom' = đã đổi lẻ phím.
+ * Game chỉ có 2 nút: Đánh và Nhảy (không còn Angelo): Kỹ năng, Tương tác, Đổi mèo không gán phím (NONE).
+ */
 export type KeyLayout = 'wasd' | 'arrows' | 'custom';
 
 export type LangCode = 'vi' | 'en';
@@ -30,18 +33,24 @@ export type LangCode = 'vi' | 'en';
 const LAYOUT_KEYS: Record<'wasd' | 'arrows', KeyMap> = {
     wasd: {
         left: KeyCode.KEY_A, right: KeyCode.KEY_D, up: KeyCode.KEY_W, down: KeyCode.KEY_S,
-        jump: KeyCode.SPACE, attack: KeyCode.KEY_J, skill: KeyCode.KEY_K, interact: KeyCode.KEY_L, swap: KeyCode.TAB,
+        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.NONE, interact: KeyCode.NONE, swap: KeyCode.NONE,
     },
     arrows: {
         left: KeyCode.ARROW_LEFT, right: KeyCode.ARROW_RIGHT, up: KeyCode.ARROW_UP, down: KeyCode.ARROW_DOWN,
-        jump: KeyCode.KEY_Z, attack: KeyCode.KEY_X, skill: KeyCode.KEY_V, interact: KeyCode.KEY_C, swap: KeyCode.TAB,
+        jump: KeyCode.KEY_Z, attack: KeyCode.KEY_X, skill: KeyCode.NONE, interact: KeyCode.NONE, swap: KeyCode.NONE,
     },
 };
+
+/** Bộ phím mặc định của các bản trước (Space nhảy, K kỹ năng, L tương tác...): máy nào còn lưu đúng bộ này thì tự đổi sang bộ mới. */
+const OLD_LAYOUTS: Partial<KeyMap>[] = [
+    { left: KeyCode.KEY_A, right: KeyCode.KEY_D, up: KeyCode.KEY_W, down: KeyCode.KEY_S, jump: KeyCode.SPACE, attack: KeyCode.KEY_J },
+    { left: KeyCode.ARROW_LEFT, right: KeyCode.ARROW_RIGHT, up: KeyCode.ARROW_UP, down: KeyCode.ARROW_DOWN, jump: KeyCode.KEY_Z, attack: KeyCode.KEY_X },
+];
 
 const DEFAULT_KEYS: KeyMap[] = [
     {
         left: KeyCode.KEY_A, right: KeyCode.KEY_D, up: KeyCode.KEY_W, down: KeyCode.KEY_S,
-        jump: KeyCode.SPACE, attack: KeyCode.KEY_J, skill: KeyCode.KEY_K, interact: KeyCode.KEY_L, swap: KeyCode.TAB,
+        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.NONE, interact: KeyCode.NONE, swap: KeyCode.NONE,
     },
     {
         left: KeyCode.ARROW_LEFT, right: KeyCode.ARROW_RIGHT, up: KeyCode.ARROW_UP, down: KeyCode.ARROW_DOWN,
@@ -61,7 +70,7 @@ interface Data {
 const STORE_KEY = 'leo-escape-settings';
 
 function defaults(): Data {
-    return { music: 0.35, sfx: 0.8, fullscreen: false, shake: true, lang: 'vi', keys: DEFAULT_KEYS.map((k) => ({ ...k })) };
+    return { music: 0.35, sfx: 0.8, fullscreen: false, shake: true, lang: 'en', keys: DEFAULT_KEYS.map((k) => ({ ...k })) };
 }
 
 function load(): Data {
@@ -81,6 +90,13 @@ function load(): Data {
                 if (typeof k === 'number') d.keys[p][a] = k;
             }
         }
+        // Còn đúng bộ phím mặc định cũ (6 phím chính) thì đổi sang bộ mới (WASD: K nhảy; bỏ Kỹ năng / Tương tác / Đổi mèo)
+        const p0 = d.keys[0];
+        OLD_LAYOUTS.forEach((old, i) => {
+            const same = (Object.keys(old) as Action[]).every((a) => p0[a] === old[a]);
+            const stale = p0.skill !== KeyCode.NONE || p0.interact !== KeyCode.NONE || p0.swap !== KeyCode.NONE;
+            if (same && stale) d.keys[0] = { ...LAYOUT_KEYS[i === 0 ? 'wasd' : 'arrows'] };
+        });
     } catch (e) {
         console.warn('[Settings] Không đọc được cài đặt đã lưu, dùng mặc định.', e);
     }

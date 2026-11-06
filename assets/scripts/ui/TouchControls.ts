@@ -3,6 +3,7 @@ import { PlayerInput, TouchButton } from '../player/PlayerInput';
 import { GameManager } from '../game/GameManager';
 import { GameSession } from '../game/GameSession';
 import { useGameFont } from './GameFont';
+import { Action, keyShort, Settings } from '../core/Settings';
 const { ccclass, property } = _decorator;
 
 // Màu nút tự vẽ, theo tông nâu của joystick
@@ -82,6 +83,13 @@ export class TouchControls extends Component {
     showKeyHints = true;
 
     private hints = false;
+    /** Các ô chữ phím trên nút: vẽ lại khi người chơi đổi phím trong Cài đặt */
+    private keyHints: { action: Action; g: Graphics; label: Label }[] = [];
+    private readonly onKeys = () => this.refreshHints();
+
+    onDestroy() {
+        Settings.offChange(this.onKeys);
+    }
 
     start() {
         if (!sys.isMobile && !this.showOnDesktop) return;
@@ -137,10 +145,10 @@ export class TouchControls extends Component {
         });
         if (this.hints) {
             const k = size * 0.36;
-            this.keyHint(n, 'W', 0, k);
-            this.keyHint(n, 'A', -k, 0);
-            this.keyHint(n, 'S', 0, -k);
-            this.keyHint(n, 'D', k, 0);
+            this.keyHint(n, 'up', 0, k);
+            this.keyHint(n, 'left', -k, 0);
+            this.keyHint(n, 'down', 0, -k);
+            this.keyHint(n, 'right', k, 0);
         }
 
         const dead = size * 0.12;
@@ -196,8 +204,7 @@ export class TouchControls extends Component {
         }
         paint(false);
         if (this.hints) {
-            const text = { left: 'A', right: 'D', up: 'W', down: 'S', jump: 'SPACE', attack: 'J', swap: 'TAB', skill: 'K', interact: 'L' }[button];
-            this.keyHint(n, text, 0, -r * 0.82);
+            this.keyHint(n, button, 0, -r * 0.82);
         }
 
         const press = () => { PlayerInput.setTouch(button, true); paint(true); };
@@ -282,13 +289,30 @@ export class TouchControls extends Component {
         }
     }
 
-    /** Phím nhỏ màu kem có chữ, đặt tại (x, y) trong node cha. */
-    private keyHint(parent: Node, text: string, x: number, y: number) {
-        const n = this.child(`Key_${text}`, parent);
+    /** Phím nhỏ màu kem ghi phím đang gán cho hành động (theo Cài đặt của Người 1), đặt tại (x, y) trong node cha. */
+    private keyHint(parent: Node, action: Action, x: number, y: number) {
+        const n = this.child(`Key_${action}`, parent);
         n.setPosition(x, y, 0);
+        const g = n.addComponent(Graphics);
+        const t = this.child('Text', n);
+        const label = t.addComponent(Label);
+        label.color = KEY_TEXT;
+        useGameFont(label);
+        this.keyHints.push({ action, g, label });
+        if (this.keyHints.length === 1) Settings.onChange(this.onKeys);
+        this.paintHint(this.keyHints[this.keyHints.length - 1]);
+    }
+
+    private refreshHints() {
+        for (const k of this.keyHints) if (k.g.isValid) this.paintHint(k);
+    }
+
+    private paintHint(k: { action: Action; g: Graphics; label: Label }) {
+        const text = keyShort(Settings.key(0, k.action)).toUpperCase();
         const h = 46;
         const w = Math.max(h, text.length * 20 + 22);
-        const g = n.addComponent(Graphics);
+        const g = k.g;
+        g.clear();
         g.fillColor = KEY_BG;
         g.roundRect(-w / 2, -h / 2, w, h, 10);
         g.fill();
@@ -296,14 +320,9 @@ export class TouchControls extends Component {
         g.lineWidth = 3;
         g.roundRect(-w / 2, -h / 2, w, h, 10);
         g.stroke();
-
-        const t = this.child('Text', n);
-        const label = t.addComponent(Label);
-        label.string = text;
-        label.fontSize = text.length > 1 ? 24 : 30;
-        label.lineHeight = h;
-        label.color = KEY_TEXT;
-        useGameFont(label);
+        k.label.string = text;
+        k.label.fontSize = text.length > 1 ? 24 : 30;
+        k.label.lineHeight = h;
     }
 
     private child(name: string, parent: Node): Node {

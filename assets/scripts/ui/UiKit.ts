@@ -1,5 +1,6 @@
 import { BlockInputEvents, Color, EventTouch, Graphics, Label, Node, Sprite, SpriteFrame, UITransform, Vec3 } from 'cc';
 import { keepSystemFont, useGameFont } from './GameFont';
+import { Sound } from '../core/Sound';
 
 /**
  * Các mảnh giao diện vẽ bằng code (nút, khung, thanh trượt, công tắc) cho menu và màn chọn,
@@ -100,7 +101,9 @@ export interface UiButton {
 
 /** Nút bo góc có chữ. Có frame thì dùng ảnh đó làm nền thay cho hình vẽ. */
 export function uiButton(parent: Node, text: string, w: number, h: number, onClick: () => void,
-    opts: { frame?: SpriteFrame | null; fontSize?: number; name?: string } = {}): UiButton {
+    opts: { frame?: SpriteFrame | null; fontSize?: number; name?: string; sound?: string } = {}): UiButton {
+    // Tiếng khi bấm: mặc định ui_click; nút quay lại / huỷ truyền 'ui_back'; '' = không kêu
+    const sound = opts.sound ?? 'ui_click';
     const n = uiNode(opts.name ?? 'Button', parent, w, h);
     let focus = false;
     let down = false;
@@ -145,6 +148,7 @@ export function uiButton(parent: Node, text: string, w: number, h: number, onCli
     n.on(Node.EventType.TOUCH_END, () => {
         down = false;
         paint();
+        if (sound) Sound.play(sound, 0.8);
         onClick();
     });
     return {
@@ -163,6 +167,7 @@ export function uiButton(parent: Node, text: string, w: number, h: number, onCli
                 down = false;
                 if (n.isValid) paint();
             }, 90);
+            if (sound) Sound.play(sound, 0.8);
             onClick();
         },
     };

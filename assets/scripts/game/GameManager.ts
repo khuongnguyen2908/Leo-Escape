@@ -21,6 +21,7 @@ import { PauseMenu } from '../ui/PauseMenu';
 import { ResultsScreen } from '../ui/ResultsScreen';
 import { ScreenFade } from '../ui/ScreenFade';
 import { GameSession, reloadScene } from './GameSession';
+import { SaveSlots, SlotData } from './SaveSlots';
 const { ccclass, property } = _decorator;
 
 const _player = new Rect();
@@ -98,6 +99,14 @@ export class GameManager extends Component {
     downs = 0;
     /** Tên màn để lưu kỷ lục. */
     levelId = 'chapter1-1';
+    /** Đang cảnh diễn (mèo bị khoá: hội thoại, mở màn boss): đồng hồ đứng, bảng hướng dẫn không hiện */
+    cutscene = false;
+    /** Chỗ đứng đầu màn của Leo (sau màn hướng dẫn thì về đây) */
+    readonly startPoint = new Vec3();
+    /** uuid các con cá đã ăn (ghi vào ô lưu, vào lại thì bỏ những con này) */
+    readonly collected: string[] = [];
+    /** Checkpoint xa nhất đã lưu vào ô (đếm từ 1) */
+    private savedCheckpoint = 0;
     readonly respawnPoint = new Vec3();
     private finished = false;
     /** Về đích: thời gian (giây) từ lúc chạm cờ; âm là chưa về đích */
@@ -146,7 +155,6 @@ export class GameManager extends Component {
         Sound.sfxVolume = Settings.sfx;
         Sound.musicVolume = Settings.music;
         Sound.preload();
-        if (this.music) Sound.music(this.music);
         for (const c of this.cats) {
             c.hp = this.maxHp;
             c.controls = PlayerInput.none;
@@ -166,7 +174,10 @@ export class GameManager extends Component {
             }
             this.hudFor(c)?.setHp(c.hp, this.maxHp);
         }
-        if (this.player) this.respawnPoint.set(this.player.node.position);
+        if (this.player) {
+            this.respawnPoint.set(this.player.node.position);
+            this.startPoint.set(this.player.node.position);
+        }
         this.fishTotal = this.player?.node.parent?.getComponentsInChildren('CoinPickup').length ?? 0;
         this.updateCamera();
         // Màn mở đầu đang hiện thì chờ bấm START (LandingScreen gọi beginPlay)
@@ -181,9 +192,12 @@ export class GameManager extends Component {
     }
 
     /** Bắt đầu chơi: gán phím cho từng con mèo theo lựa chọn 1 người / 2 người. */
-    beginPlay() {
+    /** music = false: chưa bật nhạc rừng (đang ở màn hướng dẫn; xong hội thoại mới gọi startMusic). */
+    beginPlay(music = true) {
         if (this.playing) return;
         this.playing = true;
+        // Nhạc rừng chỉ bật khi vào chơi (xong hội thoại mở đầu / chơi lại màn)
+        if (music) this.startMusic();
         PlayerInput.clearQueues();
         const leo = this.player, angelo = this.partner;
         if (GameSession.mode === 2 && leo && angelo) {
@@ -195,6 +209,24 @@ export class GameManager extends Component {
         } else if (leo) {
             this.setActive(leo);
         }
+    }
+
+    /** Bật nhạc rừng của màn. */
+    startMusic() {
+        if (this.music) Sound.music(this.music);
+    }
+
+    /** Số liệu chơi lúc này (màn hướng dẫn chụp lại lúc vào, ra thì trả về: cá / thời gian trong màn hướng dẫn không tính). */
+    snapshotStats() {
+        return { coins: this.coins, fish: this.fish, time: this.playTime, collected: this.collected.length };
+    }
+
+    restoreStats(s: { coins: number; fish: number; time: number; collected: number }) {
+        this.coins = s.coins;
+        this.fish = s.fish;
+        this.playTime = s.time;
+        this.collected.length = Math.min(this.collected.length, s.collected);
+        this.coinCounter?.setValue(this.coins);
     }
 
     /** Chơi 1 người: chuyển sang điều khiển con mèo cat, con kia tự đi theo (FollowerAI). fx: cho linh hồn bay qua. */
@@ -287,7 +319,8 @@ export class GameManager extends Component {
     update(dt: number) {
         if (this.outroTime >= 0) this.updateOutro(dt);
         if (this.finished) return;
-        if (this.playing) this.playTime += dt;
+        // Đồng hồ đứng yên trong cảnh diễn (hội thoại, mở màn boss)
+        if (this.playing && !this.cutscene) this.playTime += dt;
 
         // Chơi 1 người: con không được điều khiển tự đi theo; phím Đổi mèo để đổi
         if (this.playing && this.active) {
@@ -350,10 +383,11 @@ export class GameManager extends Component {
         this.hudFor(cat)?.setHp(cat.hp, this.maxHp);
     }
 
-    addCoins(amount: number) {
+    addCoins(amount: number, id?: string) {
         Sound.play('coin', 0.7);
         this.coins += amount;
         this.fish++;
+        if (id) this.collected.push(id);
         this.coinCounter?.setValue(this.coins);
     }
 
@@ -361,9 +395,66 @@ export class GameManager extends Component {
         this.respawnPoint.set(pos);
     }
 
+    /** Chạm checkpoint: hồi sinh ở đây, và ghi đè ô lưu đang chơi nếu xa hơn chỗ đã lưu. */
+    reachCheckpoint(node: Node) {
+        this.setRespawn(node.position);
+        const parent = node.parent;
+        if (!parent) return;
+        const xs = parent.getComponentsInChildren('Checkpoint').map((c) => c.node.position.x).sort((a, b) => a - b);
+        const index = xs.indexOf(node.position.x) + 1;
+        if (index <= this.savedCheckpoint) return;
+        this.savedCheckpoint = index;
+        this.saveSlot(index, node.position.x, node.position.y, false);
+    }
+
+    /** Ghi tiến độ vào ô lưu đang chơi (chưa chọn ô thì thôi). */
+    private saveSlot(checkpoint: number, x: number, y: number, cleared: boolean) {
+        const slot = GameSession.slot;
+        if (slot < 0) return;
+        const old = SaveSlots.get(slot);
+        SaveSlots.write(slot, {
+            chapter: 1, level: this.levelId, checkpoint, x, y,
+            time: this.playTime, fish: this.fish, coins: this.coins, downs: this.downs,
+            collected: this.collected.slice(), cleared: cleared || !!old?.cleared, savedAt: Date.now(),
+        });
+    }
+
+    /**
+     * Vào chơi tiếp từ ô lưu: mèo đứng ở checkpoint đã lưu, khôi phục thời gian / cá / số lần gục, bỏ những con cá đã ăn.
+     * Ô đã qua màn thì chơi lại từ đầu màn (giữ dấu đã qua màn).
+     */
+    applySave(data: SlotData) {
+        if (data.cleared) return;
+        this.playTime = data.time;
+        this.fish = data.fish;
+        this.coins = data.coins;
+        this.downs = data.downs;
+        this.savedCheckpoint = data.checkpoint;
+        this.coinCounter?.setValue(this.coins);
+        const parent = this.player?.node.parent;
+        if (parent) {
+            const gone = new Set(data.collected ?? []);
+            for (const c of parent.getComponentsInChildren('CoinPickup')) {
+                if (gone.has(c.node.uuid)) {
+                    this.collected.push(c.node.uuid);
+                    c.node.destroy();
+                }
+            }
+        }
+        _pos.set(data.x, data.y + 20, 0);
+        this.respawnPoint.set(data.x, data.y, 0);
+        this.cats.forEach((c, i) => {
+            c.respawn(_pos);
+            _pos.x -= 120 * (i + 1);
+        });
+        this.getComponent(CameraRig)?.snapNext();
+        this.updateCamera();
+    }
+
     /** Cảnh mở màn boss: mèo đứng yên, không điều khiển được, không bị đánh. */
     lockCats(on: boolean) {
         if (this.finished) return;
+        this.cutscene = on;
         for (const c of this.cats) {
             c.controlEnabled = !on && !c.downed;
             if (on) {
@@ -389,6 +480,8 @@ export class GameManager extends Component {
         if (this.finished) return;
         this.finished = true;
         Sound.play('win');
+        // Qua màn: ô lưu ghi "đã qua màn"
+        if (this.player) this.saveSlot(this.savedCheckpoint, this.respawnPoint.x, this.respawnPoint.y, true);
         for (const c of this.cats) {
             c.controlEnabled = false;
             c.invincible = Math.max(c.invincible, 999);

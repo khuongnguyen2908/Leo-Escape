@@ -66,7 +66,8 @@ export const DEMO_NODES: { id: string; name: string; x?: number; y?: number; sx?
     { id: "44iZ1dHjNPF6rHLduD6wXO", x: 5095, name: "Bird" },
     { id: "6ahmB/jzlHHrbgi3EXUBao", x: 0, y: 0, name: "Visual" },
     { id: "06pUgwfnFCdbMdJvAcAk7D", x: 5342.5, y: 28.5, sx: 1, sy: 1, name: "as_cayquat" },
-    { id: "45Rd8WkNBEhrDfPbbu8uLQ", x: 5431, y: 45, sx: 1, sy: 1, name: "mg_nhao_1" },
+    // Quán Lợi Ký (MG_nhao_4) thay nhà mg_nhao_1 ở đây, đo trên ảnh demo 4
+    { id: "45Rd8WkNBEhrDfPbbu8uLQ", x: 5630, y: 22, sx: 1, sy: 1, name: "mg_nhao_4" },
     { id: "02sdjETTpHQID4HfkKUD6t", x: 5127, y: 24.3, sx: 1, sy: 1, name: "mg_cay_5" },
     { id: "42aw/YX7ZJmbiN3cYtIpWN", x: 5306, y: -439.4, sx: 1, sy: 1, name: "fr_cotduong" },
     { id: "3dHpdQgu5BGoMBQLuC6tth", x: 5535, y: -473.9, sx: 1, sy: 1, name: "fr_cotcaasm" },

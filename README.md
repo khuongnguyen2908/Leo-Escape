@@ -53,14 +53,21 @@ Lưu ý khi sắp xếp:
     - màn mở đầu (node `Landing`) nếu chưa có, và menu chính trong đó nếu chưa có (xem mục "Vào game");
     - ảnh thanh năng lượng, nút nhảy, nút đánh nếu ô ảnh còn trống;
     - độ lún mép đá theo số đo ảnh demo, chai nước đứng trên mặt đường, chim/boss/cá vẽ trên đồ vật;
-    - Angelo (nhân bản từ Leo, đặt sau lưng Leo) và HUD của Angelo ở góc trên phải, nếu chưa có;
-    - mặt đá: mọi khối nền dùng `MG_tile_2`, chỉ ô có nắng dùng `MG_tile_3` (đoạn `SUNLIT_X`, đo trên ảnh demo: ô ngay trước khe hở khung 1;
-      GroundBlock có ô *Lit Frame*, *Lit From*, *Lit To*);
+    - **xoá Angelo** và HUD của Angelo nếu còn (game không còn Angelo); **xoá các vùng hướng dẫn `TutorialHint`** (dấu !) trong màn chính;
+    - mặt đá: nền thấp dùng `MG_tile_1`, **bậc đá cao dùng `MG_tile_high_1/2/3` thay phiên** (ảnh cao có cả thân tường), ô có nắng dùng `MG_tile_3`
+      (đoạn `SUNLIT_X`, đo trên ảnh demo: ô ngay trước khe hở khung 1). GroundBlock có ô *Lit Frame*, *Lit From*, *Lit To* và
+      **Variants** (ảnh thay phiên: ô 1 dùng *Tile Frame*, ô 2 ảnh đầu danh sách...). Chưa có ảnh mới thì dùng `MG_tile_2` như cũ;
+    - **ảnh mới theo 4 ảnh demo** (chỉ đổi khi node còn đúng ảnh cũ ở chỗ cũ, chỉ thêm khi chưa có node cùng tên):
+      bàn hồng khung 2 → `MG_ban_xanh`, ghế vàng cạnh đó → `MG_ghe_do`, nhà đầu màn → `MG_nhao_3` (bản vẽ lại),
+      nhà ở cuối khung 3 / đầu khung 4 → **quán Lợi Ký `MG_nhao_4`** (dời tới (5630, 22) như ảnh demo 4);
+      thêm 2 đám mây `BG_mây_1/2`, lớp lọc màu `BG_filter`, bụi `BG_bui` (lớp BG), nhà nền `BG_nha` (lớp chơi, chỉ hiện ở khung 3),
+      4 tán lá tối `FR_bush_1/2` (FR_Top, sau dây cờ; bị ghim mép trên như dây cờ nên ⚙ đặt ô *Overlap* riêng cho từng tán để mép trên nhô ra ngoài khung như demo);
     - máu kẻ địch gấp 4 (chim 3 → 12, boss 10 → 40; chỉ đổi khi còn đúng số cũ, số trong `ENEMY_HP`);
     - thân va chạm của Leo rộng 85 → 150 để hình mèo không lấn vào tường;
     - kẻ địch (boss) mà bạn kéo riêng hình (node con `Visual`): dời cả node tới chỗ hình, chân đặt lên mặt đá ngay dưới, `Visual` về (0, 0)
       (khi chơi hình luôn bám node, nên muốn dời con địch thì kéo node cha `Boss`, đừng kéo `Visual`);
-    - máu boss 150 → 40 (bản thử 150 đánh lâu quá; chỉ đổi khi còn đúng 150);
+    - máu boss → 100 (chỉ đổi khi còn đúng 40 hoặc 150 của bản trước);
+    - màn hướng dẫn (node `Tutorial` + `Tut_...`), chỉ tạo khi chưa có node `Tutorial`;
     - màn dài thêm (khối nền vượt quá tường cuối): dời tường tàng hình `Wall` cuối màn tới hết khối nền xa nhất (+30) và tăng *Max X* của camera;
     - thùng giấy + viên gạch + cây gỗ (`mg_up`) và thùng rác chặn cả hai bên (không đi xuyên, phải nhảy lên), khung va chạm ôm đúng hình.
       Cây gỗ nghiêng là 5 khung nhỏ xếp bậc thang theo đường chéo (khung va chạm chỉ là hình chữ nhật thẳng, không xoay được).
@@ -81,13 +88,35 @@ Lưu ý khi sắp xếp:
 
 ## Vào game: 1 người hay 2 người
 
-> **Đang tạm tắt Angelo.** Ô **Bật Angelo** trên GameManager (node Canvas) đang bỏ tick. Khi chơi, Angelo và tim của Angelo
-> bị ẩn và không có chọn 1/2 người: NEW GAME vào thẳng với Leo. Trang phím chỉ hiện cột Người 1 và không có dòng Đổi mèo.
-> Angelo vẫn nằm trong scene; tick lại ô này rồi Ctrl+S là có lại mọi thứ bên dưới.
+> **Game không còn Angelo.** Nút ⚙ Cập nhật xoá node `Angelo` và `HUD_Angelo` khỏi scene. NEW GAME vào thẳng với Leo,
+> trang phím chỉ có cột Người 1. Phần nói về Angelo, chơi 2 người, đổi mèo bên dưới là mô tả bản cũ, để tham khảo.
+
+**Mở game** (lần đầu trong một lần mở): **Logo 1** → **Logo 2** (màn đen, bấm phím / chạm để bỏ qua logo đang hiện) →
+**banner** (nền + logo game) kèm **thanh tải** (tải trước ảnh hiệu ứng `art/fx`) → thanh tải đổi thành **PRESS ANY BUTTON** nhấp nháy →
+bấm phím bất kỳ / chạm thì **các dòng menu rơi xuống** lần lượt (`BootScreen.ts`). Về màn hình chính từ trong game thì bỏ qua logo, menu rơi xuống luôn.
+Ảnh logo: `boot_logo1`, `boot_logo2` trong `assets/resources/art` (chưa có thì hiện khung chữ LOGO 1 / LOGO 2).
 
 Màn mở đầu là **menu chính**: logo, NEW GAME, OPTIONS, ACHIEVEMENTS, CREDITS, QUIT, dòng bản quyền ở đáy.
 W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter, Nhảy, Đánh hoặc chạm để chọn.
-- **NEW GAME** → chọn **1 NGƯỜI** hoặc **2 NGƯỜI** (điện thoại vào thẳng 1 người). Esc quay lại menu.
+- **NEW GAME** → **chọn 1 trong 3 ô lưu** (`SaveSlotPage.ts`, dữ liệu `game/SaveSlots.ts`, lưu trên máy). Ô trống ghi **NEW**; ô có tiến độ ghi
+  chương, checkpoint (hoặc Đã qua màn), thời gian chơi, số cá, kèm nút **X** xoá (hỏi lại, mặc định KHÔNG). Trái / phải hoặc rê chuột để chọn,
+  Enter / Nhảy / Đánh / chạm để vào, Delete để xoá, Esc / Quay lại về menu. Chạm checkpoint xa hơn chỗ đã lưu, hoặc qua màn, là ghi đè ô đang chơi.
+  Chọn ô xong → màn đen **zoom vào** (lỗ tròn thu lại, `IrisWipe.ts`) + vòng tải nhỏ giữa màn hình →
+  - **ô mới**: **3 trang truyện** (`StoryPages.ts`; ảnh `story_1..3` trong `art`, chưa có thì khung PAGE 1...; chữ `story.1..3` trong `Lang.ts`),
+    mũi tên nhấp nháy góc phải, bấm phím / chạm để lật → màn đen → **màn hướng dẫn** (xem dưới) → ra cửa EXIT → màn đen →
+    **zoom ra bản đồ** từ chỗ Leo đứng → **hội thoại kiểu visual novel** (`DialogueBox.ts`: chân dung Leo, bảng tên, chữ SPEAKING, câu hiện dần; bấm để qua; 3 câu `dialog.1..3` trong `Lang.ts`) → vào chơi;
+  - **ô đã lưu**: zoom ra bản đồ ngay tại checkpoint đã lưu (thời gian, cá, số lần gục giữ nguyên; cá đã ăn không còn) → vào chơi.
+    Ô đã qua màn thì chơi lại từ đầu màn.
+- **Màn hướng dẫn** (`TutorialRoom.ts`, nút ⚙ tạo node `Tutorial` và các `Tut_...` bên trái đầu màn, x -9200 → -800, kéo chỉnh được):
+  tờ giấy kem lưới mờ nét bút nâu; đi từ trái sang phải qua các **biển chỉ dẫn** (`TutorialSign.ts`: ô phím theo phím đang cài + tên + một dòng,
+  mũi tên vẽ tay; ô *Topic* chọn chủ đề, chữ `tsign.*` trong `Lang.ts`): Chạy, Ngồi, Nhảy (thùng), Nhảy 2 lần (cột cao), Lên bục (W),
+  Xuống bục (S S), Lướt (bấm đúp), Chém, Sóng kiếm, Quét chân, Chém hất (2 **hình nộm** `TrainingDummy.ts`: trúng thì lắc, không chết),
+  Cá (3 con), **cửa EXIT** (`TutorialExit.ts`: đứng ở cửa bấm Lên). Khối vẽ phác thảo: `TutorialBlock.ts` (Box / Pillar / Platform, tự gắn Solid).
+  Trong màn hướng dẫn camera chỉ chạy trong khu đó, giấu lớp tiền cảnh `FR`; cá ăn và thời gian chơi ở đây không tính. Chỉ dạy kỹ năng đang mở
+  (đập bụng, Mèo Nổ đang khoá nên chưa có biển). Chỉ ô mới đi qua màn hướng dẫn.
+- **Nhạc**: nhạc menu `bgm` bật khi thanh tải chạy xong (và khi về menu), chạy tiếp qua ô lưu, truyện, màn hướng dẫn;
+  tắt lúc hội thoại mở đầu; **nhạc rừng `bgm_forest` chỉ bật khi xong hội thoại** (ô đã lưu: bật lúc vào chơi).
+  Có Angelo thì vẫn chọn **1 NGƯỜI** / **2 NGƯỜI** sau khi chọn ô (điện thoại vào thẳng 1 người).
 - **OPTIONS** mở trang Cài đặt (âm lượng, toàn màn hình, rung, bàn phím). Quay lại / Esc là về menu.
 - **ACHIEVEMENTS** chưa làm: hiện chữ "COMING SOON" / "SẮP CÓ".
 - **CREDITS / TÁC GIẢ**: bảng nổi với hai ô logo và tên **Laris**, **Flynt**, nút Đóng (Esc, Enter, Nhảy cũng đóng).
@@ -125,7 +154,7 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
 | | Leo (`LeoSkills.ts`) | Angelo (`AngeloSkills.ts`) |
 |---|---|---|
 | Nhảy | **Nhảy thêm 1 lần** trên không (miễn phí, cao 85%; LeoSkills nhóm *Nhảy 2 lần*) | **Nhảy thêm 1 lần** trên không. Đang bay đẩy vào tường thì **bám tường** trượt chậm, Nhảy để **bật tường** |
-| Đánh (J) | Bấm liên tục: **combo 5 nhát** (nhát 4 **chém xoay** trúng cả sau lưng, nhát 5 **kết liễu** trừ 2 máu, văng xa). Đang bay: combo **3 nhát đầu** như dưới đất, mỗi nhát khựng lại một nhịp. Giữ J đủ 0.8 giây (quả cầu năng lượng xanh gom ở giữa thân, đủ lực thì quả cầu chớp chờ phóng) rồi thả: **sóng kiếm** bay thẳng ~1000, trừ 2 máu mỗi địch, đụng tường thì tan (tốn 30; PlayerController nhóm *Sóng kiếm*). Thả sớm thì quả cầu **xì hơi** tan mất, không tốn gì. **Giữ Xuống + J** trên nền cứng: **quét chân** về phía đang quay mặt, địch nhỏ (gà, chim...) **té nằm** 1.2 giây, không đánh mèo, vẫn chém tiếp được; **boss không bị quét** (không mất máu) (tốn 15; LeoSkills nhóm *Quét chân*, ô *Sweep Trip*). **Giữ Lên + J** dưới đất: **chém hất**, vệt xoáy quét từ sát đất trước mặt cong lên qua đầu (sau lưng mèo), hất địch bay lên (tốn 20); nhảy theo chém tiếp thì địch lơ lửng (chém trúng trên không thì Leo cũng nảy nhẹ lên, ô *Air Hit Lift*), đang bay thì địch không đánh mèo, rơi xuống choáng 0.4 giây. Boss không bị hất. Đứng ngay dưới bục một chiều thì bấm W sẽ nhảy lên bục trước | **Quất dây len**, tầm xa gấp đôi Leo |
+| Đánh (J) | Bấm liên tục: **combo 5 nhát** (dưới đất **đứng yên tại chỗ mỗi nhát**, không lao tới, giữ A/D cũng không đi; ô *Slash Still* = 0.22 giây) (nhát 4 **chém xoay** trúng cả sau lưng, nhát 5 **kết liễu** trừ 2 máu, văng xa). Đang bay: combo **3 nhát đầu** như dưới đất, mỗi nhát khựng lại một nhịp. Giữ J đủ 0.8 giây (quả cầu năng lượng xanh gom ở giữa thân, đủ lực thì quả cầu chớp chờ phóng) rồi thả: **sóng kiếm** bay thẳng ~1000, trừ 2 máu mỗi địch, đụng tường thì tan (tốn 30; PlayerController nhóm *Sóng kiếm*). Thả sớm thì quả cầu **xì hơi** tan mất, không tốn gì. **Giữ Xuống + J** trên nền cứng: **quét chân** về phía đang quay mặt, địch nhỏ (gà, chim...) **té nằm** 1.2 giây, không đánh mèo, vẫn chém tiếp được; **boss không bị quét** (không mất máu) (tốn 15; LeoSkills nhóm *Quét chân*, ô *Sweep Trip*). **Giữ Lên + J** dưới đất: **chém hất**, vệt xoáy quét từ sát đất trước mặt cong lên qua đầu (sau lưng mèo), hất địch bay lên (tốn 20); nhảy theo chém tiếp thì địch lơ lửng (chém trúng trên không thì Leo cũng nảy nhẹ lên, ô *Air Hit Lift*), đang bay thì địch không đánh mèo, rơi xuống choáng 0.4 giây. Boss không bị hất. Đứng ngay dưới bục một chiều thì bấm W sẽ nhảy lên bục trước | **Quất dây len**, tầm xa gấp đôi Leo |
 | Đập bụng (giữ Xuống + J khi đang bay) | **Tạm khoá** (ô *Pound Unlocked* của LeoSkills, để dành cho cửa hàng nâng cấp; khoá thì Xuống + J trên không là chém thường). Mở khoá: **Đập bụng** lao xuống (tốn 20), sóng chấn đánh địch xung quanh và làm chúng **choáng** 1.5 giây; rơi càng cao sóng càng rộng (tối đa ×1.6 khi rơi từ cao 600). **Phím K chỉ dùng khi có Angelo**: K trên không đập bụng, K dưới đất **nằm ngửa làm đệm** (K lần nữa để dậy; Angelo rơi trúng bụng thì bật rất cao), S + K Mèo Nổ. Chưa có Angelo thì phím K không làm gì, trang phím và nút K trên điện thoại cũng ẩn | Bấm: **trói chân** địch gần nhất 2 giây (boss ngắn hơn), địch đứng yên và không đánh ai. Giữ: **nằm lì** / đứng dậy |
 | Tuyệt chiêu (giữ Xuống + L) | **Tạm khoá** (ô *Burst Unlocked*; khoá thì Xuống + L là lướt). Mở khoá: **Mèo Nổ**: cần đầy 100 năng lượng, tốn hết. Gồng 0.6 giây (bất tử) rồi nổ: mọi kẻ địch đang thấy trên màn hình mất 3 máu, văng ra, choáng 1 giây. Chỉ dùng trên nền cứng (trên bàn, thùng... bấm Xuống là rơi xuống) | — |
 | Lướt / Tương tác (L) | **Lướt chém** (kiểu Mega Man X, tốn 35): **bấm đúp trái / phải** (A/D hoặc ←/→; điện thoại: đẩy đúp joystick; ô *Double Tap Time*, 0 = tắt). Không còn phím Lướt riêng: chưa có Angelo thì phím L không làm gì, trang phím và nút L cảm ứng ẩn. Đang lướt trên đất mà bấm Nhảy: **dash jump**, bay ngang nhanh gấp 1.7 lần chạy tới khi chạm đất (ô *Dash Jump Speed*). Có Angelo: cạnh Angelo **bê** lên đầu, L lần nữa để **ném** | Ở mép bục cao, quay mặt ra ngoài: **thả dây len** xuống. L / Nhảy / đi để kéo dây lên |
@@ -180,9 +209,9 @@ Mốc phase tính theo phần máu: còn 2/3 sang phase 2, còn 1/3 sang phase 3
 
 | Phase | Máu | Đòn | Nghỉ giữa hai đòn |
 |---|---|---|---|
-| 1 | 40 → 28 | Axit 1 | 2.6 giây |
-| 2 | 27 → 14 | Axit 1 hoặc Axit 2 (1 bom), không lặp liền; đi nhanh ×1.3 | 2 giây |
-| 3 | 13 → 0 | Axit 1, Axit 2 (2 bom: chỗ mèo + trước mặt mèo) hoặc Axit 3 (cột ra dồn dập hơn), không lặp liền; đi nhanh ×1.5 | 1.5 giây |
+| 1 | 100 → 68 | Axit 1 | 2.6 giây |
+| 2 | 67 → 35 | Axit 1 hoặc Axit 2 (1 bom), không lặp liền; đi nhanh ×1.3 | 2 giây |
+| 3 | 34 → 0 | Axit 1, Axit 2 (2 bom: chỗ mèo + trước mặt mèo) hoặc Axit 3 (cột ra dồn dập hơn), không lặp liền; đi nhanh ×1.5 | 1.5 giây |
 
 - Chuyển phase: boss nhảy múa 1.5 giây tại chỗ, nốt nhạc `Boss/Dance` quanh đầu, **bất tử** lúc này.
 - Thời gian nghỉ tính từ lúc đòn trước xong (6 cột lửa mất khoảng 2 giây), nên từ đầu đòn này tới đầu đòn sau dài hơn số nghỉ.
@@ -206,25 +235,30 @@ Phím mặc định (đổi được trong menu **Esc → Cài đặt → Bàn p
 |---|---|---|
 | Chạy | A / D | ← / → |
 | Đi lên bục một chiều ngay phía trên | W | ↑ |
-| Xuống khỏi bục một chiều | S | ↓ |
-| Nhảy (giữ lâu nhảy cao, nhả sớm nhảy thấp). Leo nhảy miễn phí | Space | Num 0 |
+| Ngồi (giữ, thân thấp xuống, không đi được) | S | ↓ |
+| Xuống khỏi bục một chiều: **bấm Xuống 2 lần nhanh** (ô *Down Tap Time* 0.3 giây) | S S | ↓ ↓ |
+| Nhảy (giữ lâu nhảy cao, nhả sớm nhảy thấp). Leo nhảy miễn phí | **K** | Num 0 |
 | Chém: bấm liên tục ra combo 5 nhát. Giữ đủ 0.8 giây rồi thả: **sóng kiếm** | J | Num 1 |
-| Kỹ năng riêng, chỉ khi có Angelo (xem bảng kỹ năng) | K | Num 2 |
-| Tương tác: bê/ném, thả dây, giữ để kéo đồng đội dậy (chỉ khi có Angelo). **Lướt: bấm đúp trái / phải** | L | Num 3 |
-| Đổi mèo (chơi 1 người) | Tab | — |
+| **Lướt: bấm đúp trái / phải** | A A / D D | ← ← / → → |
+
+**Game chỉ có 2 nút: Đánh (J) và Nhảy (K)** (kiểu Mũi tên: X đánh, Z nhảy); mọi đòn kết hợp đều từ 2 nút này với hướng.
+Không còn Angelo, nên Kỹ năng / Tương tác / Đổi mèo không gán phím. Máy nào còn lưu bộ phím cũ (Space nhảy, K kỹ năng, L tương tác)
+thì tự đổi sang bộ mới khi mở game.
 | Menu tạm dừng | Esc | Esc |
 
 Cảm ứng: joystick trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục (đế `MG_joystick_base` đứng yên, nút chân mèo
 `MG_joystick_knob` chạy theo ngón tay, xa nhất *Knob Travel* = 85; hai ảnh tách từ `MG_joystick`); nút J để chém (giữ để gồng sóng kiếm), nút SPACE để nhảy,
-nút ngôi sao (K) để dùng kỹ năng, nút bàn tay (L) để tương tác, nút hai mũi tên để đổi mèo. Trên máy tính bật **Touch On Desktop** (Canvas) để thấy nút, nút có ghi phím tương ứng.
+nút ngôi sao (K) để dùng kỹ năng, nút bàn tay (L) để tương tác, nút hai mũi tên để đổi mèo. Trên máy tính bật **Touch On Desktop** (Canvas) để thấy nút, nút có ghi phím tương ứng **theo phím Người 1 đang cài** (đổi phím trong Cài đặt thì chữ trên nút đổi theo).
 
 ## Menu (Esc hoặc nút bánh răng góc trên phải)
 
 Mở menu thì game dừng. **Tiếp tục** · **Chơi lại màn** · **Cài đặt** · **Về màn hình chính** (Chơi lại màn và Về màn hình chính hỏi lại "Chắc chưa?", mặc định KHÔNG).
 **Cài đặt** là một bảng hai tab: thanh tab trên cùng (**Hệ thống** | **Điều khiển**; chọn thanh tab rồi A/D, hoặc bấm chuột), thanh **Lưu** (xanh lá) · **Quay lại**
-cố định dưới đáy cho cả hai tab. Chỉnh là áp dụng ngay để thử, **bấm Lưu mới ghi xuống máy**; Quay lại khi chưa lưu thì hỏi "Bỏ thay đổi?" (CÓ = trả về như lúc mở).
+cố định dưới đáy cho cả hai tab. Chỉnh là áp dụng ngay để thử, **bấm Lưu mới ghi xuống máy**: bấm Lưu là ghi và **đóng bảng luôn**, góc trên phải hiện chữ
+**Saved! / Đã lưu!** (trắng viền nâu như chữ menu) rồi mờ dần. Quay lại khi chưa lưu thì hỏi "Bỏ thay đổi?" (CÓ = trả về như lúc mở).
+**Ngôn ngữ mặc định là tiếng Anh** (máy nào đã lưu tiếng Việt thì giữ tiếng Việt).
 Tab Hệ thống: âm lượng nhạc nền, tiếng hiệu ứng, toàn màn hình, rung màn hình, **ngôn ngữ** (Tiếng Việt / English).
-Tab Điều khiển: dòng đầu **Kiểu phím** chọn **WASD** (A/D, W, S, Space nhảy, J chém, K kỹ năng, L tương tác) hoặc **Mũi tên** (←/→, ↑, ↓, Z nhảy, X chém, V kỹ năng, C tương tác);
+Tab Điều khiển: dòng đầu **Kiểu phím** chọn **WASD** (A/D, W, S, J chém, K nhảy) hoặc **Mũi tên** (←/→, ↑, ↓, X chém, Z nhảy);
 chơi 2 người thì Người 2 tự lấy kiểu còn lại. Vẫn đổi lẻ từng phím được (bấm vào ô rồi bấm phím mới; phím đang dùng chỗ khác thì hai phím đổi chỗ),
 khi đó Kiểu phím ghi "Tuỳ chỉnh"; có nút Trả về mặc định. **Chơi 1 người chỉ nhận phím của Người 1** (theo kiểu đã chọn). Mọi cài đặt lưu trên máy (`Settings.ts`).
 **Mọi bảng chọn được bằng bàn phím** (`MenuNav.ts`): W/S hoặc ↑/↓ chọn, A/D hoặc ←/→ chỉnh thanh âm lượng, công tắc, ngôn ngữ; Enter / Space bấm; Esc quay lại.
@@ -232,7 +266,8 @@ Rê chuột lên ô cũng chọn ô đó.
 **Chữ hai ngôn ngữ**: mọi chữ trong game nằm ở `ui/Lang.ts` (mỗi dòng có tiếng Việt và tiếng Anh). Đổi ngôn ngữ thì chữ đổi ngay.
 Menu và màn chọn vẽ tạm bằng code (`UiKit.ts`). Chữ có dấu tiếng Việt dùng font hệ thống vì font Super Bouncer thiếu nhiều chữ có dấu.
 
-**Hướng dẫn trong màn** (`TutorialHint.ts`): mỗi điểm hướng dẫn có **dấu ! vàng** nhấp nhô trên mặt đất. Mèo vào vùng thì bảng gợi ý bật ra
+**Hướng dẫn trong màn** (`TutorialHint.ts`): **đã bỏ khỏi màn chính** (nút ⚙ xoá các vùng này; giờ dạy chơi ở màn hướng dẫn riêng). Mô tả cũ để tham khảo:
+mỗi điểm hướng dẫn có **dấu ! vàng** nhấp nhô trên mặt đất. Mèo vào vùng thì bảng gợi ý bật ra
 **phía trên dấu !** và đứng yên (tên phím theo phím đang cài); làm được đòn nào thì dòng đó tích xanh. **Nút X** góc bảng để tắt, đi ra khỏi vùng
 thì tự tắt; quay lại thì hiện lại (bấm X thì phải ra khỏi vùng rồi vào lại). Làm đủ các đòn thì dấu ! mờ đi.
 Nút ⚙ Cập nhật tạo sẵn 3 vùng (chưa có vùng nào mới tạo): **Hint_CoBan** x=600 (chạy, nhảy, nhảy 2 lần), **Hint_Chem** x=3050 (chém, lướt bằng bấm đúp),
@@ -287,12 +322,21 @@ Không đủ năng lượng thì không làm được và thanh nháy đỏ. Ch�
 
 ## Âm thanh
 
-Mọi tiếng nằm trong `assets/resources/sounds`. Hiện là tiếng tạm tổng hợp bằng code; muốn thay thì chép file mới
+Mọi tiếng nằm trong `assets/resources/sounds`. Hiện là tiếng tạm tổng hợp bằng code (`ui_*` tạo bằng `python tools/tao_tieng_ui.py assets/resources/sounds`); muốn thay thì chép file mới
 (.wav, .mp3 hoặc .ogg) **đè lên với cùng tên**, không cần sửa code. Âm lượng và tên bài nhạc nền chỉnh ở GameManager (Canvas), nhóm "Âm thanh".
 
 | File | Khi nào phát |
 |---|---|
-| `bgm` | Nhạc nền, lặp liên tục |
+| `bgm` | Nhạc menu (từ lúc tải xong tới hết màn hướng dẫn) |
+| `bgm_forest` / `bgm_boss` | Nhạc màn chơi (sau hội thoại mở đầu) / trận boss |
+| `ui_move` | Dời lựa chọn (menu chính, ô lưu, mọi bảng chọn bằng phím / rê chuột) |
+| `ui_click` / `ui_back` | Bấm nút / quay lại, huỷ (mọi nút vẽ bằng `uiButton`, phím Esc trong bảng) |
+| `ui_deny` | Không được (ACHIEVEMENTS chưa có, chạm cờ đích khi boss còn sống, hỏi xoá ô lưu) |
+| `ui_delete` / `ui_saved` | Xoá ô lưu / bấm Lưu trong Cài đặt |
+| `ui_start` / `ui_drop` | Bấm PRESS ANY BUTTON / dòng menu rơi chạm chỗ |
+| `ui_zoom_in` / `ui_zoom_out` | Màn đen thu lại / nở ra |
+| `ui_page` / `ui_text` | Lật trang truyện / chữ thoại hiện dần |
+| `ui_door` | Ra cửa EXIT màn hướng dẫn |
 | `jump` / `land` / `drop` | Nhảy / đáp đất mạnh / xuống khỏi bục |
 | `slash1`, `slash2`, `slash3` | Nhát combo 1, 2, từ 3 trở đi (và sóng kiếm); `slash2` cũng cho quét chân |
 | `hit` | Chém trúng kẻ địch |

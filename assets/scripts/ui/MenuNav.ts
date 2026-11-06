@@ -1,5 +1,6 @@
 import { EventKeyboard, Input, input, KeyCode, Node } from 'cc';
 import { Settings } from '../core/Settings';
+import { Sound } from '../core/Sound';
 import { PlayerInput } from '../player/PlayerInput';
 
 /** Một ô chọn được trong bảng: nút, thanh trượt, công tắc... */
@@ -84,6 +85,7 @@ export class MenuNav {
     focusItem(item: NavItem) {
         const i = this.items.indexOf(item);
         if (i < 0) return;
+        if (i !== this.index) Sound.play('ui_move', 0.6);
         this.index = i;
         this.refresh();
     }
@@ -105,6 +107,7 @@ export class MenuNav {
         for (let k = 1; k <= n; k++) {
             const j = (this.index + step * k + n * k) % n;
             if (this.visible(this.items[j])) {
+                if (j !== this.index) Sound.play('ui_move', 0.6);
                 this.index = j;
                 this.refresh();
                 return;
@@ -116,6 +119,7 @@ export class MenuNav {
         const it = this.current;
         const p1 = (a: 'jump' | 'attack' | 'up' | 'down' | 'left' | 'right') => Settings.key(0, a) === code;
         if (code === KeyCode.ESCAPE || code === KeyCode.MOBILE_BACK) {
+            if (this.onBack) Sound.play('ui_back', 0.8);
             this.onBack?.();
         } else if (code === KeyCode.ARROW_UP || code === KeyCode.KEY_W || p1('up')) {
             this.move(-1);

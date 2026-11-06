@@ -118,6 +118,17 @@ export class PlayerVisual extends Component {
     }
 
     /** Nằm gục (hết tim) hoặc đứng dậy. */
+    /** Ngồi thụp (giữ Xuống): người thấp xuống, bè ra một chút. */
+    setDucking(on: boolean) {
+        if (this.ducking === on) return;
+        this.ducking = on;
+        this.squash = on ? 0.12 : -0.1;
+        this.squashVel = 0;
+    }
+
+    private ducking = false;
+    private duck = 0;
+
     setDowned(on: boolean) {
         this.downed = on;
         this.downTime = 0;
@@ -204,6 +215,11 @@ export class PlayerVisual extends Component {
             const ref = this.idleFrame ?? this.sprite?.spriteFrame;
             y = ref ? ref.rect.width * this.baseScale * this.widthScale * 0.5 * lie * 0.8 : 0;
         }
+
+        // Ngồi: thấp xuống 38%, bè ra 12% (chuyển mượt)
+        this.duck += ((this.ducking ? 1 : 0) - this.duck) * Math.min(1, dt * 18);
+        sy *= 1 - 0.38 * this.duck;
+        sx *= 1 + 0.12 * this.duck;
 
         sx += this.squash;
         sy -= this.squash;

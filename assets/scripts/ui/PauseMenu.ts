@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, director, EventKeyboard, Graphics, Input, input, KeyCode, Label, Node, screen, sys, view } from 'cc';
+import { _decorator, Color, Component, director, EventKeyboard, Graphics, Input, input, KeyCode, Label, Node, screen, sys, UIOpacity, UITransform, view } from 'cc';
 import { Action, ACTIONS, keyName, Settings } from '../core/Settings';
 import { Sound } from '../core/Sound';
 import { GameSession, reloadScene } from '../game/GameSession';
@@ -13,6 +13,8 @@ type Page = 'main' | 'settings' | 'confirm';
 type Tab = 'system' | 'controls';
 
 const SAVE_GREEN = new Color(0x3b, 0x71, 0x13, 255);
+/** Chữ "Saved!" góc phải: cùng kiểu chữ menu chính (trắng, viền nâu #462c22) */
+const TOAST_OUTLINE = new Color(0x46, 0x2c, 0x22, 255);
 const SAVE_GREEN_DOWN = new Color(0x52, 0x8c, 0x22, 255);
 
 /**
@@ -48,7 +50,8 @@ export class PauseMenu extends Component {
     private homeButton: UiButton | null = null;
     private keyCells: { p: number; a: Action; button: UiButton }[] = [];
     private keyMessage: Label | null = null;
-    private saveMessage: Label | null = null;
+    private toast: Label | null = null;
+    private toastTimer: ReturnType<typeof setInterval> | null = null;
     private layoutLabels: Label[] = [];
     private capturing: { p: number; a: Action } | null = null;
     private ignoreEscUntil = 0;
@@ -105,6 +108,8 @@ export class PauseMenu extends Component {
     onDestroy() {
         // Chỉ dọn dẹp, không vẽ lại gì (đổi scene: các nút đang bị xoá cùng lúc)
         Lang.offChange(this.onLang);
+        if (this.toastTimer) clearInterval(this.toastTimer);
+        this.toastTimer = null;
         for (const nav of this.navs.values()) nav.close(false);
         if (Settings.dirty) Settings.cancelEdit();
         else Settings.endEdit();
@@ -178,7 +183,6 @@ export class PauseMenu extends Component {
                 Settings.beginEdit();
                 this.setTab('system');
                 this.say('');
-                if (this.saveMessage) setText(this.saveMessage, '');
             }
             this.refreshSettings?.();
             this.refreshKeys();
@@ -281,15 +285,45 @@ export class PauseMenu extends Component {
         else this.show('main', true);
     }
 
+    /** Lưu: ghi cài đặt xuống máy, đóng trang Cài đặt luôn, góc phải hiện "Saved!" rồi mờ dần. */
     private save() {
         this.stopCapture();
         Settings.commitEdit();
-        const l = this.saveMessage;
-        if (l) {
-            setText(l, T('settings.saved'));
-            // setTimeout: tween / scheduleOnce không chạy khi game đang tạm dừng
-            setTimeout(() => { if (l.isValid) setText(l, ''); }, 1500);
+        Settings.endEdit();
+        this.leaveSettings();
+        Sound.play('ui_saved', 0.8);
+        this.showSavedToast();
+    }
+
+    /** Chữ "Saved!" ở góc trên phải, đứng 1.2 giây rồi mờ trong 0.5 giây. Chạy bằng setInterval vì game có thể đang tạm dừng. */
+    private showSavedToast() {
+        if (!this.toast || !this.toast.isValid) {
+            const d = view.getDesignResolutionSize();
+            this.toast = uiLabel(this.node, '', 44, Color.WHITE, { outline: TOAST_OUTLINE, outlineWidth: 4, name: 'SavedToast' });
+            this.toast.node.getComponent(UITransform)!.setAnchorPoint(1, 0.5);
+            this.toast.node.setPosition(d.width / 2 - 50, d.height / 2 - 70, 0);
+            this.toast.node.addComponent(UIOpacity);
         }
+        const t = this.toast;
+        setText(t, T('settings.saved'));
+        t.node.setSiblingIndex(this.node.children.length - 1);
+        const op = t.node.getComponent(UIOpacity)!;
+        op.opacity = 255;
+        if (this.toastTimer) clearInterval(this.toastTimer);
+        const start = Date.now();
+        this.toastTimer = setInterval(() => {
+            const s = (Date.now() - start) / 1000;
+            if (!t.isValid) {
+                if (this.toastTimer) clearInterval(this.toastTimer);
+                this.toastTimer = null;
+                return;
+            }
+            op.opacity = Math.round(255 * Math.max(0, Math.min(1, 1 - (s - 1.2) / 0.5)));
+            if (s >= 1.7) {
+                if (this.toastTimer) clearInterval(this.toastTimer);
+                this.toastTimer = null;
+            }
+        }, 30);
     }
 
     /** Áp lại âm lượng, toàn màn hình theo cài đặt hiện có (sau khi bỏ thay đổi). */
@@ -379,8 +413,6 @@ export class PauseMenu extends Component {
         const backBtn = uiButton(panel, '', 360, 92, () => this.backFromSettings(), { fontSize: 42, name: 'Back' });
         Lang.bind(backBtn.label, 'back');
         backBtn.node.setPosition(200, -440, 0);
-        this.saveMessage = uiLabel(panel, '', 30, SAVE_GREEN);
-        this.saveMessage.node.setPosition(-200, -385, 0);
         const saveItem: NavItem = navButton(saveBtn);
         const backItem: NavItem = navButton(backBtn);
         saveItem.right = () => nav.focusItem(backItem);

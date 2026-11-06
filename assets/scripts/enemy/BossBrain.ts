@@ -38,8 +38,8 @@ export class BossBrain extends Component {
     @property({ group: 'Phase', tooltip: 'Máu còn bao nhiêu phần (so với máu đầy) thì sang phase 2. 0.67 = còn 2/3' })
     phase2At = 0.67;
 
-    @property({ group: 'Phase', tooltip: 'Máu còn bao nhiêu phần thì sang phase 3. 0.33 = còn 1/3' })
-    phase3At = 0.33;
+    @property({ group: 'Phase', tooltip: 'Máu còn bao nhiêu phần thì sang phase 3. 0.34 = còn khoảng 1/3' })
+    phase3At = 0.34;
 
     @property({ group: 'Phase', tooltip: 'Mỗi phase boss phải ra ít nhất chừng này đòn thì máu mới tụt qua mốc (phase 3: mới chết được)' })
     minAttacksPerPhase = 2;

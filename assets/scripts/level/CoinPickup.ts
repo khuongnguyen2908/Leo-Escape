@@ -65,7 +65,7 @@ export class CoinPickup extends PlayerTrigger {
     }
 
     protected onPlayerEnter(gm: GameManager) {
-        gm.addCoins(this.amount);
+        gm.addCoins(this.amount, this.node.uuid);
         this.pop();
     }
 

@@ -62,6 +62,14 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   3. Sau khi người dùng bấm nút và Ctrl+S, so scene với bản trên git (script so `_id` giữa `git show HEAD:assets/scenes/Main.scene`
      và file hiện tại) để bắt những gì bị đổi ngoài ý muốn.
 
+### Bấm ⚙ rồi Ctrl+S mà scene không được lưu
+- Ngày: 06/11/2026 · Nhóm: editor
+- Triệu chứng: người dùng báo "đã bấm và lưu", log Creator có dòng "Đã cập nhật...", nhưng `Main.scene` trên đĩa vẫn là bản cũ (2 lần liền).
+- Nguyên nhân: thay đổi do code của nút ⚙ làm không phải lúc nào cũng bật dấu `*` (chưa lưu) trên tên scene, nên Ctrl+S không ghi gì.
+- Cách sửa: nhờ người dùng kéo nhẹ một node cho hiện dấu `*` rồi Ctrl+S; lần đó file được ghi.
+- Cách tránh lần sau: người dùng báo đã lưu thì **luôn xem giờ sửa của `assets/scenes/Main.scene`** (`ls -la --time-style=full-iso`)
+  và tìm trong file một node/giá trị mà ⚙ vừa đổi, trước khi thử hay so ảnh. Khi nhờ bấm ⚙, dặn luôn: thấy dấu `*` rồi mới Ctrl+S.
+
 ### Nhiều nút sửa hàng loạt giằng co nhau (📌 Ghim băng rôn với 📐)
 - Ngày: 03/11/2026 · Nhóm: scene
 - Triệu chứng: 📐 đặt băng rôn theo độ cao demo, nhưng PinToScreenTop (thêm bởi 📌) kéo ngay về sát mép trên.
@@ -71,6 +79,9 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   ⟳ có khoá an toàn "Cho phép xoá màn đang có".
 - Cách tránh lần sau: **không thêm nút mới.** Việc mới thì thêm thành một bước của ⚙, và bước đó phải bấm nhiều lần
   vẫn ra cùng kết quả. Hai chỗ cùng đặt một giá trị (vị trí, độ cao, sink...) thì chọn một nguồn (DemoLayout) và cho chỗ kia đọc từ đó.
+- Bổ sung 06/11/2026: bước 9 của ⚙ gắn PinToScreenTop cho **mọi** hình trong `FR_Top`, nên 4 tán lá `fr_bush` mới thêm cũng bị ghim
+  sát mép trên (Overlap 4). Tán lá lớn vốn nhô ra ngoài khung bị kéo tụt xuống ~280, che chim và bảng Lợi Ký. Sửa: bước 24 đặt
+  Overlap riêng cho từng tán lá. **Thêm hình vào `FR_Top` thì tính luôn việc nó sẽ bị ghim**: đặt sẵn Overlap đúng thay vì đặt y.
 
 ### Kiểm tra lớp nào đè lớp nào so với demo
 - Ngày: 03/11/2026 · Nhóm: làm việc
@@ -142,6 +153,16 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   đừng chỉ dịch nhân vật tới rồi đo. Cờ, cửa ra... nằm sát cuối màn thì nhớ camera đã bị giới hạn chặn.
 - Bẫy khi thử: cờ đích đứng trên bậc đá cao ngay mép trái bậc; đặt mèo lùi về bên trái là rơi xuống dưới bậc, không tới cờ được.
 
+### Về menu mà nhạc rừng vẫn phát chồng lên nhạc menu
+- Ngày: 06/11/2026 · Nhóm: code
+- Triệu chứng: vào game rồi về menu thì nghe cả `bgm_forest` lẫn nhạc menu `bgm` cùng lúc.
+- Nguyên nhân: bẫy của AudioSource trong Cocos 3.8: gán `clip` mới **trong lúc đang phát** thì engine tạo trình phát mới
+  mà không tắt trình phát cũ, nên bài cũ vẫn chạy (bắt được bằng cách móc `AudioBufferSourceNode.start/stop` trong trình duyệt:
+  sau khi về menu còn 2 nguồn đang phát, dài 167 giây và 16 giây).
+- Cách sửa: `Sound.music()` gọi `stop()` trước khi đổi `clip` (`core/Sound.ts`). Thử lại: về menu chỉ còn đúng nguồn 16 giây.
+- Cách tránh lần sau: đổi `clip` của AudioSource thì luôn `stop()` trước. Thử nhạc thì đếm số nguồn âm thanh đang phát
+  (móc `AudioBufferSourceNode.prototype.start/stop`), đừng chỉ nghe hay chỉ xem `playing`.
+
 ### Nhạc thường vẫn phát trong trận boss
 - Ngày: 06/11/2026 · Nhóm: code
 - Triệu chứng: vào đánh boss mà vẫn nghe `bgm_forest`, không chuyển sang `bgm_boss`.
@@ -201,6 +222,16 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Cách tránh lần sau: đổi cỡ hình thì nhắc chỉnh `Size`, rồi bật *Debug Colliders* và Play để kiểm tra.
 
 ## Code giao diện (menu, bảng)
+
+### Import vòng làm "Missing class", mất luôn nút ⚙
+- Ngày: 06/11/2026 · Nhóm: code
+- Triệu chứng: Console Creator đầy "Missing class ...", "Found possible circular reference ... PlayerTrigger"; Checkpoint, Goal, cá... mất script,
+  DemoLevelBuilder cũng hỏng nên không thấy nút ⚙ Cập nhật. tsc vẫn báo không lỗi.
+- Nguyên nhân: mình cho `LandingScreen` import `TutorialRoom` → `TutorialExit` (kế thừa `PlayerTrigger`) → `PlayerTrigger` import `GameManager`
+  → `GameManager` import `LandingScreen`. Creator nạp theo vòng nên lúc định nghĩa `TutorialExit` thì lớp `PlayerTrigger` chưa có.
+- Cách sửa: `TutorialRoom` tự gắn vào `GameSession.tutorial`, `LandingScreen` gọi qua đó, không import `TutorialRoom` nữa.
+- Cách tránh lần sau: thêm import giữa các file giao diện / màn chơi / GameManager thì chạy `python tools/kiem_tra_import_vong.py`
+  trước khi nhờ người dùng bấm Creator. Muốn gọi ngược lên thì đi qua một chỗ trung gian không import gì (GameSession, biến tĩnh).
 
 ### Đổi ngôn ngữ báo lỗi `keyCells is not iterable` sau khi chơi lại màn
 - Ngày: 06/11/2026 · Nhóm: code
@@ -347,6 +378,9 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   Đoạn sửa dài thì ghi ra file `.js` trong scratchpad (Write) rồi `node file.js đường-dẫn`.
 - Bẫy: đếm số lần bấm ↓ để tới một nút rất dễ sai (ô ẩn bị bỏ qua). Viết hàm "bấm ↓ tới khi ô đang chọn tên X" rồi mới bấm.
 - Phím ảo: `KeyboardEvent` phải có cả `code` lẫn `keyCode` (ghi đè bằng `Object.defineProperty`) thì Enter / Esc mới tới được engine.
+- Bẫy (06/11/2026): node `Landing` trong file scene có thể đang **tắt** mà lúc chạy vẫn được code bật lên. Đọc file scene thấy tắt,
+  mình bật thêm bằng JS → màn mở đầu chạy hai lần chồng nhau, đo ra số vô lý (logo vừa hiện đã mờ). Trước khi bật / tắt gì bằng JS,
+  đọc trạng thái **lúc chạy** (`node.active`, component đang có) trước, đừng tin file scene.
 - Bẫy (05/11/2026): `getComponentsInChildren('PlayerController')[0]` có thể ra **Angelo đang bị ẩn** (đếm giữ J mãi bằng 0). Lọc `p.node.activeInHierarchy`.
   Trong trang, `getComponent(cc.UITransform)` có thể ra null; dùng tên chuỗi `getComponent('cc.UITransform')`.
 - Mẹo (05/11/2026): khung trình duyệt của app nhỏ, chụp màn hình không nhìn rõ chi tiết. Cắt thẳng từ canvas game:

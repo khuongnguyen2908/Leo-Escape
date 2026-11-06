@@ -105,6 +105,9 @@ export const Sound = {
         const b = bgm!;
         b.volume = this.musicVolume;
         if (b.clip === clip && b.playing) return;
+        // Dừng bài cũ trước khi đổi bài: engine đổi clip lúc đang phát thì tạo trình phát mới mà không tắt trình phát cũ
+        // → hai bài phát chồng (vào game rồi về menu: nhạc rừng vẫn chạy dưới nhạc menu)
+        if (b.playing) b.stop();
         b.clip = clip;
         b.play();
     },

@@ -35,6 +35,11 @@ import { PlaceholderBox } from './PlaceholderBox';
 import { SkyGradient } from './SkyGradient';
 import { SoftGlow } from './SoftGlow';
 import { TutorialHint } from './TutorialHint';
+import { BlockKind, TutorialBlock } from './TutorialBlock';
+import { TutorialExit } from './TutorialExit';
+import { TutorialRoom } from './TutorialRoom';
+import { ArrowDir, TutorialSign } from './TutorialSign';
+import { TrainingDummy } from './TrainingDummy';
 const { ccclass, property } = _decorator;
 
 // API của editor Cocos, chỉ tồn tại khi chạy trong Creator
@@ -127,8 +132,8 @@ const SUNLIT_X: [number, number][] = [[450, 933]];
 const ENEMY_HP: [number, number][] = [[3, 12], [10, 40]];
 /** Thân va chạm của Leo: rộng 85 thì hình mèo (rộng 200) lấn vào tường; nới lên 150. */
 const LEO_BODY_WIDTH = 150;
-/** Máu boss (mốc phase theo % trong BossBrain; mỗi phase boss ra đủ 2 đòn mới qua mốc). Thử 150 thấy đánh lâu quá, về lại 40. */
-const BOSS_HP = 40;
+/** Máu boss (mốc phase theo % trong BossBrain: còn 67 sang phase 2, còn 34 sang phase 3; mỗi phase boss ra đủ 2 đòn mới qua mốc). */
+const BOSS_HP = 100;
 type EnemyOpts = { name?: string; frames?: string[]; scale?: number; range?: number; hp?: number; speed?: number; body?: [number, number] };
 type Built = { node: Node; w: number; h: number };
 /** [tên ảnh, x, y, tỉ lệ so với cỡ gốc, lật?] */
@@ -329,7 +334,9 @@ export class DemoLevelBuilder extends Component {
         const demoSink = new Map(DEMO_GROUNDS.map((e) => [e.id, e.sink]));
         let grounds = 0;
         for (const g of play.getComponentsInChildren(GroundBlock)) {
-            const want = demoSink.get(g.node.uuid) ?? g.tileHeight * TILE_FOOT;
+            // Ảnh mép đá cao (MG_tile_high, có cả thân tường): chỗ đặt chân vẫn tính theo phần mép đá ở đỉnh ảnh (cao 285 px gốc)
+            const k = g.tileFrame ? g.tileHeight / g.tileFrame.rect.height : 1;
+            const want = demoSink.get(g.node.uuid) ?? Math.min(g.tileHeight, 285 * k) * TILE_FOOT;
             if (g.tileFrame && Math.abs(g.sink - want) > 0.5) {
                 g.sink = want;
                 grounds++;
@@ -411,8 +418,19 @@ export class DemoLevelBuilder extends Component {
             }
         }
 
-        // 11. Angelo (hình tạm: Leo nhuộm xám xanh, bóp gầy) và HUD của Angelo ở góc trên phải (có rồi thì để yên)
-        done.push(...this.ensureAngelo(play));
+        // 11. Không còn Angelo (game chỉ có Leo, 2 nút Đánh / Nhảy): xoá node Angelo và HUD_Angelo nếu còn
+        for (const c of play.getComponentsInChildren(PlayerController)) {
+            if (c.catName !== 'Angelo') continue;
+            c.node.removeFromParent();
+            c.node.destroy();
+            done.push('xoá Angelo (game không còn Angelo)');
+        }
+        const hudAngelo = this.node.getChildByName('HUD_Angelo');
+        if (hudAngelo) {
+            hudAngelo.removeFromParent();
+            hudAngelo.destroy();
+            done.push('xoá HUD_Angelo');
+        }
 
         // 12. Menu chính trong Landing: nền, logo, 5 dòng chữ, khung chọn, dòng bản quyền (có rồi thì để yên)
         try {
@@ -425,10 +443,11 @@ export class DemoLevelBuilder extends Component {
         const solidProps = play.children.filter((n) => this.applySolidProp(n)).length;
         if (solidProps) done.push(`${solidProps} đồ vật (thùng giấy + viên gạch + cây gỗ, thùng rác): chặn hai bên, khung va chạm ôm đúng hình`);
 
-        // 14. Mặt đá: mọi khối dùng MG_tile_2, chỉ các ô có nắng (SUNLIT_X, đo trên ảnh demo) dùng MG_tile_3
+        // 14. Mặt đá: nền thấp dùng MG_tile_1, bậc đá cao dùng MG_tile_high_1/2/3 thay phiên (ảnh cao có cả thân tường);
+        //     ô có nắng (SUNLIT_X, đo trên ảnh demo) dùng MG_tile_3. Chưa có ảnh mới thì dùng MG_tile_2 như cũ
         let tiles = 0;
         for (const g of play.getComponentsInChildren(GroundBlock)) if (this.applySunlit(g)) tiles++;
-        if (tiles) done.push(`${tiles} khối nền đá: mặt đá tối dùng tile_2, chỉ ô có nắng dùng tile_3`);
+        if (tiles) done.push(`${tiles} khối nền đá: nền thấp dùng MG_tile_1, bậc cao dùng MG_tile_high_1/2/3, ô có nắng dùng tile_3`);
 
         // 15. Máu kẻ địch gấp 4 (chỉ đổi khi còn đúng số cũ, bạn tự chỉnh số khác thì để yên)
         let hpChanged = 0;
@@ -472,12 +491,25 @@ export class DemoLevelBuilder extends Component {
             done.push(`${e.node.name}: dời tới chỗ hình (${Math.round(x)}, ${Math.round(y)}), hình Visual về (0, 0)`);
         }
 
-        // 19. Máu boss 150 → 40 (thử 150 thấy đánh lâu quá; chỉ đổi khi còn đúng 150)
+        // 19. Máu boss → 100 (chỉ đổi khi còn đúng số cũ 40 hoặc 150 của các bản trước)
         for (const e of play.getComponentsInChildren(EnemyPatrol)) {
-            if (e.big && e.hp === 150) {
+            if (e.big && (e.hp === 40 || e.hp === 150)) {
+                const from = e.hp;
                 e.hp = BOSS_HP;
-                done.push(`${e.node.name}: máu 150 → ${BOSS_HP}`);
+                done.push(`${e.node.name}: máu ${from} → ${BOSS_HP}`);
             }
+        }
+
+        // 20. Màn hướng dẫn (khu riêng bên trái đầu màn), chỉ tạo khi chưa có node Tutorial
+        if (!play.getChildByName('Tutorial')) {
+            this.buildTutorial(play);
+            done.push('màn hướng dẫn (node Tutorial và các Tut_..., bên trái đầu màn, x -9200 → -800)');
+        }
+        // 21. Biển THE TUTORIAL cao 640 đè lên hàng tim: hạ xuống 470 (chỉ khi còn đúng 640)
+        const tutTitle = play.getChildByName('Tut_Sign_title');
+        if (tutTitle && Math.abs(tutTitle.position.y - 640) < 0.5) {
+            tutTitle.setPosition(tutTitle.position.x, 470, tutTitle.position.z);
+            done.push('biển THE TUTORIAL: y 640 → 470 (khỏi đè hàng tim)');
         }
 
         // 18. Màn dài thêm (có khối nền vượt quá tường cuối): dời tường tàng hình cuối màn và giới hạn camera tới hết khối nền xa nhất
@@ -506,8 +538,39 @@ export class DemoLevelBuilder extends Component {
             done.push('nhạc nền: bgm → bgm_forest (nhạc trận boss: bgm_boss, ô Boss Music của BossArena)');
         }
 
-        // 20. Vùng hướng dẫn (TutorialHint): chưa có vùng nào thì tạo 3 vùng (đầu màn, trước chim 1, trước chim 2); có rồi thì để yên
-        done.push(...this.ensureTutorialHints(play));
+        // 20b. Bỏ hướng dẫn trong màn chính (dấu ! và bảng gợi ý TutorialHint): đã có màn hướng dẫn riêng
+        let hintsGone = 0;
+        for (const h of play.getComponentsInChildren(TutorialHint)) {
+            h.node.removeFromParent();
+            h.node.destroy();
+            hintsGone++;
+        }
+        if (hintsGone) done.push(`xoá ${hintsGone} vùng hướng dẫn trong màn chính (dấu !)`);
+
+        // 23. Ảnh mới theo 4 ảnh demo: bàn xanh, ghế đỏ, nhà vẽ lại, quán Lợi Ký, mây, nhà nền, lớp lọc màu, bụi, tán lá tiền cảnh
+        done.push(...this.applyNewArt(play));
+
+        // 24. Tán lá tối (fr_bush) bị bước 9 ghim mép trên như dây cờ (Overlap mặc định 4) nên tán lá lớn tụt xuống che màn hình:
+        //     đặt Overlap để mép trên nhô ra ngoài khung đúng như đo trên ảnh demo (chỉ khi Overlap còn đúng 4)
+        const frTopLayer = this.node.getChildByName('FR_Top');
+        const BUSH_OVERLAP: [number, number][] = [[1549.5, 0], [4293, 280], [6865, 121], [7957, 260]];
+        let bushFixed = 0;
+        for (const n of frTopLayer?.children ?? []) {
+            const pin = n.getComponent(PinToScreenTop);
+            const want = BUSH_OVERLAP.find(([x]) => Math.abs(n.position.x - x) < 1)?.[1];
+            if (!n.name.startsWith('fr_bush') || !pin || want === undefined || Math.abs(pin.overlap - 4) > 0.01) continue;
+            pin.overlap = want;
+            pin.pin();
+            bushFixed++;
+        }
+        if (bushFixed) done.push(`${bushFixed} tán lá tối: chỉnh Overlap (ô của PinToScreenTop) để không tụt xuống che màn hình`);
+
+        // 22. Biển DESCEND trên bục bị thanh cá che: hạ từ 700 xuống 600 (chỉ khi còn đúng 700)
+        const tutDescend = play.getChildByName('Tut_Sign_descend');
+        if (tutDescend && Math.abs(tutDescend.position.y - 700) < 0.5) {
+            tutDescend.setPosition(tutDescend.position.x, 600, tutDescend.position.z);
+            done.push('biển DESCEND: y 700 → 600 (khỏi bị thanh cá che)');
+        }
 
         try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
         console.log(done.length
@@ -1441,18 +1504,26 @@ export class DemoLevelBuilder extends Component {
     }
 
     /**
-     * Mặt đá tối dùng MG_tile_2; ô có nắng (SUNLIT_X) dùng MG_tile_3. Cần ảnh đã nạp (this.art).
-     * Trả về true nếu có đổi.
+     * Mặt đá: nền thấp dùng MG_tile_1, bậc đá cao (cao hơn nửa RAISED) dùng MG_tile_high_1 rồi thay phiên high_2, high_3.
+     * Chưa có ảnh mới thì dùng MG_tile_2. Ô có nắng (SUNLIT_X) dùng MG_tile_3. Cần ảnh đã nạp (this.art).
+     * Đổi ảnh thì giữ nguyên tỉ lệ phóng (Tile Height / cao ảnh) của khối. Trả về true nếu có đổi.
      */
     private applySunlit(g: GroundBlock): boolean {
-        const dark = this.frame('mg_tile_2');
+        const high = g.node.position.y > RAISED / 2;
+        const has = (n: string) => this.art.get(n) ?? null;
+        const main = high ? has('mg_tile_high_1') : has('mg_tile_1');
+        const dark = main ?? this.frame('mg_tile_2');
         const sun = this.frame('mg_tile_3');
         if (!dark) return false;
         let changed = false;
         if (g.tileFrame !== dark) {
+            const k = g.tileFrame ? g.tileHeight / g.tileFrame.rect.height : 1;
             g.tileFrame = dark;
+            g.tileHeight = dark.rect.height * k;
             changed = true;
         }
+        const variants = high && main ? [has('mg_tile_high_2'), has('mg_tile_high_3')].filter((f): f is SpriteFrame => !!f) : [];
+        if (g.setVariants(variants)) changed = true;
         // Đoạn có nắng đổi sang toạ độ của khối (tính từ mép trái), chỉ lấy đoạn đầu tiên chạm khối
         const x0 = g.node.position.x;
         const hit = SUNLIT_X.find(([a, b]) => b > x0 && a < x0 + g.width);
@@ -1460,6 +1531,82 @@ export class DemoLevelBuilder extends Component {
         const to = hit ? Math.min(g.width, hit[1] - x0) : 0;
         if (g.setLit(hit ? sun : null, from, to)) changed = true;
         return changed;
+    }
+
+    /**
+     * Ảnh mới, đo trên 4 ảnh demo (06/11/2026), ảnh giữ cỡ gốc (tỉ lệ 1) trừ mây:
+     * - đổi ảnh tại chỗ: bàn hồng ở khung 2 → bàn xanh, ghế vàng cạnh đó → ghế đỏ, nhà đầu màn → nhà vẽ lại (MG_nhao_3);
+     * - nhà mg_nhao_1 ở khung 3/4 → quán Lợi Ký (MG_nhao_4), dời tới chỗ đo trên ảnh demo 4;
+     * - thêm: 2 đám mây + lớp lọc màu + bụi (lớp BG), nhà nền BG_nha (lớp chơi, chỉ hiện ở khung 3), 4 tán lá tối (FR_Top).
+     * Chỉ đổi khi node còn đúng ảnh cũ ở đúng chỗ cũ; chỉ thêm khi chưa có node cùng tên. Bạn kéo chỉnh thoải mái.
+     */
+    private applyNewArt(play: Node): string[] {
+        const out: string[] = [];
+        const canvas = this.node;
+        const has = (n: string) => this.art.get(n) ?? null;
+        const swap = (oldName: string, x: number, oldArt: string, newArt: string, newName: string, to?: [number, number]) => {
+            const sf = has(newArt);
+            const old = has(oldArt);
+            const n = play.children.find((c) => c.name === oldName && Math.abs(c.position.x - x) < 1);
+            const sp = n?.getComponent(Sprite);
+            if (!n || !sp || !old || sp.spriteFrame?.uuid !== old.uuid) return;
+            if (!sf) {
+                out.push(`chưa đổi ${oldName} → ${newArt}: ảnh ${newArt} chưa phải sprite-frame (chọn ảnh trong Assets, ô Type đổi thành sprite-frame, bấm Apply rồi bấm ⚙ lại)`);
+                return;
+            }
+            sp.spriteFrame = sf;
+            sp.sizeMode = Sprite.SizeMode.TRIMMED;
+            n.name = newName;
+            if (to) n.setPosition(to[0], to[1], n.position.z);
+            out.push(`${oldName} (x ${x}) → ${newName}${to ? ` ở (${to[0]}, ${to[1]})` : ''}`);
+        };
+        swap('mg_ban', 1847, 'mg_ban', 'mg_ban_xanh', 'mg_ban_xanh');
+        swap('mg_ghe', 2086, 'mg_ghe', 'mg_ghe_do', 'mg_ghe_do');
+        swap('mg_nhao_1', -293.5, 'mg_nhao_1', 'mg_nhao_3', 'mg_nhao_3');
+        swap('mg_nhao_1', 5431, 'mg_nhao_1', 'mg_nhao_4', 'mg_nhao_4', [5630, 22]);
+
+        /** Thêm ảnh (gốc đáy-giữa, hoặc giữa nếu ay = 0.5) khi cha chưa có node tên này. index < 0 = cuối danh sách. */
+        const add = (parent: Node | null, art: string, name: string, x: number, y: number, sx: number, sy: number, index: number, ay = 0) => {
+            const sf = has(art);
+            if (!parent || !sf || parent.getChildByName(name)) return;
+            const n = this.mk(name, parent);
+            const sp = n.addComponent(Sprite);
+            sp.spriteFrame = sf;
+            n.getComponent(UITransform)!.setAnchorPoint(0.5, ay);
+            n.setPosition(x, y, 0);
+            n.setScale(sx, sy, 1);
+            if (index >= 0) n.setSiblingIndex(index);
+            out.push(`thêm ${name} vào ${parent.name}`);
+        };
+        const bg = canvas.getChildByName('BG');
+        // Mây nằm sau cùng (sau cây, cổng); lọc màu và bụi đè lên cả lớp BG
+        add(bg, 'bg_may_1', 'bg_may_1', 333, 424.3, 0.68, 0.68, 0);
+        add(bg, 'bg_may_2', 'bg_may_2', 512.9, 550.3, 0.81, 0.81, 1);
+        add(bg, 'bg_filter', 'bg_filter', 342, 272.3, 1.5, 1, -1, 0.5);
+        add(bg, 'bg_bui', 'bg_bui', 342, 422.3, 1, 1, -1, 0.5);
+        // Nhà nền: để trong lớp chơi (trôi theo đường), nằm sau mọi thứ, nên chỉ hiện ở khung 3 như ảnh demo, không che cổng ở khung khác
+        add(play, 'bg_nha', 'bg_nha', 4431.5, 31, 1, 1, 0);
+        // Tán lá tối ở mép trên (FR_Top), nằm sau dây cờ
+        const frTop = canvas.getChildByName('FR_Top');
+        if (frTop && !frTop.children.some((c) => c.name.startsWith('fr_bush'))) {
+            const flagAt = frTop.children.findIndex((c) => c.name === 'fr_co');
+            const bushes: [string, number, number][] = [
+                ['fr_bush_2', 1549.5, 519], ['fr_bush_1', 4293, 600], ['fr_bush_2', 6865, 640], ['fr_bush_1', 7957, 580],
+            ];
+            let added = 0;
+            bushes.forEach(([art, x, y]) => {
+                const sf = has(art);
+                if (!sf) return;
+                const n = this.mk(art, frTop);
+                n.addComponent(Sprite).spriteFrame = sf;
+                n.getComponent(UITransform)!.setAnchorPoint(0.5, 0);
+                n.setPosition(x, y, 0);
+                if (flagAt >= 0) n.setSiblingIndex(flagAt + added);
+                added++;
+            });
+            if (added) out.push(`thêm ${added} tán lá tối (fr_bush) vào FR_Top`);
+        }
+        return out;
     }
 
     private wall(parent: Node, x: number) {
@@ -1609,6 +1756,79 @@ export class DemoLevelBuilder extends Component {
         const ref = this.node.getChildByName(after);
         if (ref) n.setSiblingIndex(ref.getSiblingIndex() + 1);
         return n;
+    }
+
+    /**
+     * Màn hướng dẫn: tờ giấy (TutorialRoom) rộng 8400 bên trái đầu màn, sàn y = 0, hai tường; biển chỉ dẫn, thùng, cột,
+     * bục một chiều, 2 hình nộm, 3 con cá, cửa EXIT. Mọi thứ có va chạm là con trực tiếp của Gameplay (tên Tut_...).
+     */
+    private buildTutorial(play: Node) {
+        const X0 = -9200, W = 8400;
+        const room = this.mk('Tutorial', play);
+        room.setPosition(X0, 0, 0);
+        room.setSiblingIndex(0); // tờ giấy nằm sau mọi thứ trong Gameplay
+        const tr = room.addComponent(TutorialRoom);
+        tr.width = W;
+        this.mk('Start', room).setPosition(250, 0, 0);
+
+        const solid = (name: string, x: number, y: number, w: number, h: number, ox: number, oy: number) => {
+            const n = this.mk(name, play);
+            n.setPosition(x, y, 0);
+            const s = n.addComponent(Solid);
+            s.size = new Size(w, h);
+            s.offset = new Vec2(ox, oy);
+        };
+        solid('Tut_Floor', X0, 0, W, 400, W / 2, -200);
+        solid('Tut_Wall', X0 - 30, 1000, 60, 3000, 0, 0);
+        solid('Tut_Wall', X0 + W + 30, 1000, 60, 3000, 0, 0);
+
+        const sign = (x: number, y: number, topic: string, arrow = ArrowDir.None, len = 150) => {
+            const n = this.mk(`Tut_Sign_${topic}`, play);
+            n.setPosition(X0 + x, y, 0);
+            const s = n.addComponent(TutorialSign);
+            s.topic = topic;
+            s.arrowLength = len;
+            s.arrow = arrow;
+        };
+        const block = (x: number, y: number, kind: BlockKind, w: number, h: number, name: string) => {
+            const n = this.mk(name, play);
+            n.setPosition(X0 + x, y, 0);
+            const b = n.addComponent(TutorialBlock);
+            b.width = w;
+            b.height = h;
+            b.kind = kind;
+        };
+        const dummy = (x: number) => {
+            const n = this.mk('Tut_Dummy', play);
+            n.setPosition(X0 + x, 0, 0);
+            n.addComponent(TrainingDummy);
+        };
+
+        sign(600, 470, 'title');
+        sign(1100, 380, 'run', ArrowDir.Right, 160);
+        sign(1600, 380, 'duck', ArrowDir.Down, 110);
+        sign(2100, 440, 'jump', ArrowDir.Down, 130);
+        block(2350, 0, BlockKind.Box, 220, 170, 'Tut_Box');
+        sign(2850, 560, 'doubleJump', ArrowDir.Down, 120);
+        block(3150, 0, BlockKind.Pillar, 240, 430, 'Tut_Pillar');
+        sign(3650, 380, 'up', ArrowDir.Down, 110);
+        block(4000, 300, BlockKind.Platform, 600, 34, 'Tut_Platform');
+        sign(4000, 600, 'descend');
+        sign(4650, 400, 'dash', ArrowDir.Right, 220);
+        sign(5200, 420, 'attack', ArrowDir.Down, 120);
+        dummy(5500);
+        sign(5900, 420, 'wave');
+        sign(6350, 420, 'sweep', ArrowDir.Down, 120);
+        sign(6750, 420, 'launch', ArrowDir.Down, 120);
+        dummy(7050);
+        sign(7450, 440, 'fish');
+        for (const x of [7350, 7450, 7550]) this.coin(play, X0 + x, 160);
+        sign(7900, 520, 'exit', ArrowDir.Right, 100);
+        const door = this.mk('Tut_Exit', play);
+        door.setPosition(X0 + 8150, 0, 0);
+        const ex = door.addComponent(TutorialExit);
+        ex.size = new Size(180, 280);
+        ex.offset = new Vec2(0, 140);
     }
 
     private mk(name: string, parent: Node): Node {

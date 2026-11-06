@@ -1,9 +1,10 @@
-import { _decorator, Color, Component, Node, Rect, Sprite, tween, UIOpacity, Vec3 } from 'cc';
+import { _decorator, Color, Component, Node, Rect, Size, Sprite, tween, UIOpacity, Vec2, Vec3 } from 'cc';
 import { CameraRig } from '../camera/CameraRig';
 import { clamp, moveTowards, overlaps } from '../core/Box';
 import { Hittable, Hittables } from '../core/Hittable';
 import { HitStop } from '../core/HitStop';
 import { PlatformerBody } from '../core/PlatformerBody';
+import { Solid } from '../core/Solid';
 import { Sound } from '../core/Sound';
 import { DashFx } from './DashFx';
 import { DustPuff } from './DustPuff';
@@ -114,8 +115,8 @@ export class PlayerController extends Component {
     @property({ group: 'Tấn công', tooltip: 'Chém trúng khi đang bay thì nảy nhẹ lên với tốc độ này, để chém liên tục trên không (combo với địch bị hất)' })
     airHitLift = 300;
 
-    @property({ group: 'Tấn công', tooltip: 'Tốc độ lướt tới khi chém trên mặt đất (lướt trong 0.08 giây)' })
-    slashLunge = 420;
+    @property({ group: 'Tấn công', tooltip: 'Chém trên mặt đất thì đứng yên chừng này giây mỗi nhát (giữ A/D cũng không đi). 0 = vừa chém vừa đi được' })
+    slashStill = 0.22;
 
     @property({ group: 'Lướt chém', tooltip: 'Bấm đúp trái/phải trong khoảng này (giây) thì lướt. 0 = tắt bấm đúp' })
     doubleTapTime = 0.25;
@@ -149,6 +150,12 @@ export class PlayerController extends Component {
 
     @property({ group: 'Đi lên (W)', tooltip: 'Bục một chiều cao hơn chân trong khoảng này thì bấm W là lên được' })
     climbHeight = 420;
+
+    @property({ group: 'Ngồi, xuống bục', tooltip: 'Ngồi (giữ Xuống trên mặt đất): thân va chạm còn bao nhiêu phần chiều cao' })
+    duckHeight = 0.6;
+
+    @property({ group: 'Ngồi, xuống bục', tooltip: 'Bấm Xuống 2 lần trong khoảng này (giây) khi đứng trên bục một chiều thì rơi xuyên xuống' })
+    downTapTime = 0.3;
 
     @property({ group: 'Năng lượng' })
     maxEnergy = 100;
@@ -201,6 +208,10 @@ export class PlayerController extends Component {
     private lunge = 0;
     private slashFx: SlashFx | null = null;
     private dashTimer = 0;
+    /** Đang ngồi thụp (giữ Xuống trên mặt đất) */
+    ducking = false;
+    private standHeight = 0;
+    private downTapAge = 99;
     private dashGrace = 0;
     private holdTime = 0;
     /** Hiệu ứng gồng sóng kiếm ở giữa thân mèo (ảnh FX_charge_) */
@@ -264,11 +275,15 @@ export class PlayerController extends Component {
         if (this.lunge > 0) this.lunge -= dt;
         if (this.pushLock > 0) this.pushLock -= dt;
         if (b.grounded) this.dashJump = false;
+        // Ngồi thụp: giữ Xuống trên mặt đất (không đang lướt). Trên đầu vướng thì chưa đứng dậy được
+        const wantDuck = canControl && b.grounded && this.controls.down && this.dashTimer <= 0;
+        this.setDucking(wantDuck || (this.ducking && !this.roomToStand()));
+        const moveDir = this.ducking ? 0 : dir;
         if (this.hurtLock <= 0 && this.lunge <= 0 && this.pushLock <= 0) {
-            const accel = b.grounded ? (dir !== 0 ? this.groundAccel : this.groundDecel) : this.airAccel;
+            const accel = b.grounded ? (moveDir !== 0 ? this.groundAccel : this.groundDecel) : this.airAccel;
             // Nhảy từ lúc đang lướt: bay ngang nhanh hơn chạy (giữ hướng thì giữ đà)
             const speed = this.dashJump ? this.moveSpeed * this.dashJumpSpeed : this.moveSpeed;
-            v.x = moveTowards(v.x, dir * speed, accel * dt);
+            v.x = moveTowards(v.x, moveDir * speed, accel * dt);
         }
         if (dir !== 0) this.facing = dir;
 
@@ -285,11 +300,18 @@ export class PlayerController extends Component {
         }
         this.prevDir = dir;
 
-        // Bấm xuống khi đang đứng trên bục một chiều (bàn, thùng, ghế...) thì rơi xuyên xuống
-        if (this.controls.consumeDown() && canControl && b.grounded && b.groundSolid?.oneWay) {
-            b.dropThrough();
-            this.coyote = 0;
-            Sound.play('drop', 0.6);
+        // Bấm Xuống 2 lần nhanh khi đang đứng trên bục một chiều (bàn, thùng, ghế...) thì rơi xuyên xuống
+        // (giữ Xuống một lần là ngồi)
+        this.downTapAge += dt;
+        if (this.controls.consumeDown() && canControl) {
+            if (this.downTapAge <= this.downTapTime && b.grounded && b.groundSolid?.oneWay) {
+                b.dropThrough();
+                this.coyote = 0;
+                this.downTapAge = 99;
+                Sound.play('drop', 0.6);
+            } else {
+                this.downTapAge = 0;
+            }
         }
 
         // W / ↑: nhảy vừa đủ cao để lên bục một chiều ngay phía trên (không tốn năng lượng)
@@ -310,10 +332,7 @@ export class PlayerController extends Component {
         const pressed = this.controls.consumeJump() && canControl;
         this.buffer = pressed ? this.jumpBuffer : this.buffer - dt;
         if (this.buffer > 0) {
-            if (this.controls.down && b.grounded && b.groundSolid?.oneWay) {
-                b.dropThrough();
-                this.buffer = this.coyote = 0;
-            } else if (this.coyote > 0) {
+            if (this.coyote > 0) {
                 this.buffer = 0;
                 this.coyote = 0;
                 this.startJump(this.jumpSpeed);
@@ -401,6 +420,32 @@ export class PlayerController extends Component {
     }
 
     /** Bị đánh từ vị trí fromX. Trả về false nếu đang bất tử. */
+    /** Ngồi / đứng dậy: đổi chiều cao thân va chạm (chân giữ nguyên) và dáng hình. */
+    private setDucking(on: boolean) {
+        if (on === this.ducking) return;
+        const b = this.body;
+        if (on) this.standHeight = b.size.height;
+        const h = on ? this.standHeight * this.duckHeight : this.standHeight;
+        if (h <= 0) return;
+        this.ducking = on;
+        b.size = new Size(b.size.width, h);
+        b.offset = new Vec2(b.offset.x, h / 2);
+        this.visual?.setDucking(on);
+    }
+
+    /** Đứng dậy được không: chỗ thân lúc đứng không đụng khối đặc nào (bục một chiều không tính). */
+    private roomToStand(): boolean {
+        const b = this.body;
+        const p = this.node.position;
+        // Bắt đầu cao hơn bàn chân một chút: mặt sàn đang đỡ chân chạm đúng mép dưới, không tính là vướng
+        _self.set(p.x + b.offset.x - b.size.width / 2 + 2, p.y + 4, b.size.width - 4, this.standHeight - 4);
+        for (const s of Solid.all) {
+            if (s.oneWay) continue;
+            if (overlaps(_self, s.getRect(_hit))) return false;
+        }
+        return true;
+    }
+
     /** Đang lướt (hoặc vừa lướt xong): né được đòn, kể cả axit của boss. */
     get evading() { return this.dashTimer > 0 || this.dashGrace > 0; }
 
@@ -437,11 +482,10 @@ export class PlayerController extends Component {
         this.comboTimer = this.slashInterval + this.comboWindow;
         if (air) {
             if (v.y < 0) v.y *= 0.3; // chém trên không thì khựng lơ lửng một nhịp
-        } else if (step !== SPIN_STEP) {
-            // Lướt tới một chút (không chậm hơn tốc độ đang chạy); nhát xoay đứng tại chỗ
-            const push = step >= 4 ? 1.6 : step === 2 ? 1.3 : 1;
-            v.x = this.facing * Math.max(this.slashLunge * push, this.facing * v.x);
-            this.lunge = 0.08;
+        } else if (this.slashStill > 0) {
+            // Chém trên mặt đất: đứng yên tại chỗ mỗi nhát, không lao tới, giữ A/D cũng không đi
+            v.x = 0;
+            this.lunge = this.slashStill;
         }
         this.fx().play(this.facing, step);
         this.visual?.playAttack();
