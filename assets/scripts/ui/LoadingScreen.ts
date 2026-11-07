@@ -12,14 +12,16 @@ const BG = new Color(126, 82, 54, 255);
 const BG_IMAGE = 'art/BG_loading';
 /**
  * Hoạ tiết (theo ảnh mẫu): lưới đều so le từng hàng, mỗi ô CELL đơn vị (hàng lẻ lệch nửa ô), lệch ngẫu nhiên rất ít
- * cho khỏi cứng; hình nhỏ (cạnh dài nhất ICON_SIZE × 0.85–1.05, luôn nhỏ hơn ô nên không đè nhau), gần như thẳng đứng
- * (nghiêng tối đa TILT độ), rất mờ, cả lưới trôi chéo chậm.
+ * cho khỏi cứng; ảnh giữ đúng cỡ gốc của file, tất cả nghiêng cùng một góc ANGLE, rất mờ, cả lưới trôi chéo chậm.
+ * CELL phải lớn hơn hình to nhất sau khi nghiêng (Icon_fish 188×111 nghiêng 30° chiếm chừng 220×190) để không đè nhau.
  */
 const PATTERN = new Color(250, 240, 222, 30);
-const CELL = 130;
+const CELL = 240;
 const JITTER = 0.1;
-const ICON_SIZE = 78;
-const TILT = 22;
+/** Cỡ hình tạm (khi chưa có ảnh); ảnh thật giữ cỡ gốc */
+const ICON_SIZE = 120;
+/** Mọi hoạ tiết nghiêng cùng một góc (độ, dương = xoay ngược chiều kim đồng hồ) */
+const ANGLE = 30;
 const DRIFT_X = 18;
 const DRIFT_Y = -10;
 /** Ảnh hoạ tiết thay hình tạm: mọi ảnh trong thư mục này (lấy ngẫu nhiên; đúng chữ hoa, web phân biệt hoa thường) */
@@ -37,7 +39,6 @@ const TEXT_Y = -150;
 
 interface Piece {
     node: Node;
-    spin: number;
 }
 
 let root: Node | null = null;
@@ -165,9 +166,9 @@ function build(canvas: Node) {
             const x = -PW / 2 + (c + 0.5 + (r % 2) * 0.5) * CELL + (Math.random() - 0.5) * CELL * JITTER;
             const y = -PH / 2 + (r + 0.5) * CELL + (Math.random() - 0.5) * CELL * JITTER;
             n.setPosition(x, y, 0);
-            n.angle = (Math.random() - 0.5) * 2 * TILT;
+            n.angle = ANGLE;
             drawShape(n.addComponent(Graphics), Math.floor(Math.random() * 5), ICON_SIZE);
-            pieces.push({ node: n, spin: (Math.random() - 0.5) * 4 });
+            pieces.push({ node: n });
         }
     }
     // Có ảnh hoạ tiết thật thì thay hình tạm (giữ chỗ, góc; cỡ gốc × 0.7–1.1), trộn kiểu Screen
@@ -189,10 +190,6 @@ function build(canvas: Node) {
                 sp.spriteFrame = frames[Math.floor(Math.random() * frames.length)];
                 if (mat) sp.customMaterial = mat;
                 sp.color = new Color(255, 255, 255, mat ? PATTERN_SCREEN : PATTERN_PLAIN);
-                // Cạnh dài nhất ICON_SIZE × 0.85–1.05 (luôn nhỏ hơn ô lưới nên không đè nhau)
-                const r = sp.spriteFrame!.rect;
-                const k = (ICON_SIZE / Math.max(r.width, r.height)) * (0.85 + Math.random() * 0.2);
-                pic.setScale(k, k, 1);
             }
         });
     });
@@ -270,14 +267,13 @@ function tick() {
     time += dt;
     const { cols, rows } = gridSize();
     const W = cols * CELL, H = rows * CELL;
-    // Hình nền trôi chéo chậm, ra khỏi mép thì quay lại mép bên kia; mỗi hình xoay rất chậm
+    // Hình nền trôi chéo chậm, ra khỏi mép thì quay lại mép bên kia (giữ nguyên góc nghiêng)
     for (const p of pieces) {
         const n = p.node;
         let x = n.position.x + DRIFT_X * dt, y = n.position.y + DRIFT_Y * dt;
         if (x > W / 2) x -= W;
         if (y < -H / 2) y += H;
         n.setPosition(x, y, 0);
-        n.angle += p.spin * dt;
     }
     // Mèo nhún nhẹ (có ảnh thì chạy flip-book)
     if (cat && cat.isValid) {
