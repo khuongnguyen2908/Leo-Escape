@@ -1,67 +1,57 @@
-import { _decorator, Component, Node, resources, Sprite, SpriteFrame, UIOpacity, view } from 'cc';
-import { uiNode } from './UiKit';
+import { _decorator, Color, Component, Graphics, view } from 'cc';
 const { ccclass } = _decorator;
 
-/** Ảnh bụi (hạt trắng li ti trên nền trong suốt) trong assets/resources/art */
-const DUST_IMAGE = 'art/BG_bui';
+/** Số hạt bụi, màu */
+const COUNT = 70;
+const MOTE = new Color(255, 248, 230, 255);
+/** Theo độ sâu z (0 = xa, 1 = gần): bán kính, tốc độ lượn (đơn vị/giây), độ đậm lớn nhất */
+const SIZE = [1.2, 3.6];
+const SPEED = [5, 20];
+const ALPHA = [70, 220];
+/** Cả đám nghiêng nhẹ xuống phải (đơn vị/giây) */
+const BIAS_X = 4;
+const BIAS_Y = -3;
+/** Mỗi hạt sống từ … tới … giây (hiện dần, tắt dần tại chỗ) */
+const LIFE = [4, 10];
+/** Loé sáng: mỗi giây mỗi hạt có chừng này phần trăm cơ hội loé, mỗi lần loé kéo dài (giây) */
+const FLASH_CHANCE = 0.05;
+const FLASH_TIME = 0.5;
 
-/** Mỗi lớp: phóng ảnh, tốc độ trôi (sang phải, xuống dưới; đơn vị/giây), độ đậm, lật ngang cho khác hình lớp kia */
-const LAYERS = [
-    { scale: 1.0, vx: 34, vy: 20, opacity: 130, flip: false },
-    { scale: 1.7, vx: 78, vy: 46, opacity: 210, flip: true },
-];
+interface Mote {
+    x: number;
+    y: number;
+    z: number;
+    heading: number;
+    age: number;
+    life: number;
+    flash: number;
+}
 
-interface Layer {
-    node: Node;
-    op: UIOpacity;
-    tw: number;
-    th: number;
-    vx: number;
-    vy: number;
-    ox: number;
-    oy: number;
-    base: number;
+function lerp(r: number[], t: number): number {
+    return r[0] + (r[1] - r[0]) * t;
 }
 
 /**
- * Bụi trôi ngoài menu: lát ảnh BG_bui kín khung hình thành 2 lớp (xa: nhỏ, chậm, mờ; gần: to, nhanh, rõ),
- * trôi chéo từ trên trái xuống dưới phải, lặp mãi, độ đậm nhấp nháy rất nhẹ.
+ * Bụi ngoài menu (bụi trong nắng): khoảng 70 hạt tròn mềm màu kem, hạt xa nhỏ mờ chậm, hạt gần to rõ hơn.
+ * Mỗi hạt lượn lờ chậm theo hướng riêng (hướng đổi dần như gió nhẹ), cả đám hơi nghiêng xuống phải; sống 4–10 giây,
+ * hiện dần rồi tắt dần tại chỗ, sinh lại chỗ khác; thỉnh thoảng một hạt loé sáng.
+ * Vẽ tất cả lên một Graphics, độ đậm nằm trong màu vẽ. Chạy theo giờ thật (setInterval) chứ không theo update:
+ * mở Cài đặt là game tạm dừng (director.pause) mà bụi vẫn bay.
  * LandingScreen tạo node Dust ngay trên ảnh nền menu (MenuBg) nên menu, trang ô lưu, trang độ khó đều thấy.
- * Chạy theo giờ thật (setInterval) chứ không theo update: mở Cài đặt là game tạm dừng (director.pause) mà bụi vẫn trôi.
  */
 @ccclass('MenuDust')
 export class MenuDust extends Component {
-    private layers: Layer[] = [];
-    private time = 0;
+    private g: Graphics | null = null;
+    private motes: Mote[] = [];
     private timer: ReturnType<typeof setInterval> | null = null;
     private last = 0;
 
     onLoad() {
-        resources.load(`${DUST_IMAGE}/spriteFrame`, SpriteFrame, (err, sf) => {
-            if (err || !sf || !this.isValid) return;
-            this.build(sf);
-        });
-    }
-
-    private build(sf: SpriteFrame) {
-        const d = view.getDesignResolutionSize();
-        for (const L of LAYERS) {
-            const tw = sf.rect.width * L.scale, th = sf.rect.height * L.scale;
-            // Thừa một ô mỗi chiều để lúc trôi không lộ mép
-            const cols = Math.ceil(d.width / tw) + 2, rows = Math.ceil(d.height / th) + 2;
-            const node = uiNode('Layer', this.node);
-            const x0 = -d.width / 2 - tw, y0 = d.height / 2 + th;
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    const tile = uiNode('Tile', node);
-                    tile.addComponent(Sprite).spriteFrame = sf;
-                    tile.setScale(L.flip ? -L.scale : L.scale, L.scale, 1);
-                    tile.setPosition(x0 + c * tw + tw / 2, y0 - r * th - th / 2, 0);
-                }
-            }
-            const op = node.addComponent(UIOpacity);
-            op.opacity = L.opacity;
-            this.layers.push({ node, op, tw, th, vx: L.vx, vy: L.vy, ox: Math.random() * tw, oy: Math.random() * th, base: L.opacity });
+        this.g = this.node.addComponent(Graphics);
+        for (let i = 0; i < COUNT; i++) {
+            const m = this.spawn();
+            m.age = Math.random() * m.life; // khỏi hiện cùng lúc
+            this.motes.push(m);
         }
     }
 
@@ -75,8 +65,23 @@ export class MenuDust extends Component {
         this.timer = null;
     }
 
+    private spawn(): Mote {
+        const d = view.getDesignResolutionSize();
+        const z = Math.random();
+        return {
+            x: (Math.random() - 0.5) * d.width * 1.1,
+            y: (Math.random() - 0.5) * d.height * 1.1,
+            z: z * z, // phần lớn là hạt xa (nhỏ, mờ)
+            heading: Math.random() * Math.PI * 2,
+            age: 0,
+            life: lerp(LIFE, Math.random()),
+            flash: 0,
+        };
+    }
+
     private tick() {
-        if (!this.node.isValid) {
+        const g = this.g;
+        if (!g || !g.isValid) {
             this.onDisable();
             return;
         }
@@ -84,13 +89,37 @@ export class MenuDust extends Component {
         const dt = Math.min(0.05, (now - this.last) / 1000);
         this.last = now;
         if (!this.node.activeInHierarchy) return;
-        this.time += dt;
-        this.layers.forEach((L, i) => {
-            // Trôi sang phải và xuống dưới; đi hết một ô thì quay về 0 (các ô giống nhau nên không thấy giật)
-            L.ox = (L.ox + L.vx * dt) % L.tw;
-            L.oy = (L.oy + L.vy * dt) % L.th;
-            L.node.setPosition(L.ox, -L.oy, 0);
-            L.op.opacity = Math.round(L.base * (0.85 + 0.15 * Math.sin(this.time * 0.9 + i * 1.7)));
-        });
+        g.clear();
+        for (let i = 0; i < this.motes.length; i++) {
+            let m = this.motes[i];
+            m.age += dt;
+            if (m.age >= m.life) {
+                m = this.motes[i] = this.spawn();
+            }
+            // Hướng đổi dần ngẫu nhiên (lượn lờ), cộng độ nghiêng chung
+            m.heading += (Math.random() - 0.5) * 3 * dt;
+            const speed = lerp(SPEED, m.z);
+            m.x += (Math.cos(m.heading) * speed + BIAS_X) * dt;
+            m.y += (Math.sin(m.heading) * speed * 0.7 + BIAS_Y) * dt;
+            // Loé sáng thỉnh thoảng
+            if (m.flash > 0) m.flash = Math.max(0, m.flash - dt);
+            else if (Math.random() < FLASH_CHANCE * dt) m.flash = FLASH_TIME;
+            const glow = m.flash > 0 ? Math.sin((m.flash / FLASH_TIME) * Math.PI) : 0;
+            // Hiện dần, tắt dần theo tuổi
+            const life = Math.sin((m.age / m.life) * Math.PI);
+            const a = Math.min(255, lerp(ALPHA, m.z) * life * (1 + glow));
+            if (a < 2) continue;
+            const r = lerp(SIZE, m.z) * (1 + glow * 0.6);
+            // Quầng mờ ngoài, lõi sáng trong (hạt gần nhoè hơn)
+            g.fillColor = new Color(MOTE.r, MOTE.g, MOTE.b, Math.round(a * 0.15));
+            g.circle(m.x, m.y, r * (2.4 + m.z));
+            g.fill();
+            g.fillColor = new Color(MOTE.r, MOTE.g, MOTE.b, Math.round(a * 0.35));
+            g.circle(m.x, m.y, r * 1.6);
+            g.fill();
+            g.fillColor = new Color(MOTE.r, MOTE.g, MOTE.b, Math.round(a));
+            g.circle(m.x, m.y, r);
+            g.fill();
+        }
     }
 }

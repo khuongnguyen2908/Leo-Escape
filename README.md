@@ -122,8 +122,9 @@ Lưu ý khi sắp xếp:
 (nhân bản node `Landing/Start` trong scene: ảnh nút + chữ START 90, viền 7 `#3b7113`; sửa nút trong scene là màn này đổi theo) →
 bấm nút, hoặc Enter / Space / Nhảy / Đánh (phím khác không tính) thì **các dòng menu hiện dần** tại chỗ trong 0.25 giây (`BootScreen.ts`).
 Về màn hình chính từ trong game thì bỏ qua logo, menu hiện luôn.
-**Bụi menu** (`MenuDust.ts`): ảnh `BG_bui` lát kín thành 2 lớp (xa nhỏ chậm mờ, gần to nhanh rõ) trôi chéo từ trên trái xuống dưới phải,
-nằm ngay trên ảnh nền `MenuBg`, thấy ở menu, trang ô lưu, trang độ khó (số chỉnh ở đầu file: `LAYERS`).
+**Bụi menu** (`MenuDust.ts`, bụi trong nắng): ~70 hạt tròn mềm màu kem (xa nhỏ mờ chậm, gần to rõ), mỗi hạt lượn lờ chậm theo hướng riêng,
+cả đám hơi nghiêng xuống phải, sống 4–10 giây hiện dần rồi tắt tại chỗ, thỉnh thoảng loé sáng. Nằm ngay trên ảnh nền `MenuBg`,
+thấy ở menu, trang ô lưu, trang độ khó, cả khi mở Cài đặt (số chỉnh ở đầu file: `COUNT`, `SIZE`, `SPEED`, `ALPHA`, `LIFE`...).
 **Logo** (`LogoShine.ts`, tự gắn vào `Logo/Pic` khi chơi): vệt sáng trắng chéo lướt qua phần chữ và hình mỗi 4 giây (*Period*, *Sweep*, *Band Width*, *Strength*),
 ngôi sao nhỏ trên chữ O nhấp nháy ~2.2 giây một lần (*Star X/Y* là vị trí px trên ảnh logo, *Star Size*, *Twinkle*). Tạo lúc chạy, không lưu vào scene.
 Ảnh logo: `boot_logo1`, `boot_logo2` trong `assets/resources/art` (chưa có thì hiện khung chữ LOGO 1 / LOGO 2).
