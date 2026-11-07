@@ -3,7 +3,8 @@
  * Dùng bởi nút "📐 Xếp lại theo ảnh demo" của DemoLevelBuilder (nút ⚙ cũng lấy độ lún mép đá ở đây). Node được tìm theo uuid nên đổi tên vẫn không sao.
  * Ảnh gốc giữ đúng cỡ vẽ (tỉ lệ 1), trừ vài món demo vẽ nhỏ hơn (bàn hồng, tủ điện).
  */
-export const DEMO_CAMERA_OFFSET_Y = 46;
+/** Độ cao camera (Offset Y của CameraRig): 33 để mép dưới khung hình khớp mép dưới tile đất (đo 07/11: khung -224, tile -237 khi còn 46) */
+export const DEMO_CAMERA_OFFSET_Y = 33;
 
 /**
  * x, y: vị trí trong lớp; sx, sy: tỉ lệ (sx âm = lật ngang). Thiếu trường nào thì giữ nguyên trường đó.

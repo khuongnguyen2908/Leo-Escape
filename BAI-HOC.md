@@ -232,6 +232,17 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 
 ## Code giao diện (menu, bảng)
 
+### Xoá Graphics rồi gắn Sprite trên cùng node: Sprite không bao giờ hiện
+- Ngày: 07/11/2026 · Nhóm: code
+- Triệu chứng: màn tải đổi hình tạm (Graphics) sang ảnh hoạ tiết (Sprite) trên cùng node: Sprite có ảnh, có màu, đúng lớp
+  mà không vẽ ra gì; không có lỗi nào trong console.
+- Nguyên nhân: \`destroy()\` component chỉ chạy ở cuối khung hình; lúc chạy, Graphics gỡ luôn "chỗ vẽ" của node,
+  kéo theo Sprite vừa gắn cùng khung.
+- Cách sửa: giữ Graphics (chỉ \`clear()\`), ảnh đặt vào **node con** riêng.
+- Cách tránh lần sau: mỗi node chỉ một thứ vẽ (Sprite / Label / Graphics). Muốn đổi loại thì dùng node con, đừng xoá-rồi-gắn trên cùng node.
+- Thêm: ảnh mới thả vào mà Type = texture thì \`resources.load(..., SpriteFrame)\` không tìm thấy — phải đổi Type = sprite-frame (Apply);
+  tên thư mục phân biệt chữ hoa thường (\`Loading_pattern\` ≠ \`loading_pattern\`).
+
 ### Hiệu ứng vẽ bằng Graphics: con số "đúng" mà nhìn không thấy / quá nhạt
 - Ngày: 07/11/2026 · Nhóm: code
 - Triệu chứng: vệt sáng ngang chữ ở menu (nét 3px, quầng alpha 16) chạy đúng, đúng chỗ mà nhìn không thấy;

@@ -1,4 +1,4 @@
-import { BlockInputEvents, Color, director, Graphics, Label, Node, resources, Sprite, SpriteFrame, UITransform, view } from 'cc';
+import { BlockInputEvents, Color, director, EffectAsset, Graphics, Label, Material, Node, resources, Sprite, SpriteFrame, UITransform, view } from 'cc';
 import { T } from './Lang';
 import { MENU_OUTLINE, MENU_TEXT } from './MenuStyle';
 import { setText, uiLabel, uiNode } from './UiKit';
@@ -8,14 +8,27 @@ export const LOADING_TIME = 2000;
 /** Hiện / tắt dần (giây) */
 const FADE = 0.2;
 const BG = new Color(126, 82, 54, 255);
-/** Hình nền: màu kem rất nhạt, lưới cột × hàng (lệch ngẫu nhiên cho khỏi đều), trôi chéo chậm */
-const PATTERN = new Color(250, 240, 222, 46);
-const COLS = 12;
-const ROWS = 7;
+/** Ảnh nền màn tải (phủ kín khung hình); chưa có thì tô màu BG */
+const BG_IMAGE = 'art/BG_loading';
+/**
+ * Hoạ tiết (theo ảnh mẫu): lưới đều so le từng hàng, mỗi ô CELL đơn vị (hàng lẻ lệch nửa ô), lệch ngẫu nhiên rất ít
+ * cho khỏi cứng; hình nhỏ (cạnh dài nhất ICON_SIZE × 0.85–1.05, luôn nhỏ hơn ô nên không đè nhau), gần như thẳng đứng
+ * (nghiêng tối đa TILT độ), rất mờ, cả lưới trôi chéo chậm.
+ */
+const PATTERN = new Color(250, 240, 222, 30);
+const CELL = 130;
+const JITTER = 0.1;
+const ICON_SIZE = 78;
+const TILT = 22;
 const DRIFT_X = 18;
 const DRIFT_Y = -10;
-/** Ảnh hình nền thay hình tạm: mọi ảnh trong thư mục này (lấy ngẫu nhiên) */
-const PATTERN_DIR = 'art/loading_pattern';
+/** Ảnh hoạ tiết thay hình tạm: mọi ảnh trong thư mục này (lấy ngẫu nhiên; đúng chữ hoa, web phân biệt hoa thường) */
+const PATTERN_DIR = 'art/Loading_pattern';
+/** Hoạ tiết trộn kiểu Screen (shader resources/effects/sprite-screen): độ đậm 0..255 */
+const PATTERN_SCREEN = 85;
+const PATTERN_EFFECT = 'effects/sprite-screen';
+/** Không tải được shader Screen thì vẽ thường với độ đậm này */
+const PATTERN_PLAIN = 70;
 /** Mèo chạy giữa màn: ảnh art/loading_cat_1, _2... chạy thành flip-book; chưa có thì vẽ đầu mèo tạm */
 const CAT_PREFIX = 'art/loading_cat_';
 const CAT_FPS = 12;
@@ -40,6 +53,15 @@ let time = 0;
 let phase = 0;
 let fadeT = 0;
 let onHidden: (() => void) | null = null;
+
+/** Số cột, số hàng của lưới hoạ tiết: phủ dư khung hình (để trôi không lộ mép), số hàng chẵn cho so le khớp khi quay vòng. */
+function gridSize(): { cols: number; rows: number } {
+    const d = view.getDesignResolutionSize();
+    const cols = Math.ceil((d.width * 1.4) / CELL);
+    let rows = Math.ceil((d.height * 1.4) / CELL);
+    if (rows % 2) rows++;
+    return { cols, rows };
+}
 
 /** Vẽ một hình nền tạm (kind 0..4: chân mèo, cá, xương, ngôi sao, chấm tròn), tâm (0, 0), cỡ s. */
 function drawShape(g: Graphics, kind: number, s: number) {
@@ -123,30 +145,56 @@ function build(canvas: Node) {
     bg.fillColor = BG;
     bg.rect(-W / 2, -H / 2, W, H);
     bg.fill();
+    // Ảnh nền thật: phủ kín khung hình (giữ tỉ lệ, cắt bớt phần thừa)
+    const bgPic = uiNode('BgImage', root);
+    resources.load(`${BG_IMAGE}/spriteFrame`, SpriteFrame, (err, sf) => {
+        if (err || !sf || !bgPic.isValid) return;
+        bgPic.addComponent(Sprite).spriteFrame = sf;
+        const k = Math.max(d.width / sf.rect.width, d.height / sf.rect.height);
+        bgPic.setScale(k, k, 1);
+    });
     // Hình nền: lưới có lệch ngẫu nhiên, mỗi hình một kiểu, cỡ, góc
     const field = uiNode('Pattern', root);
     pieces = [];
-    const cw = W / COLS, ch = H / ROWS;
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            const n = uiNode('Piece', field, 120, 120);
-            n.setPosition(-W / 2 + (c + 0.5) * cw + (Math.random() - 0.5) * cw * 0.5, -H / 2 + (r + 0.5) * ch + (Math.random() - 0.5) * ch * 0.5, 0);
-            n.angle = Math.random() * 360;
-            const k = 0.7 + Math.random() * 0.6;
-            n.setScale(k, k, 1);
-            drawShape(n.addComponent(Graphics), Math.floor(Math.random() * 5), 90);
-            pieces.push({ node: n, spin: (Math.random() - 0.5) * 12 });
+    // Kích thước lưới là bội số của ô (số hàng chẵn để so le khớp) để trôi hết một vòng quay lại không bị giật
+    const { cols, rows } = gridSize();
+    const PW = cols * CELL, PH = rows * CELL;
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const n = uiNode('Piece', field, CELL, CELL);
+            const x = -PW / 2 + (c + 0.5 + (r % 2) * 0.5) * CELL + (Math.random() - 0.5) * CELL * JITTER;
+            const y = -PH / 2 + (r + 0.5) * CELL + (Math.random() - 0.5) * CELL * JITTER;
+            n.setPosition(x, y, 0);
+            n.angle = (Math.random() - 0.5) * 2 * TILT;
+            drawShape(n.addComponent(Graphics), Math.floor(Math.random() * 5), ICON_SIZE);
+            pieces.push({ node: n, spin: (Math.random() - 0.5) * 4 });
         }
     }
-    // Có ảnh hình nền thật thì thay hình tạm (giữ chỗ, cỡ, góc)
+    // Có ảnh hoạ tiết thật thì thay hình tạm (giữ chỗ, góc; cỡ gốc × 0.7–1.1), trộn kiểu Screen
     resources.loadDir(PATTERN_DIR, SpriteFrame, (err, frames) => {
         if (err || !frames || frames.length === 0) return;
-        for (const p of pieces) {
-            if (!p.node.isValid) continue;
-            p.node.getComponent(Graphics)?.clear();
-            const sp = p.node.getComponent(Sprite) ?? p.node.addComponent(Sprite);
-            sp.spriteFrame = frames[Math.floor(Math.random() * frames.length)];
-        }
+        resources.load(PATTERN_EFFECT, EffectAsset, (e2, effect) => {
+            let mat: Material | null = null;
+            if (!e2 && effect) {
+                mat = new Material();
+                mat.initialize({ effectAsset: effect, defines: { USE_TEXTURE: true } });
+            }
+            for (const p of pieces) {
+                if (!p.node.isValid) continue;
+                // Ảnh đặt vào node con: không xoá Graphics rồi gắn Sprite trên cùng node (xoá chạy cuối khung,
+                // gỡ luôn chỗ vẽ của node nên Sprite vừa gắn không bao giờ hiện)
+                p.node.getComponent(Graphics)?.clear();
+                const pic = p.node.getChildByName('Pic') ?? uiNode('Pic', p.node);
+                const sp = pic.getComponent(Sprite) ?? pic.addComponent(Sprite);
+                sp.spriteFrame = frames[Math.floor(Math.random() * frames.length)];
+                if (mat) sp.customMaterial = mat;
+                sp.color = new Color(255, 255, 255, mat ? PATTERN_SCREEN : PATTERN_PLAIN);
+                // Cạnh dài nhất ICON_SIZE × 0.85–1.05 (luôn nhỏ hơn ô lưới nên không đè nhau)
+                const r = sp.spriteFrame!.rect;
+                const k = (ICON_SIZE / Math.max(r.width, r.height)) * (0.85 + Math.random() * 0.2);
+                pic.setScale(k, k, 1);
+            }
+        });
     });
     // Mèo giữa màn
     cat = uiNode('Cat', root, CAT_SIZE, CAT_SIZE);
@@ -220,8 +268,8 @@ function tick() {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     time += dt;
-    const d = view.getDesignResolutionSize();
-    const W = d.width * 1.6, H = d.height * 1.6;
+    const { cols, rows } = gridSize();
+    const W = cols * CELL, H = rows * CELL;
     // Hình nền trôi chéo chậm, ra khỏi mép thì quay lại mép bên kia; mỗi hình xoay rất chậm
     for (const p of pieces) {
         const n = p.node;
@@ -272,10 +320,11 @@ function stopTimer() {
 }
 
 /**
- * Màn tải giữa hai cảnh (sau khi chọn ô lưu, sau khi đọc xong truyện): nền nâu ấm, các hình nhỏ màu kem rải ngẫu nhiên
+ * Màn tải giữa hai cảnh (sau khi chọn ô lưu, sau khi đọc xong truyện): nền ảnh BG_loading (chưa có thì nâu ấm), hoạ tiết
+ * trong art/Loading_pattern rải ngẫu nhiên, trộn kiểu Screen (sáng nhẹ hơn nền; chưa có ảnh thì hình tạm màu kem)
  * trôi chéo chậm, mèo nhún giữa màn (ảnh loading_cat_1.. chạy flip-book; chưa có thì đầu mèo tạm), chữ "Loading..." nhún
  * từng chữ. Hiện dần trên màn đen, tắt dần về đen. Chạy bằng setInterval (vẫn chạy khi game tạm dừng / đang chuyển cảnh).
- * Hình nền thật: thả ảnh vào assets/resources/art/loading_pattern (bao nhiêu cũng được, lấy ngẫu nhiên).
+ * Hoạ tiết: thả ảnh vào assets/resources/art/Loading_pattern (bao nhiêu cũng được, lấy ngẫu nhiên; Type = sprite-frame).
  */
 export const LoadingScreen = {
     show() {

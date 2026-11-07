@@ -150,8 +150,8 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
   | Nghỉ giữa các đòn (địch, boss) | ×1 | ×0.8 | ×0.65 |
   | Boss báo trước (cột lửa, phun axit) | ×1 | ×0.85 | ×0.7 |
 
-  Chọn xong → màn đen **zoom vào** (lỗ tròn thu lại, `IrisWipe.ts`) + **màn tải** (`LoadingScreen.ts`, đứng 2 giây: nền nâu ấm, hình nhỏ màu kem
-  rải ngẫu nhiên trôi chéo chậm — ảnh thật thả vào `art/loading_pattern/`; mèo giữa màn — khung hình `loading_cat_1`, `_2`... chạy flip-book 12 hình/giây,
+  Chọn xong → màn đen **zoom vào** (lỗ tròn thu lại, `IrisWipe.ts`) + **màn tải** (`LoadingScreen.ts`, đứng 2 giây: nền ảnh `BG_loading`, hoạ tiết trong `art/Loading_pattern/`
+  (Type = sprite-frame) rải ngẫu nhiên trôi chéo chậm, trộn kiểu **Screen** (shader `resources/effects/sprite-screen.effect`, độ đậm `PATTERN_SCREEN`); mèo giữa màn — khung hình `loading_cat_1`, `_2`... chạy flip-book 12 hình/giây,
   chưa có thì đầu mèo tạm; chữ Loading... nhún từng chữ) →
   - **ô mới**: **3 trang truyện** (`StoryPages.ts`; ảnh `story_1..3` trong `art`, chưa có thì khung PAGE 1...; chữ `story.1..3` trong `Lang.ts`),
     **lật như sách**: trang gập quanh gáy trái, tối dần, đổ bóng lên trang dưới. → / Enter / phím khác / chạm: lật tới; ← (hoặc chạm phía trái): lật lại;
@@ -505,7 +505,7 @@ và game cũng không dùng nó để bám nhân vật. Hãy chỉnh component *
 | Thông số | Ý nghĩa |
 |---|---|
 | Zoom | lớn hơn 1 là gần hơn, nhỏ hơn 1 là thấy rộng hơn (HUD không bị phóng theo) |
-| Offset | x dương: nhìn về phải nhiều hơn. y dương: nhìn cao hơn, mặt đất thấp xuống |
+| Offset | x dương: nhìn về phải nhiều hơn. y dương: nhìn cao hơn, mặt đất thấp xuống. **Offset Y = 33**: mép dưới khung hình khớp đúng mép dưới tile đất (nút 📐 đặt số này, `DEMO_CAMERA_OFFSET_Y` trong `DemoLayout.ts`) |
 | Look Ahead | nhìn trước theo hướng chạy |
 | Damping X / Y | độ bám (lớn thì bám sát, nhỏ thì trễ và mượt) |
 | Follow Jump | tắt (mặc định): camera không nhảy theo, chỉ đổi độ cao khi mèo đứng lên bục cao hơn hoặc rơi xuống |
