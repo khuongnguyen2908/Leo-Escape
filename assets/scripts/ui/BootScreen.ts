@@ -1,17 +1,26 @@
-import { _decorator, Color, Component, EventKeyboard, Graphics, Input, input, KeyCode, Label, Node, resources, Sprite, SpriteFrame, sys, Tween, tween, UIOpacity, UITransform, Vec3, view } from 'cc';
+import { _decorator, Color, Component, EventKeyboard, Graphics, Input, input, instantiate, KeyCode, Label, Node, resources, Sprite, SpriteFrame, Tween, tween, UIOpacity, Vec3, view } from 'cc';
+import { Settings } from '../core/Settings';
 import { Sound } from '../core/Sound';
+import { menuDivider, MENU_OUTLINE, MENU_SOFT } from './MenuStyle';
+import { drawPaw } from './SaveIcon';
 import { T } from './Lang';
 import { setText, UI, uiLabel, uiNode } from './UiKit';
 const { ccclass } = _decorator;
 
 const BLACK = new Color(0, 0, 0, 255);
 const TITLE_OUTLINE = new Color(0x46, 0x2c, 0x22, 255);
+/** Chữ START khi scene không có node Start để nhân bản: cỡ 90, viền 7 xanh lá */
+const START_OUTLINE = new Color(0x3b, 0x71, 0x13, 255);
 /** Ảnh logo trong assets/resources/art (chưa có thì hiện khung chữ LOGO 1 / LOGO 2) */
 const LOGOS = ['boot_logo1', 'boot_logo2'];
-/** Logo: hiện dần, đứng, mờ dần (giây) */
-const LOGO_IN = 0.45;
-const LOGO_HOLD = 1.1;
-const LOGO_OUT = 0.45;
+/** Logo: hiện dần, đứng, mờ dần (giây) — mỗi logo 3 giây */
+const LOGO_IN = 1;
+const LOGO_HOLD = 1;
+const LOGO_OUT = 1;
+/** Màn thông báo tự lưu: hiện dần, đứng, mờ dần (giây); bấm phím / chạm để qua nhanh */
+const NOTICE_IN = 0.5;
+const NOTICE_HOLD = 3;
+const NOTICE_OUT = 0.5;
 /** Thanh tải chạy ít nhất chừng này giây (tải nhanh quá thì người chơi không kịp thấy) */
 const LOAD_MIN = 1.4;
 /** Thư mục tải trước trong lúc chạy thanh tải (hiệu ứng ảnh nhiều khung) */
@@ -19,13 +28,16 @@ const PRELOAD_DIR = 'art/fx';
 /** Nhạc menu (assets/resources/sounds/bgm.wav): bật khi thanh tải chạy xong */
 export const MENU_MUSIC = 'bgm';
 
-type Step = 'logo' | 'loading' | 'press' | 'done';
+type Step = 'logo' | 'notice' | 'loading' | 'press' | 'done';
 
 /**
  * Màn khởi động, chạy một lần khi mở game (LandingScreen gắn vào node Landing):
- *   1. Logo 1, 2. Logo 2 (màn đen; bấm phím / chạm để bỏ qua logo đang hiện),
+ *   1. Logo 1, 2. Logo 2 (màn đen, mỗi logo 3 giây; bấm phím / chạm để bỏ qua logo đang hiện),
+ *   2b. Thông báo tự lưu: chân mèo phát sáng giữa màn + 2 dòng "game tự lưu, đừng tắt khi biểu tượng này hiện" (SaveIcon hiện
+ *       chân mèo đó ở góc màn hình mỗi lần lưu); tự qua sau ~4 giây, bấm để qua nhanh,
  *   3. Banner (nền + logo game của Landing) kèm thanh tải, tải trước ảnh hiệu ứng,
- *   4. Thanh tải đổi thành chữ PRESS ANY BUTTON nhấp nháy; bấm phím / chạm thì gọi onDone (LandingScreen cho menu rơi xuống).
+ *   4. Thanh tải đổi thành nút START phập phồng (nhân bản node Start của Landing: ảnh nút + chữ START, chỉnh trong scene).
+ *      Bấm nút, hoặc Enter / Space / phím Nhảy / Đánh, thì gọi onDone (LandingScreen cho menu hiện ra). Phím khác không tính.
  */
 @ccclass('BootScreen')
 export class BootScreen extends Component {
@@ -46,6 +58,8 @@ export class BootScreen extends Component {
     private loaded = false;
     private press: Node | null = null;
     private pressTime = 0;
+    private pressReady = false;
+    private pressHover = false;
     private acceptAt = 0;
 
     onLoad() {
@@ -59,7 +73,11 @@ export class BootScreen extends Component {
         g.rect(-d.width * 1.5, -d.height * 1.5, d.width * 3, d.height * 3);
         g.fill();
         this.black = bg.addComponent(UIOpacity);
-        this.root.on(Node.EventType.TOUCH_END, this.onAny, this);
+        // Chạm bất kỳ đâu chỉ để bỏ qua logo; tới bước START thì phải chạm đúng nút
+        this.root.on(Node.EventType.TOUCH_END, () => {
+            if (this.step === 'logo') this.skipLogo?.();
+            else if (this.step === 'notice') this.skipNotice?.();
+        }, this);
         input.on(Input.EventType.KEY_DOWN, this.onKey, this);
         this.nextLogo();
     }
@@ -69,7 +87,10 @@ export class BootScreen extends Component {
     }
 
     update(dt: number) {
-        if (this.step === 'loading') {
+        if (this.step === 'notice') {
+            this.pressTime += dt;
+            this.paintGlow(this.pressTime);
+        } else if (this.step === 'loading') {
             this.loadTime += dt;
             // Thanh chạy theo tiến độ tải thật nhưng không nhanh hơn LOAD_MIN giây
             const target = Math.min(this.progress, this.loadTime / LOAD_MIN);
@@ -77,10 +98,11 @@ export class BootScreen extends Component {
             if (this.loaded && this.loadTime >= LOAD_MIN) this.shown = Math.max(this.shown, target);
             this.paintBar(this.shown);
             if (this.loaded && this.loadTime >= LOAD_MIN && this.shown > 0.995) this.showPress();
-        } else if (this.step === 'press' && this.press) {
+        } else if (this.step === 'press' && this.press && this.pressReady) {
+            // Nút START phập phồng nhẹ
             this.pressTime += dt;
-            const op = this.press.getComponent(UIOpacity)!;
-            op.opacity = Math.round(140 + 115 * Math.abs(Math.cos(this.pressTime * 2.6)));
+            const k = this.pressHover ? 1.08 : 1 + 0.045 * Math.sin(this.pressTime * 4);
+            this.press.setScale(k, k, 1);
         }
     }
 
@@ -91,7 +113,7 @@ export class BootScreen extends Component {
         if (this.logoNode && this.logoNode.isValid) this.logoNode.destroy();
         this.logoNode = null;
         if (this.logoIndex >= LOGOS.length) {
-            this.startLoading();
+            this.showNotice();
             return;
         }
         const n = uiNode(`Logo${this.logoIndex + 1}`, this.root, 900, 500);
@@ -134,10 +156,69 @@ export class BootScreen extends Component {
         tween(op).to(LOGO_IN, { opacity: 255 }).delay(LOGO_HOLD).call(out).start();
     }
 
+    // ---------- Thông báo tự lưu ----------
+
+    private notice: Node | null = null;
+    private noticeGlow: Graphics | null = null;
+    private skipNotice: (() => void) | null = null;
+
+    private showNotice() {
+        this.step = 'notice';
+        const n = uiNode('Notice', this.root);
+        this.notice = n;
+        const op = n.addComponent(UIOpacity);
+        op.opacity = 0;
+        // Chân mèo phát sáng (quầng sáng vẽ lại theo nhịp thở trong update)
+        const glow = uiNode('Glow', n, 300, 300);
+        glow.setPosition(0, 150, 0);
+        this.noticeGlow = glow.addComponent(Graphics);
+        const paw = uiNode('Paw', n, 160, 160);
+        paw.setPosition(0, 150, 0);
+        drawPaw(paw.addComponent(Graphics), 64, new Color(250, 246, 236, 255));
+        menuDivider(n, 10, 520);
+        const l1 = uiLabel(n, '', 34, MENU_SOFT, { outline: MENU_OUTLINE, outlineWidth: 3, name: 'Line1' });
+        setText(l1, T('boot.notice1'));
+        l1.node.setPosition(0, -50, 0);
+        const l2 = uiLabel(n, '', 34, MENU_SOFT, { outline: MENU_OUTLINE, outlineWidth: 3, name: 'Line2' });
+        setText(l2, T('boot.notice2'));
+        l2.node.setPosition(0, -100, 0);
+        menuDivider(n, -165, 300);
+        let gone = false;
+        const out = () => {
+            if (gone || !n.isValid) return;
+            gone = true;
+            this.skipNotice = null;
+            Tween.stopAllByTarget(op);
+            tween(op).to(NOTICE_OUT * (op.opacity / 255), { opacity: 0 }).call(() => {
+                n.destroy();
+                this.notice = null;
+                this.noticeGlow = null;
+                this.startLoading();
+            }).start();
+        };
+        this.skipNotice = out;
+        tween(op).to(NOTICE_IN, { opacity: 255 }).delay(NOTICE_HOLD).call(out).start();
+    }
+
+    /** Quầng sáng quanh chân mèo: các vòng tròn chồng nhau rất mờ, phồng xẹp như thở. */
+    private paintGlow(t: number) {
+        const g = this.noticeGlow;
+        if (!g || !g.isValid) return;
+        const op = this.notice?.getComponent(UIOpacity)?.opacity ?? 255;
+        const k = 0.85 + 0.15 * Math.sin(t * 2.2);
+        g.clear();
+        for (let i = 0; i < 7; i++) {
+            g.fillColor = new Color(200, 225, 255, Math.round(14 * (op / 255)));
+            g.circle(0, 0, (40 + i * 16) * k);
+            g.fill();
+        }
+    }
+
     // ---------- Banner + thanh tải ----------
 
     private startLoading() {
         this.step = 'loading';
+        this.pressTime = 0;
         // Màn đen mờ đi, lộ banner (nền + logo game của Landing)
         tween(this.black).to(0.5, { opacity: 0 }).start();
         const d = view.getDesignResolutionSize();
@@ -181,48 +262,86 @@ export class BootScreen extends Component {
         if (this.barLabel) setText(this.barLabel, T('boot.loading', Math.round(Math.min(1, t) * 100)));
     }
 
-    // ---------- PRESS ANY BUTTON ----------
+    // ---------- Nút START ----------
 
     private showPress() {
         this.step = 'press';
         Sound.music(MENU_MUSIC);
         if (this.bar) this.bar.active = false;
-        const d = view.getDesignResolutionSize();
-        const label = uiLabel(this.root, '', 56, Color.WHITE, { outline: TITLE_OUTLINE, outlineWidth: 4, name: 'Press' });
-        setText(label, T(sys.isMobile ? 'boot.tap' : 'boot.press'));
-        label.node.setPosition(0, -d.height / 2 + 160, 0);
-        label.node.addComponent(UIOpacity);
-        label.node.setScale(0.8, 0.8, 1);
-        tween(label.node).to(0.25, { scale: Vec3.ONE }, { easing: 'backOut' }).start();
-        this.press = label.node;
-        // Phím đang giữ từ lúc bỏ qua logo không tính là "bấm phím bất kỳ"
+        const btn = this.makeStart();
+        btn.setScale(0.6, 0.6, 1);
+        tween(btn).to(0.3, { scale: Vec3.ONE }, { easing: 'backOut' }).call(() => { this.pressReady = true; }).start();
+        btn.on(Node.EventType.TOUCH_START, () => { if (this.pressReady) btn.setScale(0.93, 0.93, 1); });
+        btn.on(Node.EventType.TOUCH_CANCEL, () => { this.pressHover = false; });
+        btn.on(Node.EventType.TOUCH_END, () => this.confirm());
+        btn.on(Node.EventType.MOUSE_ENTER, () => { this.pressHover = true; });
+        btn.on(Node.EventType.MOUSE_LEAVE, () => { this.pressHover = false; });
+        this.press = btn;
+        // Phím đang giữ từ lúc bỏ qua logo không tính
         this.acceptAt = Date.now() + 250;
     }
 
-    private onKey(e: EventKeyboard) {
-        // Esc để mở Cài đặt / thoát không tính
-        if (e.keyCode === KeyCode.ESCAPE || e.keyCode === KeyCode.MOBILE_BACK) return;
-        this.onAny();
+    /** Nút START: nhân bản node Start của Landing (ảnh nút + chữ, chỉnh trong scene); không có thì vẽ tạm. */
+    private makeStart(): Node {
+        const d = view.getDesignResolutionSize();
+        const src = this.node.getChildByName('Start');
+        let btn: Node;
+        if (src) {
+            btn = instantiate(src);
+            btn.name = 'StartButton';
+            btn.active = true;
+            this.root.addChild(btn);
+            btn.setPosition(src.position);
+        } else {
+            btn = uiNode('StartButton', this.root, 386, 194);
+            btn.setPosition(0, -d.height / 2 + 200, 0);
+            const g = btn.addComponent(Graphics);
+            g.fillColor = UI.accent;
+            g.strokeColor = UI.brown;
+            g.lineWidth = 8;
+            g.roundRect(-180, -70, 360, 140, 40);
+            g.fill();
+            g.stroke();
+            uiLabel(btn, 'START', 90, Color.WHITE, { outline: START_OUTLINE, outlineWidth: 7 });
+        }
+        return btn;
     }
 
-    private onAny() {
-        if (this.step === 'logo') {
-            this.skipLogo?.();
+    private onKey(e: EventKeyboard) {
+        if (this.step === 'logo' || this.step === 'notice') {
+            // Esc để mở Cài đặt / thoát không tính
+            if (e.keyCode === KeyCode.ESCAPE || e.keyCode === KeyCode.MOBILE_BACK) return;
+            if (this.step === 'logo') this.skipLogo?.();
+            else this.skipNotice?.();
             return;
         }
+        if (this.step !== 'press') return;
+        const k = e.keyCode;
+        const ok = k === KeyCode.ENTER || k === KeyCode.NUM_ENTER || k === KeyCode.SPACE
+            || [0, 1].some((p) => k === Settings.key(p, 'jump') || k === Settings.key(p, 'attack'));
+        if (ok) this.confirm();
+    }
+
+    /** Bấm START: nút lún xuống một nhịp rồi mờ đi, menu hiện ra. */
+    private confirm() {
         if (this.step !== 'press' || Date.now() < this.acceptAt) return;
         this.step = 'done';
         Sound.play('ui_start', 0.9);
         input.off(Input.EventType.KEY_DOWN, this.onKey, this);
-        const op = this.press?.getComponent(UIOpacity);
-        if (op) tween(op).to(0.2, { opacity: 0 }).start();
-        // Gọi sau khi sự kiện phím này xử lý xong, để menu không nhận luôn chính lần bấm này
+        const btn = this.press;
+        if (btn) {
+            this.pressReady = false;
+            const op = btn.getComponent(UIOpacity) ?? btn.addComponent(UIOpacity);
+            Tween.stopAllByTarget(btn);
+            tween(btn).to(0.06, { scale: new Vec3(0.92, 0.92, 1) }).to(0.1, { scale: new Vec3(1.08, 1.08, 1) }).start();
+            tween(op).delay(0.08).to(0.2, { opacity: 0 }).start();
+        }
         setTimeout(() => {
             if (!this.isValid) return;
             const done = this.onDone;
             this.root.destroy();
             this.destroy();
             done?.();
-        }, 0);
+        }, 220); // chờ nút lún xuống xong; menu cũng không nhận luôn chính lần bấm này
     }
 }

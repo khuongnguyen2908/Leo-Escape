@@ -1,4 +1,5 @@
 import { AudioClip, AudioSource, director, Input, input, Node, resources } from 'cc';
+import { Settings } from './Settings';
 
 /**
  * Phát âm thanh và nhạc nền. Mọi file nằm trong assets/resources/sounds, gọi theo tên file (không đuôi):
@@ -122,6 +123,11 @@ export const Sound = {
             // Trong lúc tải, game đã gọi music(name) (vào trận boss khi nhạc chưa tải xong): phát luôn
             if (wantedMusic === name) Sound.music(name);
         });
+    },
+
+    /** Áp âm lượng theo Cài đặt (âm lượng chung × nhạc nền / tiếng hiệu ứng). */
+    applySettings() {
+        this.setVolumes(Settings.master * Settings.music, Settings.master * Settings.sfx);
     },
 
     /** Áp âm lượng mới ngay (khi kéo thanh trượt trong Cài đặt). */

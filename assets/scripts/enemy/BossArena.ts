@@ -1,6 +1,6 @@
 import { _decorator, Color, Component, Graphics, Node, Size, Tween, tween, UIOpacity, Vec3 } from 'cc';
 import { CameraRig } from '../camera/CameraRig';
-import { Settings } from '../core/Settings';
+import { Achievements } from '../game/Achievements';
 import { Solid } from '../core/Solid';
 import { Sound } from '../core/Sound';
 import { TimeScale } from '../core/TimeScale';
@@ -292,7 +292,7 @@ export class BossArena extends Component {
         e.invulnerable = false;
         GameManager.instance?.followCats();
         GameManager.instance?.lockCats(false);
-        Sound.setVolumes(Settings.music, Settings.sfx);
+        Sound.applySettings();
         if (this.bossMusic) Sound.music(this.bossMusic);
         this.onFight?.();
     }
@@ -301,6 +301,7 @@ export class BossArena extends Component {
 
     private defeated() {
         this.state = 'done';
+        Achievements.unlock('boss');
         this.unscheduleAllCallbacks();
         // Slow motion chậm dần (giờ thật): xuống 15% trong 0.3s, giữ 1.2s, nhanh dần về bình thường trong 1s.
         // Kèm camera phóng nhẹ rồi trả lại (cũng chậm theo); không chớp màn hình
@@ -348,7 +349,7 @@ export class BossArena extends Component {
         this.banner = null;
         BossHealthBar.instance?.conceal();
         GameManager.instance?.lockCats(false);
-        Sound.setVolumes(Settings.music, Settings.sfx);
+        Sound.applySettings();
         const gm = GameManager.instance;
         if (gm?.music) Sound.music(gm.music); // về checkpoint: bật lại nhạc thường
         this.toIdle();

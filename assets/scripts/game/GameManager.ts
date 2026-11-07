@@ -1,6 +1,7 @@
 import { _decorator, Color, Component, Node, Rect, Size, Vec2, Vec3 } from 'cc';
 import { CameraRig } from '../camera/CameraRig';
 import { computeBox, overlaps } from '../core/Box';
+import { difficultyStats, DifficultyStats } from '../core/Difficulty';
 import { keyName, Settings } from '../core/Settings';
 import { Sound } from '../core/Sound';
 import { TimeScale } from '../core/TimeScale';
@@ -22,6 +23,10 @@ import { ResultsScreen } from '../ui/ResultsScreen';
 import { ScreenFade } from '../ui/ScreenFade';
 import { GameSession, reloadScene } from './GameSession';
 import { SaveSlots, SlotData } from './SaveSlots';
+import { Achievements, FAST_TIME } from './Achievements';
+// Nạp để đăng ký thông báo nhỏ khi đạt thành tích
+import '../ui/AchievementToast';
+import { SaveIcon } from '../ui/SaveIcon';
 const { ccclass, property } = _decorator;
 
 const _player = new Rect();
@@ -152,8 +157,8 @@ export class GameManager extends Component {
     }
 
     start() {
-        Sound.sfxVolume = Settings.sfx;
-        Sound.musicVolume = Settings.music;
+        Sound.sfxVolume = Settings.master * Settings.sfx;
+        Sound.musicVolume = Settings.master * Settings.music;
         Sound.preload();
         for (const c of this.cats) {
             c.hp = this.maxHp;
@@ -196,6 +201,7 @@ export class GameManager extends Component {
     beginPlay(music = true) {
         if (this.playing) return;
         this.playing = true;
+        this.applyDifficulty();
         // Nhạc rừng chỉ bật khi vào chơi (xong hội thoại mở đầu / chơi lại màn)
         if (music) this.startMusic();
         PlayerInput.clearQueues();
@@ -208,6 +214,17 @@ export class GameManager extends Component {
             this.updateCamera();
         } else if (leo) {
             this.setActive(leo);
+        }
+    }
+
+    /**
+     * Áp độ khó của ô lưu đang chơi lên mọi địch và boss trong màn (một lần, lúc vào chơi).
+     * Tìm theo tên component để GameManager không phải import EnemyPatrol / BossBrain (tránh vòng import).
+     */
+    private applyDifficulty() {
+        const d = difficultyStats(GameSession.difficulty);
+        for (const name of ['EnemyPatrol', 'BossBrain']) {
+            for (const c of this.node.getComponentsInChildren(name)) (c as unknown as { applyDifficulty(d: DifficultyStats): void }).applyDifficulty(d);
         }
     }
 
@@ -416,7 +433,9 @@ export class GameManager extends Component {
             chapter: 1, level: this.levelId, checkpoint, x, y,
             time: this.playTime, fish: this.fish, coins: this.coins, downs: this.downs,
             collected: this.collected.slice(), cleared: cleared || !!old?.cleared, savedAt: Date.now(),
+            difficulty: GameSession.difficulty,
         });
+        SaveIcon.show();
     }
 
     /**
@@ -482,6 +501,7 @@ export class GameManager extends Component {
         Sound.play('win');
         // Qua màn: ô lưu ghi "đã qua màn"
         if (this.player) this.saveSlot(this.savedCheckpoint, this.respawnPoint.x, this.respawnPoint.y, true);
+        this.unlockWinAchievements();
         for (const c of this.cats) {
             c.controlEnabled = false;
             c.invincible = Math.max(c.invincible, 999);
@@ -510,6 +530,15 @@ export class GameManager extends Component {
             this.outroTime = -1;
             this.showResults();
         }
+    }
+
+    /** Qua màn: Về nhà, và tuỳ cách qua mà thêm Mèo tham ăn, Không một vết xước, Nhanh như mèo, Liều mạng. */
+    private unlockWinAchievements() {
+        Achievements.unlock('clear');
+        if (this.fish >= this.fishTotal) Achievements.unlock('fish');
+        if (this.downs === 0) Achievements.unlock('nodown');
+        if (this.playTime < FAST_TIME) Achievements.unlock('fast');
+        if (GameSession.difficulty >= 2) Achievements.unlock('maniac');
     }
 
     /** Màn tối mờ dần rồi hiện bảng kết quả. */

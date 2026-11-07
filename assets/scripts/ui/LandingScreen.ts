@@ -7,7 +7,12 @@ import { GameSession } from '../game/GameSession';
 import { SlotData } from '../game/SaveSlots';
 import { BootScreen, MENU_MUSIC } from './BootScreen';
 import { DialogueBox } from './DialogueBox';
+import { DifficultyPage } from './DifficultyPage';
+import { MenuDust } from './MenuDust';
+import { MENU_OUTLINE, MENU_TEXT, MenuFocus, menuDivider, menuShade, MenuShine, menuTitle, PRESS_DELAY, textWidth } from './MenuStyle';
+import { AchievementsPage } from './AchievementsPage';
 import { IrisWipe } from './IrisWipe';
+import { LOADING_TIME } from './LoadingScreen';
 import { LogoShine } from './LogoShine';
 import { SaveSlotPage } from './SaveSlotPage';
 import { StoryPages } from './StoryPages';
@@ -16,10 +21,10 @@ import { PlayerVisual } from '../player/PlayerVisual';
 import { CharacterSelect } from './CharacterSelect';
 import { Lang, TextKey } from './Lang';
 import { useGameFont } from './GameFont';
-import { UI, uiButton, UiButton, uiDim, uiLabel, uiNode, uiPanel } from './UiKit';
+import { UI, uiButton, UiButton, uiDim, uiLabel, uiNode } from './UiKit';
 const { ccclass, property } = _decorator;
 
-type Page = 'boot' | 'drop' | 'start' | 'slots' | 'mode' | 'pick' | 'quit' | 'thanks' | 'credits' | 'intro';
+type Page = 'boot' | 'drop' | 'start' | 'slots' | 'diff' | 'ach' | 'mode' | 'pick' | 'quit' | 'thanks' | 'credits' | 'intro';
 
 /** Dòng menu được chọn: chữ phóng lên chừng này rồi thu về (khung chọn tính theo cỡ lúc to nhất nên chữ không tràn) */
 const FOCUS_PULSE = 1.15;
@@ -45,8 +50,9 @@ const SELECTION_EDGE = 70;
 const SELECTION_EXTRA = 38 + 42 + 24;
 
 /**
- * Màn mở đầu. Mở game lần đầu: logo 1 → logo 2 → banner + thanh tải → PRESS ANY BUTTON (BootScreen) → menu rơi xuống.
- * NEW GAME → chọn 1 trong 3 ô lưu (SaveSlotPage) → màn đen zoom vào + vòng tải nhỏ (IrisWipe) →
+ * Màn mở đầu. Mở game lần đầu: logo 1 → logo 2 → banner + thanh tải → nút START (BootScreen) → menu hiện ra.
+ * Nền menu có bụi BG_bui trôi chéo (MenuDust).
+ * NEW GAME → chọn 1 trong 3 ô lưu (SaveSlotPage) → ô mới thì chọn độ khó (DifficultyPage) → màn đen zoom vào + vòng tải nhỏ (IrisWipe) →
  *   ô mới: 3 trang truyện (StoryPages) → màn đen → zoom ra bản đồ → hội thoại mèo 3 câu (DialogueBox) → vào chơi;
  *   ô đã lưu: zoom ra bản đồ ngay tại checkpoint đã lưu → vào chơi.
  * Về màn hình chính từ trong game thì bỏ qua logo, menu rơi xuống luôn.
@@ -69,7 +75,7 @@ export class LandingScreen extends Component {
     static booted = false;
     static instance: LandingScreen | null = null;
     /** PauseMenu gắn vào: mở thẳng trang Cài đặt, và cho biết menu tạm dừng đang mở (để không nhận phím bên dưới). */
-    static openOptions: (() => void) | null = null;
+    static openOptions: ((onClose: () => void) => void) | null = null;
     static pauseOpen: () => boolean = () => false;
 
     @property({ type: SpriteFrame, tooltip: 'Không bắt buộc: ảnh logo. Để trống thì tìm MG_logo trong thư mục ảnh' })
@@ -104,10 +110,17 @@ export class LandingScreen extends Component {
     private focus = 0;
     private toast: Label | null = null;
     private quitRoot: Node | null = null;
-    private quitButtons: UiButton[] = [];
+    private quitItems: Label[] = [];
+    private quitFocusUi: MenuFocus | null = null;
     private quitFocus = 1;
+    /** Đang chờ PRESS_DELAY sau khi bấm một mục ở bảng QUIT / Credits */
+    private pressing = false;
     private thanksRoot: Node | null = null;
     private slotPage: SaveSlotPage | null = null;
+    private diffPage: DifficultyPage | null = null;
+    private achPage: AchievementsPage | null = null;
+    /** Vệt sáng ngang chữ ở dòng menu đang chọn */
+    private shine: MenuShine | null = null;
     /** Ô lưu vừa chọn (null = ô mới) */
     private pendingSave: SlotData | null = null;
 
@@ -128,8 +141,12 @@ export class LandingScreen extends Component {
         for (const l of this.getComponentsInChildren(Label)) useGameFont(l);
         this.setupLogo();
         this.menu = this.node.getChildByName('Menu');
-        if (this.menu) this.setupMenu();
-        else this.setupStart();
+        if (this.menu) {
+            this.setupMenu();
+            this.setupDust();
+        } else {
+            this.setupStart();
+        }
         input.on(Input.EventType.KEY_DOWN, this.onKey, this);
         if (this.menu) {
             if (!LandingScreen.booted) this.startBoot();
@@ -171,15 +188,17 @@ export class LandingScreen extends Component {
         } else if (this.page === 'start') {
             if (c.consumeJump() || c.consumeAttack()) this.onStart();
         } else if (this.page === 'quit') {
+            // CÓ / KHÔNG xếp hai hàng: W/S ↑/↓ (A/D cũng được) để đổi
             const left = c.left, right = c.right;
             if ((left && !this.wasLeft) || (right && !this.wasRight)) this.focusQuit(this.quitFocus === 0 ? 1 : 0);
+            if (c.consumeUp() || c.consumeDown()) this.focusQuit(this.quitFocus === 0 ? 1 : 0);
             this.wasLeft = left;
             this.wasRight = right;
-            if (c.consumeJump() || c.consumeAttack()) this.answerQuit(this.quitFocus === 0);
+            if (c.consumeJump() || c.consumeAttack()) this.pressQuit();
         } else if (this.page === 'thanks') {
             if (c.consumeJump() || c.consumeAttack()) this.hideThanks();
         } else if (this.page === 'credits') {
-            if (c.consumeJump() || c.consumeAttack()) this.hideCredits();
+            if (c.consumeJump() || c.consumeAttack()) this.pressCreditsBack();
         } else if (this.page === 'mode') {
             const left = c.left, right = c.right;
             if ((left && !this.wasLeft) || (right && !this.wasRight)) this.focusMode(this.modeFocus === 0 ? 1 : 0);
@@ -198,6 +217,14 @@ export class LandingScreen extends Component {
             this.slotPage?.back();
             return true;
         }
+        if (this.page === 'diff') {
+            this.diffPage?.back();
+            return true;
+        }
+        if (this.page === 'ach') {
+            this.achPage?.back();
+            return true;
+        }
         if (this.page === 'pick') {
             this.pick?.node.destroy();
             this.pick = null;
@@ -210,6 +237,7 @@ export class LandingScreen extends Component {
             if (this.menu) this.menu.active = true;
             else this.setActive('Start', true);
             this.setActive('Logo', true);
+            this.setActive('Copyright', true);
             PlayerInput.clearQueues();
             return true;
         }
@@ -241,6 +269,9 @@ export class LandingScreen extends Component {
             this.selectionDy = sel.position.y - near.position.y;
         }
         this.makeSelectionStretchy();
+        // Vệt sáng (loé khi bấm chọn) nằm ngay trên khung chọn, dưới chữ
+        this.shine = new MenuShine(menu);
+        if (sel) this.shine.node.setSiblingIndex(sel.getSiblingIndex() + 1);
         // Chữ của từng dòng theo ngôn ngữ (đổi ngôn ngữ thì khung chọn giãn lại theo chữ mới)
         for (const n of this.items) {
             const label = n.getComponent(Label) ?? n.getComponentInChildren(Label);
@@ -283,6 +314,7 @@ export class LandingScreen extends Component {
                 ui.setContentSize(Math.max(this.selectionWidth, text * FOCUS_PULSE + SELECTION_EXTRA), ui.height);
             }
         }
+
     }
 
     /** Chữ dòng menu phóng lên FOCUS_PULSE lần rồi thu về cỡ gốc. */
@@ -321,13 +353,27 @@ export class LandingScreen extends Component {
         ui.setContentSize(this.selectionWidth, ui.height);
     }
 
+    /** Bấm chọn dòng menu: vệt sáng loé, chờ PRESS_DELAY cho thấy rồi mới mở trang (trong lúc chờ không nhận bấm nữa). */
     private chooseMenu(i: number) {
         const item = this.items[i];
-        if (!item || this.leaving) return;
-        Sound.play(item.name === 'Achievements' ? 'ui_deny' : 'ui_click', 0.8);
+        if (!item || this.leaving || this.choosing) return;
+        Sound.play('ui_click', 0.8);
+        const label = item.getComponent(Label) ?? item.getComponentInChildren(Label);
+        if (this.shine && label) this.shine.flash(item.position.x, item.position.y, textWidth(label) / Math.abs(item.scale.x || 1));
+        this.choosing = true;
+        setTimeout(() => {
+            this.choosing = false;
+            if (this.isValid && this.page === 'start' && !this.leaving) this.openMenuItem(item);
+        }, PRESS_DELAY);
+    }
+
+    private choosing = false;
+
+    private openMenuItem(item: Node) {
         switch (item.name) {
             case 'NewGame': this.showSlots(); break;
-            case 'Options': LandingScreen.openOptions?.(); break;
+            case 'Achievements': this.showAchievements(); break;
+            case 'Options': this.showOptions(); break;
             case 'Quit': this.showQuit(); break;
             case 'Credits': this.showCredits(); break;
             default: this.showToast(item); break;
@@ -356,29 +402,42 @@ export class LandingScreen extends Component {
     }
 
     /** Hỏi lại trước khi thoát. Mặc định chọn NO cho khỏi lỡ tay. */
+    /** Giấu / hiện lại logo, chữ menu, dòng bản quyền (bảng kiểu mới nằm trên nền menu, khỏi lẫn chữ). */
+    private coverMenu(on: boolean) {
+        if (this.menu) this.menu.active = !on;
+        this.setActive('Logo', !on);
+        this.setActive('Copyright', !on);
+    }
+
+    /** QUIT: kiểu menu mới — đường hoa văn, tiêu đề, CÓ / KHÔNG hai hàng (mặc định KHÔNG). */
     private showQuit() {
         const d = view.getDesignResolutionSize();
         if (!this.quitRoot) {
             const root = uiNode('QuitAsk', this.node, d.width, d.height);
-            uiDim(root, d.width, d.height);
-            uiPanel(root, 640, 320);
-            const title = uiLabel(root, '', 60, Color.WHITE, { outline: TITLE_OUTLINE, outlineWidth: 4 });
+            menuShade(root, d.width, d.height, 150);
+            this.quitFocusUi = new MenuFocus(root);
+            menuDivider(root, 200, 640);
+            const title = uiLabel(root, '', 64, MENU_TEXT, { outline: MENU_OUTLINE, outlineWidth: 5 });
             Lang.bind(title, 'quit.title');
-            title.node.setPosition(0, 60, 0);
-            const yes = uiButton(root, '', 240, 90, () => this.answerQuit(true), { fontSize: 44, name: 'Yes' });
-            const no = uiButton(root, '', 240, 90, () => this.answerQuit(false), { fontSize: 44, name: 'No' });
-            Lang.bind(yes.label, 'yes');
-            Lang.bind(no.label, 'no');
-            yes.node.setPosition(-140, -70, 0);
-            no.node.setPosition(140, -70, 0);
-            yes.node.on(Node.EventType.MOUSE_ENTER, () => this.focusQuit(0));
-            no.node.on(Node.EventType.MOUSE_ENTER, () => this.focusQuit(1));
-            this.quitButtons = [yes, no];
+            title.node.setPosition(0, 130, 0);
+            this.quitItems = (['yes', 'no'] as const).map((key, i) => {
+                const l = uiLabel(root, '', 56, MENU_TEXT, { outline: MENU_OUTLINE, outlineWidth: 4, name: key });
+                Lang.bind(l, key);
+                l.node.setPosition(0, -10 - i * 100, 0);
+                l.node.on(Node.EventType.MOUSE_ENTER, () => this.focusQuit(i));
+                l.node.on(Node.EventType.TOUCH_END, () => {
+                    this.focusQuit(i);
+                    this.pressQuit();
+                });
+                return l;
+            });
             this.quitRoot = root;
         }
+        this.coverMenu(true);
         this.quitRoot.setSiblingIndex(this.node.children.length - 1);
         this.quitRoot.active = true;
         this.page = 'quit';
+        this.quitFocus = 1;
         this.focusQuit(1);
         PlayerInput.clearQueues();
     }
@@ -386,13 +445,30 @@ export class LandingScreen extends Component {
     private focusQuit(i: number) {
         if (i !== this.quitFocus && this.quitRoot?.active) Sound.play('ui_move', 0.6);
         this.quitFocus = i;
-        this.quitButtons.forEach((b, k) => b.setFocus(k === i));
+        const l = this.quitItems[i];
+        if (l) this.quitFocusUi?.onItem(l);
+    }
+
+    /** Bấm CÓ / KHÔNG: vệt sáng loé, chờ PRESS_DELAY rồi mới làm. */
+    private pressQuit() {
+        if (this.pressing || this.page !== 'quit') return;
+        this.pressing = true;
+        const l = this.quitItems[this.quitFocus];
+        if (l) this.quitFocusUi?.flashItem(l);
+        const yes = this.quitFocus === 0;
+        Sound.play('ui_click', 0.8);
+        setTimeout(() => {
+            this.pressing = false;
+            if (this.isValid && this.page === 'quit') this.answerQuit(yes);
+        }, PRESS_DELAY);
     }
 
     private answerQuit(yes: boolean) {
         if (this.quitRoot) this.quitRoot.active = false;
-        Sound.play(yes ? 'ui_click' : 'ui_back', 0.8);
+        this.coverMenu(false);
+        if (!yes) Sound.play('ui_back', 0.8);
         this.page = 'start';
+        this.focusMenu(this.focus, false);
         PlayerInput.clearQueues();
         if (!yes) return;
         // Bản build ra máy tính / điện thoại thì thoát thật
@@ -431,23 +507,22 @@ export class LandingScreen extends Component {
     }
 
     /** Bảng Tác giả: hai ô logo (ảnh credit_laris, credit_flynt trong thư mục art; chưa có thì khung LOGO) và tên. */
+    /** Credits kiểu menu mới: tiêu đề + đường hoa văn, khung logo + tên từng người, Back có khung chọn. */
     private showCredits() {
         const d = view.getDesignResolutionSize();
         if (!this.creditsRoot) {
             const root = uiNode('Credits', this.node, d.width, d.height);
-            uiDim(root, d.width, d.height);
-            const panel = uiPanel(root, 900, 620);
-            const title = uiLabel(panel, '', 60, UI.text);
-            Lang.bind(title, 'credits.title');
-            title.node.setPosition(0, 225, 0);
+            menuShade(root, d.width, d.height, 150);
+            const focus = new MenuFocus(root);
+            menuTitle(root, 'credits.title', 360);
             CREDITS.forEach(([name, art], i) => {
-                const x = (i - (CREDITS.length - 1) / 2) * 340;
-                const box = uiNode(`Logo_${name}`, panel, 240, 240);
-                box.setPosition(x, 30, 0);
+                const x = (i - (CREDITS.length - 1) / 2) * 420;
+                const box = uiNode(`Logo_${name}`, root, 260, 260);
+                box.setPosition(x, 40, 0);
                 const g = box.addComponent(Graphics);
-                // Khung tạm: viền nét đứt + chữ LOGO (có ảnh thì ẩn)
-                g.strokeColor = UI.brownDown;
-                g.lineWidth = 6;
+                // Khung tạm: viền nét đứt kem + chữ LOGO (có ảnh thì ẩn)
+                g.strokeColor = UI.creamDim;
+                g.lineWidth = 5;
                 const dash = (x0: number, y0: number, x1: number, y1: number) => {
                     const len = Math.hypot(x1 - x0, y1 - y0), n = Math.floor(len / 26);
                     for (let k = 0; k < n; k += 2) {
@@ -455,48 +530,62 @@ export class LandingScreen extends Component {
                         g.lineTo(x0 + ((x1 - x0) * (k + 1)) / n, y0 + ((y1 - y0) * (k + 1)) / n);
                     }
                 };
-                dash(-110, -110, 110, -110);
-                dash(110, -110, 110, 110);
-                dash(110, 110, -110, 110);
-                dash(-110, 110, -110, -110);
+                dash(-120, -120, 120, -120);
+                dash(120, -120, 120, 120);
+                dash(120, 120, -120, 120);
+                dash(-120, 120, -120, -120);
                 g.stroke();
-                const ph = uiLabel(box, 'LOGO', 40, UI.brownDown);
+                const ph = uiLabel(box, 'LOGO', 44, UI.creamDim);
                 resources.load(`${this.artFolder}/${art}/spriteFrame`, SpriteFrame, (err, sf) => {
                     if (err || !sf || !box.isValid) return;
                     g.clear();
                     ph.node.active = false;
                     const pic = uiNode('Pic', box);
-                    const sp = pic.addComponent(Sprite);
-                    sp.spriteFrame = sf;
-                    const k = 230 / Math.max(sf.rect.width, sf.rect.height);
+                    pic.addComponent(Sprite).spriteFrame = sf;
+                    const k = 250 / Math.max(sf.rect.width, sf.rect.height);
                     pic.setScale(k, k, 1);
                 });
-                const label = uiLabel(panel, name, 50, UI.text);
+                const label = uiLabel(root, name, 56, MENU_TEXT, { outline: MENU_OUTLINE, outlineWidth: 4 });
                 label.node.setPosition(x, -150, 0);
             });
-            const close = uiButton(panel, '', 300, 90, () => this.hideCredits(), { fontSize: 42, name: 'Close' });
-            Lang.bind(close.label, 'close');
-            close.node.setPosition(0, -245, 0);
-            close.setFocus(true);
+            const back = uiLabel(root, '', 56, MENU_TEXT, { outline: MENU_OUTLINE, outlineWidth: 4, name: 'Back' });
+            Lang.bind(back, 'back');
+            back.node.setPosition(0, -380, 0);
+            back.node.on(Node.EventType.TOUCH_END, () => this.pressCreditsBack());
+            this.creditsBack = back;
+            this.creditsFocus = focus;
             this.creditsRoot = root;
         }
+        this.coverMenu(true);
         this.creditsRoot.setSiblingIndex(this.node.children.length - 1);
         this.creditsRoot.active = true;
-        const panel = this.creditsRoot.getChildByName('Panel');
-        if (panel) {
-            panel.setScale(0.7, 0.7, 1);
-            tween(panel).to(0.22, { scale: Vec3.ONE }, { easing: 'backOut' }).start();
-        }
+        if (this.creditsBack) this.creditsFocus?.onItem(this.creditsBack);
         this.page = 'credits';
         PlayerInput.clearQueues();
     }
 
+    /** Bấm Back ở Credits: vệt sáng loé, chờ PRESS_DELAY rồi về menu. */
+    private pressCreditsBack() {
+        if (this.pressing || this.page !== 'credits') return;
+        this.pressing = true;
+        if (this.creditsBack) this.creditsFocus?.flashItem(this.creditsBack);
+        Sound.play('ui_click', 0.8);
+        setTimeout(() => {
+            this.pressing = false;
+            if (this.isValid && this.page === 'credits') this.hideCredits();
+        }, PRESS_DELAY);
+    }
+
     private hideCredits() {
         if (this.creditsRoot) this.creditsRoot.active = false;
+        this.coverMenu(false);
         this.page = 'start';
+        this.focusMenu(this.focus, false);
         PlayerInput.clearQueues();
     }
 
+    private creditsBack: Label | null = null;
+    private creditsFocus: MenuFocus | null = null;
     private creditsRoot: Node | null = null;
 
     private hideThanks() {
@@ -562,6 +651,7 @@ export class LandingScreen extends Component {
         this.page = 'slots';
         if (this.menu) this.menu.active = false;
         this.setActive('Logo', false);
+        this.setActive('Copyright', false);
         if (!this.slotPage) {
             const n = uiNode('Slots', this.node);
             const page = n.addComponent(SaveSlotPage);
@@ -577,18 +667,100 @@ export class LandingScreen extends Component {
     private hideSlots() {
         if (this.slotPage) this.slotPage.node.active = false;
         this.setActive('Logo', true);
+        this.setActive('Copyright', true);
         // Về menu từ trang ô lưu: các dòng menu rơi xuống lại
         if (this.menu) this.dropMenu();
         else this.page = 'start';
         PlayerInput.clearQueues();
     }
 
-    /** Chọn ô lưu: ô này nhận tiến độ từ giờ; rồi vào game (chọn số người nếu có Angelo). */
+    /** Chọn ô lưu: ô này nhận tiến độ từ giờ. Ô mới thì chọn độ khó trước; ô cũ giữ độ khó đã lưu, vào game luôn. */
     private pickSlot(slot: number, data: SlotData | null) {
         GameSession.slot = slot;
         this.pendingSave = data;
         if (this.slotPage) this.slotPage.node.active = false;
-        this.onStart();
+        if (data) {
+            GameSession.difficulty = data.difficulty ?? 0;
+            this.onStart();
+        } else {
+            this.showDifficulty();
+        }
+    }
+
+    // ---------- Cài đặt ----------
+
+    /** OPTIONS: giấu logo, chữ menu, dòng bản quyền (khỏi lẫn với chữ Cài đặt), đóng Cài đặt thì hiện lại. */
+    private showOptions() {
+        const open = LandingScreen.openOptions;
+        if (!open) return;
+        const parts = ['Logo', 'Copyright'].map((n) => this.node.getChildByName(n)).filter((n): n is Node => !!n && n.active);
+        if (this.menu) parts.push(this.menu);
+        for (const n of parts) n.active = false;
+        open(() => {
+            for (const n of parts) if (n.isValid) n.active = true;
+            if (this.page === 'start') this.focusMenu(this.focus, false);
+        });
+    }
+
+    // ---------- Thành tích ----------
+
+    private showAchievements() {
+        if (this.capture) return;
+        this.page = 'ach';
+        if (this.menu) this.menu.active = false;
+        this.setActive('Logo', false);
+        this.setActive('Copyright', false);
+        if (!this.achPage) {
+            const n = uiNode('Achievements', this.node);
+            const page = n.addComponent(AchievementsPage);
+            page.onBack = () => this.hideAchievements();
+            this.achPage = page;
+        } else {
+            this.achPage.node.active = true;
+        }
+        this.achPage.node.setSiblingIndex(this.node.children.length - 1);
+        PlayerInput.clearQueues();
+    }
+
+    private hideAchievements() {
+        if (this.achPage) this.achPage.node.active = false;
+        this.setActive('Logo', true);
+        this.setActive('Copyright', true);
+        if (this.menu) this.dropMenu();
+        else this.page = 'start';
+        PlayerInput.clearQueues();
+    }
+
+    // ---------- Độ khó ----------
+
+    private showDifficulty() {
+        this.page = 'diff';
+        if (!this.diffPage) {
+            const n = uiNode('Difficulty', this.node);
+            const page = n.addComponent(DifficultyPage);
+            page.onPick = (level) => {
+                GameSession.difficulty = level;
+                if (this.diffPage) this.diffPage.node.active = false;
+                this.onStart();
+            };
+            page.onBack = () => {
+                if (this.diffPage) this.diffPage.node.active = false;
+                this.showSlots();
+            };
+            this.diffPage = page;
+        } else {
+            this.diffPage.node.active = true;
+        }
+        this.diffPage.node.setSiblingIndex(this.node.children.length - 1);
+        PlayerInput.clearQueues();
+    }
+
+    /** Bụi trôi chéo ngay trên ảnh nền menu (dưới logo, chữ menu, các trang). */
+    private setupDust() {
+        const dust = uiNode('Dust', this.node);
+        const bg = this.node.getChildByName('MenuBg');
+        dust.setSiblingIndex(bg ? bg.getSiblingIndex() + 1 : 0);
+        dust.addComponent(MenuDust);
     }
 
     private onStart() {
@@ -675,9 +847,9 @@ export class LandingScreen extends Component {
             if (this.menu) this.chooseMenu(this.focus);
             else this.onStart();
         } else if (this.page === 'mode') this.chooseMode(this.modeFocus === 0 ? 1 : 2);
-        else if (this.page === 'quit') this.answerQuit(this.quitFocus === 0);
+        else if (this.page === 'quit') this.pressQuit();
         else if (this.page === 'thanks') this.hideThanks();
-        else if (this.page === 'credits') this.hideCredits();
+        else if (this.page === 'credits') this.pressCreditsBack();
     }
 
     private setActive(name: string, on: boolean) {
@@ -794,9 +966,8 @@ export class LandingScreen extends Component {
         const data = this.pendingSave;
         IrisWipe.close(0.6, () => {
             IrisWipe.showLoading(true);
-            // Giờ thật: vòng tải nhỏ đứng chừng 1 giây
-            setTimeout(() => {
-                IrisWipe.showLoading(false);
+            // Giờ thật: màn tải đứng LOADING_TIME rồi mờ về đen
+            setTimeout(() => IrisWipe.showLoading(false, () => {
                 if (!this.isValid) return;
                 if (data && !data.cleared) {
                     GameManager.instance?.applySave(data);
@@ -804,7 +975,7 @@ export class LandingScreen extends Component {
                 } else {
                     this.playStory();
                 }
-            }, 900);
+            }), LOADING_TIME);
         });
     }
 
@@ -814,10 +985,14 @@ export class LandingScreen extends Component {
         const n = uiNode('Story', this.node);
         const story = n.addComponent(StoryPages);
         IrisWipe.open(0.6);
+        // Lật hết truyện: màn đen, màn tải đứng LOADING_TIME rồi mới vào màn hướng dẫn
         story.onDone = () => {
             IrisWipe.close(0.6, () => {
                 n.destroy();
-                this.revealMap(true);
+                IrisWipe.showLoading(true);
+                setTimeout(() => IrisWipe.showLoading(false, () => {
+                    if (this.isValid) this.revealMap(true);
+                }), LOADING_TIME);
             });
         };
     }

@@ -1,5 +1,6 @@
 import { _decorator, Component } from 'cc';
 import { CameraRig } from '../camera/CameraRig';
+import type { DifficultyStats } from '../core/Difficulty';
 import { Sound } from '../core/Sound';
 import { GameManager } from '../game/GameManager';
 import { GroundBlock } from '../level/GroundBlock';
@@ -96,6 +97,15 @@ export class BossBrain extends Component {
     private startY = 0;
     private warnings: AcidWarning[] = [];
     private arena: BossArena | null = null;
+    /** Độ khó (GameManager gọi một lần lúc vào chơi): nghỉ giữa các đòn ngắn lại, báo trước ngắn lại. */
+    applyDifficulty(d: DifficultyStats) {
+        this.cooldown1 *= d.rest;
+        this.cooldown2 *= d.rest;
+        this.cooldown3 *= d.rest;
+        this.spitWindup *= d.warn;
+        this.pillarWarning *= d.warn;
+    }
+
     private readonly alive = () => !!this.boss && this.boss.isValid && !this.boss.defeated;
 
     onLoad() {

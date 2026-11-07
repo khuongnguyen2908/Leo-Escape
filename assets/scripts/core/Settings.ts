@@ -59,6 +59,8 @@ const DEFAULT_KEYS: KeyMap[] = [
 ];
 
 interface Data {
+    /** Âm lượng chung, nhân với nhạc nền và tiếng hiệu ứng */
+    master: number;
     music: number;
     sfx: number;
     fullscreen: boolean;
@@ -70,7 +72,7 @@ interface Data {
 const STORE_KEY = 'leo-escape-settings';
 
 function defaults(): Data {
-    return { music: 0.35, sfx: 0.8, fullscreen: false, shake: true, lang: 'en', keys: DEFAULT_KEYS.map((k) => ({ ...k })) };
+    return { master: 1, music: 0.35, sfx: 0.8, fullscreen: false, shake: true, lang: 'en', keys: DEFAULT_KEYS.map((k) => ({ ...k })) };
 }
 
 function load(): Data {
@@ -79,6 +81,7 @@ function load(): Data {
         const raw = sys.localStorage.getItem(STORE_KEY);
         if (!raw) return d;
         const saved = JSON.parse(raw);
+        if (typeof saved.master === 'number') d.master = saved.master;
         if (typeof saved.music === 'number') d.music = saved.music;
         if (typeof saved.sfx === 'number') d.sfx = saved.sfx;
         if (typeof saved.fullscreen === 'boolean') d.fullscreen = saved.fullscreen;
@@ -127,6 +130,9 @@ function save() {
 }
 
 export const Settings = {
+    get master() { return get().master; },
+    set master(v: number) { get().master = Math.max(0, Math.min(1, v)); save(); },
+
     get music() { return get().music; },
     set music(v: number) { get().music = Math.max(0, Math.min(1, v)); save(); },
 
@@ -167,6 +173,26 @@ export const Settings = {
 
     resetKeys() {
         get().keys = DEFAULT_KEYS.map((k) => ({ ...k }));
+        save();
+    },
+
+    /** Trả về mặc định: trang Âm thanh (âm lượng chung, nhạc nền, tiếng hiệu ứng). */
+    resetAudio() {
+        const d = defaults();
+        Object.assign(get(), { master: d.master, music: d.music, sfx: d.sfx });
+        save();
+    },
+
+    /** Trả về mặc định: trang Hình ảnh (toàn màn hình, rung màn hình). */
+    resetVideo() {
+        const d = defaults();
+        Object.assign(get(), { fullscreen: d.fullscreen, shake: d.shake });
+        save();
+    },
+
+    /** Trả về mặc định: trang Trò chơi (ngôn ngữ). */
+    resetGame() {
+        get().lang = defaults().lang;
         save();
     },
 

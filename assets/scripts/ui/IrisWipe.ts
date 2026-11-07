@@ -1,15 +1,12 @@
-import { Color, director, Graphics, Label, Node, tween, Tween, UITransform, Vec3, view } from 'cc';
+import { Color, director, Graphics, Node, tween, Tween, UITransform, Vec3, view } from 'cc';
 import { Sound } from '../core/Sound';
-import { T } from './Lang';
-import { setText, UI, uiLabel, uiNode } from './UiKit';
+import { LoadingScreen } from './LoadingScreen';
+import { uiNode } from './UiKit';
 
 const BLACK = new Color(0, 0, 0, 255);
 
 let root: Node | null = null;
 let g: Graphics | null = null;
-let spinner: Node | null = null;
-let spinnerG: Graphics | null = null;
-let spinTimer: ReturnType<typeof setInterval> | null = null;
 const state = { r: 0, cx: 0, cy: 0 };
 
 function maxRadius(): number {
@@ -48,12 +45,11 @@ function draw() {
 function bringToFront() {
     const n = getRoot();
     if (n?.parent) n.setSiblingIndex(n.parent.children.length - 1);
-    if (spinner?.isValid && spinner.parent) spinner.setSiblingIndex(spinner.parent.children.length - 1);
 }
 
 /**
  * Chuyển cảnh kiểu "zoom vào màn đen": lỗ tròn thu nhỏ dần tới khi đen kín (close), rồi nở ra lộ cảnh mới (open).
- * Nằm trên cùng Canvas. Kèm vòng xoay "đang tải" nhỏ giữa màn hình khi đen kín (showLoading).
+ * Nằm trên cùng Canvas. Đen kín thì hiện màn tải (showLoading → LoadingScreen).
  */
 export const IrisWipe = {
     /** Chỗ của node trên màn hình (toạ độ Canvas), dùng làm tâm lỗ tròn (zoom ra từ chỗ mèo đứng). dy: nâng lên. */
@@ -111,40 +107,9 @@ export const IrisWipe = {
         }).start();
     },
 
-    /** Vòng xoay nhỏ + chữ ĐANG TẢI... giữa màn hình (trên màn đen). */
-    showLoading(on: boolean) {
-        const canvas = director.getScene()?.getChildByName('Canvas');
-        if (!canvas) return;
-        if (on) {
-            if (!spinner || !spinner.isValid) {
-                spinner = uiNode('IrisLoading', canvas);
-                const s = uiNode('Spin', spinner, 90, 90);
-                spinnerG = s.addComponent(Graphics);
-                const label: Label = uiLabel(spinner, '', 32, UI.cream);
-                label.node.setPosition(0, -90, 0);
-                setText(label, T('boot.wait'));
-            }
-            spinner.active = true;
-            bringToFront();
-            let a = 0;
-            if (spinTimer) clearInterval(spinTimer);
-            // setInterval: vẫn quay khi game tạm dừng / đang tải
-            spinTimer = setInterval(() => {
-                if (!spinnerG || !spinnerG.isValid) return;
-                a += 0.22;
-                spinnerG.clear();
-                spinnerG.lineWidth = 9;
-                spinnerG.strokeColor = UI.creamDim;
-                spinnerG.circle(0, 0, 34);
-                spinnerG.stroke();
-                spinnerG.strokeColor = UI.accent;
-                spinnerG.arc(0, 0, 34, a, a + Math.PI * 0.6, true);
-                spinnerG.stroke();
-            }, 30);
-        } else {
-            if (spinTimer) clearInterval(spinTimer);
-            spinTimer = null;
-            if (spinner && spinner.isValid) spinner.active = false;
-        }
+    /** Màn tải (LoadingScreen) trên màn đen: on = hiện; tắt thì mờ về đen rồi gọi done. */
+    showLoading(on: boolean, done?: () => void) {
+        if (on) LoadingScreen.show();
+        else LoadingScreen.hide(done);
     },
 };

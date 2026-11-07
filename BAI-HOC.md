@@ -232,6 +232,25 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 
 ## Code giao diện (menu, bảng)
 
+### Hiệu ứng vẽ bằng Graphics: con số "đúng" mà nhìn không thấy / quá nhạt
+- Ngày: 07/11/2026 · Nhóm: code
+- Triệu chứng: vệt sáng ngang chữ ở menu (nét 3px, quầng alpha 16) chạy đúng, đúng chỗ mà nhìn không thấy;
+  lớp tối của bảng tạm dừng alpha 205 nhưng màn hướng dẫn (tờ giấy trắng) phía sau vẫn sáng rõ.
+- Nguyên nhân: nét mảnh và mờ thì ở cỡ màn hình thật / khung xem thu nhỏ biến mất; nền trắng cần lớp tối đậm hơn nhiều so với nền rừng tối.
+- Cách sửa: vệt sáng 5px, quầng alpha 34 × 7 lớp, dài hơn chữ 200 mỗi bên; lớp tối bảng tạm dừng 240.
+- Cách tránh lần sau: hiệu ứng mờ / sáng phải **chụp màn hình xem bằng mắt** trên nền sáng nhất và tối nhất nó sẽ nằm lên,
+  chỉnh trực tiếp trên trang (gán lại hàm vẽ bằng JS) cho tới khi thấy rõ rồi mới ghi số vào code. Thử vẽ một hình đặc màu đỏ
+  để tách "không vẽ" với "vẽ mà quá nhạt".
+
+### Lớp tối vẽ bằng Graphics hiện đen kịt dù UIOpacity đang ở mức thấp
+- Ngày: 07/11/2026 · Nhóm: code
+- Triệu chứng: lật trang truyện, trang đang gập lẽ ra tối dần (UIOpacity 106/255) nhưng hiện đen đặc, che hết tranh.
+- Nguyên nhân (đoán, chưa đào tới tận engine): đổi UIOpacity liên tục trên node chỉ có Graphics không làm hình vẽ trong suốt theo ngay;
+  màu đã vẽ (đen 255) được giữ nguyên.
+- Cách sửa: vẽ lại Graphics mỗi khung với độ trong suốt nằm trong màu tô (\`fillColor\` có alpha), không dùng UIOpacity cho hình vẽ.
+- Cách tránh lần sau: hiệu ứng mờ dần trên hình vẽ bằng code thì đổi alpha trong màu rồi vẽ lại; UIOpacity dùng cho Sprite và Label.
+  Luôn chụp giữa chừng hiệu ứng (dừng game, tick tay) để thấy, đừng chỉ đọc số opacity.
+
 ### Import vòng làm "Missing class", mất luôn nút ⚙
 - Ngày: 06/11/2026 · Nhóm: code
 - Triệu chứng: Console Creator đầy "Missing class ...", "Found possible circular reference ... PlayerTrigger"; Checkpoint, Goal, cá... mất script,

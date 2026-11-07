@@ -17,6 +17,8 @@ export const GameSession = {
     waitingForStart: false,
     /** Ô lưu đang chơi (0..2), -1 = chưa chọn (không lưu tiến độ). Giữ qua các lần tải lại màn. */
     slot: -1,
+    /** Độ khó của ô lưu đang chơi (0 CASUAL, 1 NORMAL, 2 MANIAC; core/Difficulty.ts). */
+    difficulty: 0,
     /**
      * Màn hướng dẫn của scene đang chơi (TutorialRoom tự gắn vào đây khi nạp, gỡ khi bị xoá).
      * Để ở đây cho LandingScreen gọi mà không phải import TutorialRoom (import thẳng tạo vòng: LandingScreen → TutorialRoom →
@@ -27,6 +29,7 @@ export const GameSession = {
     reset() {
         this.mode = 1;
         this.slot = -1;
+        this.difficulty = 0;
         this.leoPlayer = 0;
         this.angeloPlayer = 1;
     },

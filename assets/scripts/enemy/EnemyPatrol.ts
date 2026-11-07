@@ -1,10 +1,12 @@
 import { _decorator, Color, Component, Graphics, Node, Rect, Sprite, SpriteFrame, tween, UIOpacity, UITransform, Vec3 } from 'cc';
 import { moveTowards, overlaps } from '../core/Box';
+import type { DifficultyStats } from '../core/Difficulty';
 import { Hittable, registerHittable, unregisterHittable } from '../core/Hittable';
 import { HitStop } from '../core/HitStop';
 import { Sound } from '../core/Sound';
 import { PlatformerBody } from '../core/PlatformerBody';
 import { GameManager } from '../game/GameManager';
+import { Achievements } from '../game/Achievements';
 import { DustPuff } from '../player/DustPuff';
 import type { PlayerController } from '../player/PlayerController';
 const { ccclass, property, requireComponent } = _decorator;
@@ -183,6 +185,16 @@ export class EnemyPatrol extends Component implements Hittable {
         this.node.setPosition(x, y, this.node.position.z);
         this.body.velocity.set(0, 0);
         this.body.gravityScale = 1;
+    }
+
+    /** Độ khó (GameManager gọi một lần lúc vào chơi): nhân máu, thời gian gồng đòn mổ và nghỉ giữa các đòn. */
+    applyDifficulty(d: DifficultyStats) {
+        // Lấy theo hp hiện tại (lúc vào chơi còn đầy) vì start() của địch có thể chạy sau
+        const hp = Math.max(1, Math.round(this.hp * d.hp));
+        this.hp = hp;
+        this.maxHpValue = hp;
+        this.peckWindup *= d.windup;
+        this.peckRest *= d.rest;
     }
 
     /** Nhảy lên tại chỗ (đang đứng trên đất). */
@@ -573,6 +585,7 @@ export class EnemyPatrol extends Component implements Hittable {
     /** Gục: văng ra sau, lật nghiêng rồi mờ dần. */
     private die(away: number) {
         this.dead = true;
+        if (!this.big) Achievements.addBirdKill();
         this.clearStars();
         Sound.play('enemy_die');
         // Nổ ở giữa thân: quái nhỏ tia nổ vàng, boss đầu lâu nổ to (gắn vào lớp Gameplay để không mất theo xác)

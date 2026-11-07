@@ -89,6 +89,43 @@ export function uiPanel(parent: Node, w: number, h: number, name = 'Panel'): Nod
     return n;
 }
 
+/** Nút tròn nhỏ có mũi tên ← (quay lại trên điện thoại, nơi không có phím Esc). */
+export function uiBackCircle(parent: Node, x: number, y: number, onClick: () => void, r = 44): Node {
+    const n = uiNode('BackCircle', parent, r * 2 + 16, r * 2 + 16);
+    n.setPosition(x, y, 0);
+    const g = n.addComponent(Graphics);
+    const paint = (down: boolean) => {
+        if (!g.isValid) return;
+        g.clear();
+        g.fillColor = down ? UI.brownDown : UI.brown;
+        g.circle(0, 0, r);
+        g.fill();
+        g.strokeColor = UI.cream;
+        g.lineWidth = 5;
+        g.circle(0, 0, r);
+        g.stroke();
+        const k = r * 0.42;
+        g.lineWidth = 8;
+        g.lineCap = Graphics.LineCap.ROUND;
+        g.lineJoin = Graphics.LineJoin.ROUND;
+        g.moveTo(k, 0);
+        g.lineTo(-k, 0);
+        g.moveTo(-k * 0.15, k * 0.85);
+        g.lineTo(-k, 0);
+        g.lineTo(-k * 0.15, -k * 0.85);
+        g.stroke();
+    };
+    paint(false);
+    n.on(Node.EventType.TOUCH_START, () => paint(true));
+    n.on(Node.EventType.TOUCH_CANCEL, () => paint(false));
+    n.on(Node.EventType.TOUCH_END, () => {
+        paint(false);
+        Sound.play('ui_back', 0.8);
+        onClick();
+    });
+    return n;
+}
+
 export interface UiButton {
     node: Node;
     label: Label;

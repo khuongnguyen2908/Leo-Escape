@@ -37,10 +37,10 @@ export function keyCap(parent: Node, text: string, x: number, y: number, h = 46)
 }
 
 /**
- * Một hàng gợi ý: [các ô phím] chữ   [ô phím] chữ ... căn giữa tại (0, y) trong parent.
+ * Một hàng gợi ý: [các ô phím] chữ   [ô phím] chữ ... căn giữa tại (0, y) trong parent (có rightX thì mép phải cả hàng nằm ở rightX).
  * items: [danh sách chữ trên ô phím, chữ mô tả]. Trả về node chứa cả hàng.
  */
-export function keyHintRow(parent: Node, items: [string[], string][], y: number, h = 44, fontSize = 28, color: Color = UI.cream): Node {
+export function keyHintRow(parent: Node, items: [string[], string][], y: number, h = 44, fontSize = 28, color: Color = UI.cream, rightX?: number): Node {
     const row = uiNode('KeyHints', parent);
     row.setPosition(0, y, 0);
     const gapKey = 8, gapText = 12, gapItem = 44;
@@ -55,6 +55,7 @@ export function keyHintRow(parent: Node, items: [string[], string][], y: number,
         parts[parts.length - 2].w += gapText - gapKey;
     });
     const total = parts.reduce((s, p) => s + p.w, 0);
+    if (rightX !== undefined) row.setPosition(rightX - total / 2, y, 0);
     let x = -total / 2;
     for (const p of parts) {
         const ui = p.node.getComponent(UITransform)!;

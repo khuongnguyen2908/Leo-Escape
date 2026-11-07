@@ -20,6 +20,8 @@ export interface SlotData {
     collected: string[];
     /** Đã qua màn */
     cleared: boolean;
+    /** Độ khó chọn lúc tạo ô (0 CASUAL, 1 NORMAL, 2 MANIAC). Ô lưu cũ chưa có thì tính là CASUAL. */
+    difficulty?: number;
     /** Lúc lưu (Date.now()) */
     savedAt: number;
 }

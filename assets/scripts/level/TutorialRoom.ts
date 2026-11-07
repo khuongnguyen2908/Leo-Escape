@@ -1,9 +1,10 @@
-import { _decorator, Color, Component, director, Graphics, Node } from 'cc';
+import { _decorator, AudioClip, Color, Component, director, Graphics, Node, resources } from 'cc';
 import { EDITOR } from 'cc/env';
 import { CameraRig } from '../camera/CameraRig';
 import { Sound } from '../core/Sound';
 import { GameManager } from '../game/GameManager';
 import { GameSession } from '../game/GameSession';
+import { Achievements } from '../game/Achievements';
 import { DialogueBox } from '../ui/DialogueBox';
 import { IrisWipe } from '../ui/IrisWipe';
 import { TutorialExit } from './TutorialExit';
@@ -35,6 +36,9 @@ export class TutorialRoom extends Component {
     @property({ tooltip: 'Tờ giấy cao bao nhiêu (tính từ mặt sàn lên)' })
     get height() { return this._height; }
     set height(v: number) { this._height = v; this.draw(); }
+
+    @property({ tooltip: 'Nhạc riêng của màn hướng dẫn (tên file trong assets/resources/sounds). Chưa có file thì giữ nhạc menu' })
+    music = 'bgm_tutorial';
 
     @property
     _width = 6400;
@@ -90,6 +94,8 @@ export class TutorialRoom extends Component {
         const rig = CameraRig.instance;
         if (!gm) return;
         this.inside = true;
+        // Nhạc riêng (có file mới đổi, không thì nhạc menu chạy tiếp)
+        if (this.music && resources.getInfoWithPath(`sounds/${this.music}`, AudioClip)) Sound.music(this.music);
         this.saved = { minX: rig?.minX ?? 0, maxX: rig?.maxX ?? 0, stats: gm.snapshotStats() };
         const p = this.node.position;
         const start = this.node.getChildByName('Start');
@@ -113,6 +119,7 @@ export class TutorialRoom extends Component {
         const gm = GameManager.instance;
         if (!gm || !this.inside) return;
         this.inside = false;
+        Achievements.unlock('tutorial');
         gm.lockCats(true);
         Sound.play('ui_door', 0.9);
         IrisWipe.close(0.6, () => {

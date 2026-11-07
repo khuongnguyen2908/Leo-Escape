@@ -116,21 +116,45 @@ Lưu ý khi sắp xếp:
 > **Game không còn Angelo.** Nút ⚙ Cập nhật xoá node `Angelo` và `HUD_Angelo` khỏi scene. NEW GAME vào thẳng với Leo,
 > trang phím chỉ có cột Người 1. Phần nói về Angelo, chơi 2 người, đổi mèo bên dưới là mô tả bản cũ, để tham khảo.
 
-**Mở game** (lần đầu trong một lần mở): **Logo 1** → **Logo 2** (màn đen, bấm phím / chạm để bỏ qua logo đang hiện) →
-**banner** (nền + logo game) kèm **thanh tải** (tải trước ảnh hiệu ứng `art/fx`) → thanh tải đổi thành **PRESS ANY BUTTON** nhấp nháy →
-bấm phím bất kỳ / chạm thì **các dòng menu hiện dần** tại chỗ trong 0.25 giây (`BootScreen.ts`; không còn rơi xuống). Về màn hình chính từ trong game thì bỏ qua logo, menu hiện luôn.
+**Mở game** (lần đầu trong một lần mở): **Logo 1** → **Logo 2** (màn đen, mỗi logo hiện 1s · giữ 1s · mờ 1s; bấm phím / chạm để bỏ qua) →
+**thông báo tự lưu** (chân mèo phát sáng giữa màn + "game tự lưu ở một số điểm, đừng tắt khi biểu tượng này hiện"; ~4 giây, bấm để qua) →
+**banner** (nền + logo game) kèm **thanh tải** (tải trước ảnh hiệu ứng `art/fx`) → thanh tải đổi thành **nút START** phập phồng
+(nhân bản node `Landing/Start` trong scene: ảnh nút + chữ START 90, viền 7 `#3b7113`; sửa nút trong scene là màn này đổi theo) →
+bấm nút, hoặc Enter / Space / Nhảy / Đánh (phím khác không tính) thì **các dòng menu hiện dần** tại chỗ trong 0.25 giây (`BootScreen.ts`).
+Về màn hình chính từ trong game thì bỏ qua logo, menu hiện luôn.
+**Bụi menu** (`MenuDust.ts`): ảnh `BG_bui` lát kín thành 2 lớp (xa nhỏ chậm mờ, gần to nhanh rõ) trôi chéo từ trên trái xuống dưới phải,
+nằm ngay trên ảnh nền `MenuBg`, thấy ở menu, trang ô lưu, trang độ khó (số chỉnh ở đầu file: `LAYERS`).
 **Logo** (`LogoShine.ts`, tự gắn vào `Logo/Pic` khi chơi): vệt sáng trắng chéo lướt qua phần chữ và hình mỗi 4 giây (*Period*, *Sweep*, *Band Width*, *Strength*),
 ngôi sao nhỏ trên chữ O nhấp nháy ~2.2 giây một lần (*Star X/Y* là vị trí px trên ảnh logo, *Star Size*, *Twinkle*). Tạo lúc chạy, không lưu vào scene.
 Ảnh logo: `boot_logo1`, `boot_logo2` trong `assets/resources/art` (chưa có thì hiện khung chữ LOGO 1 / LOGO 2).
 
-Màn mở đầu là **menu chính**: logo, NEW GAME, OPTIONS, ACHIEVEMENTS, CREDITS, QUIT, dòng bản quyền ở đáy.
+Màn mở đầu là **menu chính**: logo, NEW GAME, OPTIONS, ACHIEVEMENTS, CREDITS, QUIT, dòng bản quyền ở đáy. Bấm chọn một dòng thì **vệt sáng ngang chữ** loé rất nhẹ một lần (chỉ khi bấm, không hiện lúc rê / dời chọn).
+**Biểu tượng đang lưu** (`SaveIcon.ts`): mỗi lần ghi ô lưu (chạm checkpoint, qua màn) chân mèo nhỏ nhấp nháy góc dưới phải ~1.6 giây.
 W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter, Nhảy, Đánh hoặc chạm để chọn.
-- **NEW GAME** → **chọn 1 trong 3 ô lưu** (`SaveSlotPage.ts`, dữ liệu `game/SaveSlots.ts`, lưu trên máy). Ô trống ghi **NEW**; ô có tiến độ ghi
-  chương, checkpoint (hoặc Đã qua màn), thời gian chơi, số cá, kèm nút **X** xoá (hỏi lại, mặc định KHÔNG). Trái / phải hoặc rê chuột để chọn,
-  Enter / Nhảy / Đánh / chạm để vào, Delete để xoá, Esc / Quay lại về menu. Chạm checkpoint xa hơn chỗ đã lưu, hoặc qua màn, là ghi đè ô đang chơi.
-  Chọn ô xong → màn đen **zoom vào** (lỗ tròn thu lại, `IrisWipe.ts`) + vòng tải nhỏ giữa màn hình →
+- **NEW GAME** → **chọn 1 trong 3 ô lưu** (`SaveSlotPage.ts`, dữ liệu `game/SaveSlots.ts`, lưu trên máy). 3 thẻ kiểu menu mới: nền tối trong mờ viền kem,
+  tên ô + đường hoa văn; thẻ đang chọn sáng hơn, có hoa văn `selection_left` / `selection_right` hai bên. Ô trống ghi **NEW**; ô có tiến độ ghi
+  chương, checkpoint (hoặc Đã qua màn), thời gian chơi, số cá, **nhãn màu độ khó** ở mép dưới, kèm nút **X** xoá (hỏi lại, mặc định KHÔNG).
+  Trái / phải hoặc rê chuột để chọn, Enter / Nhảy / Đánh / chạm để vào, Delete để xoá, Esc về menu (điện thoại: nút ← tròn góc trên trái).
+  Dàn phím gợi ý ở **góc phải dưới**: ENTER Xác nhận · DEL Xoá · ESC Quay lại. Trang này giấu dòng bản quyền.
+  Chạm checkpoint xa hơn chỗ đã lưu, hoặc qua màn, là ghi đè ô đang chơi.
+- **Ô mới → chọn độ khó** (`DifficultyPage.ts`, số liệu `core/Difficulty.ts`): 3 dải ngang kiểu CASUAL / NORMAL / MANIAC (tiếng Việt THƯ GIÃN /
+  BÌNH THƯỜNG / ĐỊA NGỤC), mỗi dải có **biểu tượng trôi nhấp nhô** (ảnh `diff_1`, `diff_2`, `diff_3` trong `art`, chưa có thì vẽ tạm), tên và mô tả.
+  ↑/↓ hoặc rê chuột để chọn, Enter / Nhảy / Đánh / chạm để vào, Esc về trang ô lưu. Ô đã lưu giữ độ khó cũ, không hỏi lại (ô lưu cũ chưa có = CASUAL).
+  Số tim và sát thương mèo nhận giữ nguyên ở mọi mức; CASUAL là game như cũ:
+
+  | | CASUAL | NORMAL | MANIAC |
+  |---|---|---|---|
+  | Máu địch và boss | ×1 | ×1.3 | ×1.6 |
+  | Địch gồng đòn mổ | ×1 | ×0.85 | ×0.7 |
+  | Nghỉ giữa các đòn (địch, boss) | ×1 | ×0.8 | ×0.65 |
+  | Boss báo trước (cột lửa, phun axit) | ×1 | ×0.85 | ×0.7 |
+
+  Chọn xong → màn đen **zoom vào** (lỗ tròn thu lại, `IrisWipe.ts`) + **màn tải** (`LoadingScreen.ts`, đứng 2 giây: nền nâu ấm, hình nhỏ màu kem
+  rải ngẫu nhiên trôi chéo chậm — ảnh thật thả vào `art/loading_pattern/`; mèo giữa màn — khung hình `loading_cat_1`, `_2`... chạy flip-book 12 hình/giây,
+  chưa có thì đầu mèo tạm; chữ Loading... nhún từng chữ) →
   - **ô mới**: **3 trang truyện** (`StoryPages.ts`; ảnh `story_1..3` trong `art`, chưa có thì khung PAGE 1...; chữ `story.1..3` trong `Lang.ts`),
-    mũi tên nhấp nháy góc phải, bấm phím / chạm để lật → màn đen → **màn hướng dẫn** (xem dưới) → ra cửa EXIT → màn đen →
+    **lật như sách**: trang gập quanh gáy trái, tối dần, đổ bóng lên trang dưới. → / Enter / phím khác / chạm: lật tới; ← (hoặc chạm phía trái): lật lại;
+    Esc: bỏ qua truyện → màn đen + **màn tải** 2 giây → **màn hướng dẫn** (xem dưới) → ra cửa EXIT → màn đen →
     **zoom ra bản đồ** từ chỗ Leo đứng → **hội thoại kiểu visual novel** (`DialogueBox.ts`: chân dung Leo, bảng tên, chữ SPEAKING, câu hiện dần; bấm để qua; 3 câu `dialog.1..3` trong `Lang.ts`) → vào chơi;
   - **ô đã lưu**: zoom ra bản đồ ngay tại checkpoint đã lưu (thời gian, cá, số lần gục giữ nguyên; cá đã ăn không còn) → vào chơi.
     Ô đã qua màn thì chơi lại từ đầu màn.
@@ -141,11 +165,16 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
   Cá (3 con), **cửa EXIT** (`TutorialExit.ts`: đứng ở cửa bấm Lên). Khối vẽ phác thảo: `TutorialBlock.ts` (Box / Pillar / Platform, tự gắn Solid).
   Trong màn hướng dẫn camera chỉ chạy trong khu đó, giấu lớp tiền cảnh `FR`; cá ăn và thời gian chơi ở đây không tính. Chỉ dạy kỹ năng đang mở
   (đập bụng, Mèo Nổ đang khoá nên chưa có biển). Chỉ ô mới đi qua màn hướng dẫn.
-- **Nhạc**: nhạc menu `bgm` bật khi thanh tải chạy xong (và khi về menu), chạy tiếp qua ô lưu, truyện, màn hướng dẫn;
+- **Nhạc**: nhạc menu `bgm` bật khi thanh tải chạy xong (và khi về menu), chạy tiếp qua ô lưu, truyện;
+  **màn hướng dẫn có nhạc riêng `bgm_tutorial`** (ô *Music* của TutorialRoom; chưa có file thì nhạc menu chạy tiếp);
   tắt lúc hội thoại mở đầu; **nhạc rừng `bgm_forest` chỉ bật khi xong hội thoại** (ô đã lưu: bật lúc vào chơi).
   Có Angelo thì vẫn chọn **1 NGƯỜI** / **2 NGƯỜI** sau khi chọn ô (điện thoại vào thẳng 1 người).
+- **CREDITS** và **QUIT** cùng kiểu menu mới (tiêu đề + hoa văn, chữ trắng, khung chọn; QUIT có YES / NO hai hàng, mặc định NO); lúc mở thì menu chính tạm ẩn.
 - **OPTIONS** mở trang Cài đặt (âm lượng, toàn màn hình, rung, bàn phím). Quay lại / Esc là về menu.
-- **ACHIEVEMENTS** chưa làm: hiện chữ "COMING SOON" / "SẮP CÓ".
+- **ACHIEVEMENTS** mở trang **Thành tích** (`AchievementsPage.ts`, dữ liệu `game/Achievements.ts`, lưu trên máy, chung mọi ô lưu): danh sách cuộn
+  (W/S, lăn chuột), mỗi dòng ô biểu tượng (ảnh `ach_<id>` trong `art`, chưa có thì ngôi sao tạm; chưa đạt thì ổ khoá) + tên + mô tả, thanh cuộn bên phải.
+  8 thành tích: Bước đầu (xong hướng dẫn) · Hạ Chihuahua Độc · Về nhà (qua chương 1) · Mèo tham ăn (đủ cá) · Không một vết xước (không gục) ·
+  Nhanh như mèo (dưới 5 phút) · Liều mạng (qua ở MANIAC) · Thợ săn chim (hạ 20 chim, cộng dồn). Đạt cái mới thì **thông báo nhỏ góc dưới phải** (`AchievementToast.ts`).
 - **CREDITS / TÁC GIẢ**: bảng nổi với hai ô logo và tên **Laris**, **Flynt**, nút Đóng (Esc, Enter, Nhảy cũng đóng).
   Thả ảnh `credit_laris.png`, `credit_flynt.png` vào `assets/resources/art` là tự thay khung LOGO tạm.
 - Dòng đang chọn: chữ phóng lên 1.15 lần rồi thu về; khung chọn tính theo cỡ chữ lúc to nhất nên chữ không tràn khung.
@@ -279,13 +308,18 @@ nút ngôi sao (K) để dùng kỹ năng, nút bàn tay (L) để tương tác,
 
 ## Menu (Esc hoặc nút bánh răng góc trên phải)
 
-Mở menu thì game dừng. **Tiếp tục** · **Chơi lại màn** · **Cài đặt** · **Về màn hình chính** (Chơi lại màn và Về màn hình chính hỏi lại "Chắc chưa?", mặc định KHÔNG).
-**Cài đặt** là một bảng hai tab: thanh tab trên cùng (**Hệ thống** | **Điều khiển**; chọn thanh tab rồi A/D, hoặc bấm chuột), thanh **Lưu** (xanh lá) · **Quay lại**
-cố định dưới đáy cho cả hai tab. Chỉnh là áp dụng ngay để thử, **bấm Lưu mới ghi xuống máy**: bấm Lưu là ghi và **đóng bảng luôn**, góc trên phải hiện chữ
-**Saved! / Đã lưu!** (trắng viền nâu như chữ menu) rồi mờ dần. Quay lại khi chưa lưu thì hỏi "Bỏ thay đổi?" (CÓ = trả về như lúc mở).
+Mở menu thì game dừng. Cùng **kiểu chữ menu chính** (`MenuStyle.ts`): nền tối, tiêu đề + đường hoa văn (ảnh `ui_divider` trong `art`, chưa có thì vẽ tạm),
+chữ trắng viền nâu, mục đang chọn có khung chọn `selection.png`; dòng cài đặt (và dòng Thành tích) đang chọn có hai hoa văn
+`selection_left` / `selection_right` ở hai đầu dòng. Bấm chọn một mục thì **vệt sáng ngang chữ loé rất nhẹ một lần** (~0.5 giây).
+Mở từ menu chính thì nền chỉ tối nhẹ (thấy nền menu), trong game thì tối đậm. Tên trang: OPTIONS (tiếng Việt CÀI ĐẶT).
+**Tiếp tục** · **Cài đặt** · **Về menu chính** (hỏi lại "Về menu chính?", dòng phụ "Tiến độ tính tới checkpoint gần nhất", **CÓ / KHÔNG hai hàng**, mặc định KHÔNG).
+**Cài đặt / OPTIONS**: **Trò chơi** · **Âm thanh** · **Hình ảnh** · **Điều khiển** · Quay lại (OPTIONS ở menu chính mở thẳng trang này). Mỗi trang con: tên dòng bên trái,
+giá trị bên phải, cuối trang **Trả về mặc định** và **Quay lại**. **Chỉnh là áp dụng và lưu xuống máy luôn** (không còn nút Lưu).
 **Ngôn ngữ mặc định là tiếng Anh** (máy nào đã lưu tiếng Việt thì giữ tiếng Việt).
-Tab Hệ thống: âm lượng nhạc nền, tiếng hiệu ứng, toàn màn hình, rung màn hình, **ngôn ngữ** (Tiếng Việt / English).
-Tab Điều khiển: dòng đầu **Kiểu phím** chọn **WASD** (A/D, W, S, J chém, K nhảy) hoặc **Mũi tên** (←/→, ↑, ↓, X chém, Z nhảy);
+- Trò chơi: **ngôn ngữ** (Tiếng Việt / English).
+- Âm thanh: **Âm lượng chung** (nhân với hai cái dưới), Tiếng hiệu ứng, Nhạc nền; thanh ngang + số 0–10, A/D chỉnh từng nấc, kéo trên thanh cũng được.
+- Hình ảnh: Toàn màn hình (máy tính), Rung màn hình.
+- Điều khiển: dòng đầu **Kiểu phím** là hai nút tròn (radio) **WASD** / **Mũi tên** (A/D hoặc bấm thẳng vào từng lựa chọn; rê chuột cả dòng đều chọn được), chọn **WASD** (A/D, W, S, J chém, K nhảy) hoặc **Mũi tên** (←/→, ↑, ↓, X chém, Z nhảy);
 chơi 2 người thì Người 2 tự lấy kiểu còn lại. Vẫn đổi lẻ từng phím được (bấm vào ô rồi bấm phím mới; phím đang dùng chỗ khác thì hai phím đổi chỗ),
 khi đó Kiểu phím ghi "Tuỳ chỉnh"; có nút Trả về mặc định. **Chơi 1 người chỉ nhận phím của Người 1** (theo kiểu đã chọn). Mọi cài đặt lưu trên máy (`Settings.ts`).
 **Mọi bảng chọn được bằng bàn phím** (`MenuNav.ts`): W/S hoặc ↑/↓ chọn, A/D hoặc ←/→ chỉnh thanh âm lượng, công tắc, ngôn ngữ; Enter / Space bấm; Esc quay lại.
@@ -358,9 +392,9 @@ Mọi tiếng nằm trong `assets/resources/sounds`. Hiện là tiếng tạm t�
 | `bgm_forest` / `bgm_boss` | Nhạc màn chơi (sau hội thoại mở đầu) / trận boss |
 | `ui_move` | Dời lựa chọn (menu chính, ô lưu, mọi bảng chọn bằng phím / rê chuột) |
 | `ui_click` / `ui_back` | Bấm nút / quay lại, huỷ (mọi nút vẽ bằng `uiButton`, phím Esc trong bảng) |
-| `ui_deny` | Không được (ACHIEVEMENTS chưa có, chạm cờ đích khi boss còn sống, hỏi xoá ô lưu) |
-| `ui_delete` / `ui_saved` | Xoá ô lưu / bấm Lưu trong Cài đặt |
-| `ui_start` / `ui_drop` | Bấm PRESS ANY BUTTON / (không dùng nữa: menu không rơi) |
+| `ui_deny` | Không được (chạm cờ đích khi boss còn sống, hỏi xoá ô lưu) |
+| `ui_delete` / `ui_saved` | Xoá ô lưu / đạt thành tích |
+| `ui_start` / `ui_drop` | Bấm nút START / (không dùng nữa: menu không rơi) |
 | `ui_zoom_in` / `ui_zoom_out` | Màn đen thu lại / nở ra |
 | `ui_page` / `ui_text` | Lật trang truyện / chữ thoại hiện dần |
 | `ui_door` | Ra cửa EXIT màn hướng dẫn |
