@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, Enum, Graphics, Size, Vec2 } from 'cc';
+import { _decorator, Color, Component, Enum, Graphics, Size, UIRenderer, Vec2 } from 'cc';
 import { Solid } from '../core/Solid';
 const { ccclass, property, executeInEditMode } = _decorator;
 
@@ -46,12 +46,17 @@ export class TutorialBlock extends Component {
         if (!this.node || !this.node.isValid) return;
         const w = this._width, h = this._height;
         const plat = this._kind === BlockKind.Platform;
-        // Khung va chạm khớp hình
-        const solid = this.getComponent(Solid) ?? this.addComponent(Solid);
+        // Khung va chạm khớp hình. Chỉ giữ một Solid: nhân bản / Undo lỗi từng để lại nhiều cái chồng nhau
+        // (cái thừa giữ cỡ cũ, vẫn chặn mèo; editor báo "Can't add component" và huỷ thao tác đang sửa)
+        const solids = this.getComponents(Solid);
+        for (let i = 1; i < solids.length; i++) solids[i].destroy();
+        const solid = solids[0] ?? this.addComponent(Solid);
         solid.oneWay = plat;
         solid.size = new Size(w, h);
         solid.offset = new Vec2(0, plat ? -h / 2 : h / 2);
-        const g = this.getComponent(Graphics) ?? this.addComponent(Graphics);
+        // Node đã có thứ khác để vẽ (Sprite...) thì không gắn thêm Graphics (mỗi node chỉ một thứ vẽ)
+        const g = this.getComponent(Graphics) ?? (this.getComponent(UIRenderer) ? null : this.addComponent(Graphics));
+        if (!g) return;
         g.clear();
         const y0 = plat ? -h : 0, y1 = plat ? 0 : h;
         const x0 = -w / 2, x1 = w / 2;

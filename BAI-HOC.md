@@ -232,6 +232,18 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 
 ## Code giao diện (menu, bảng)
 
+### Khối vẽ trong editor bị chồng component, sửa scene xong "tự nhảy về"
+- Ngày: 08/11/2026 · Nhóm: scene
+- Triệu chứng: console editor báo "Can't add component 'cc.UITransform' because Tut_Pillar already contains…",
+  "Can't add renderable component…"; người dùng thấy sửa scene xong bị trả về.
+- Nguyên nhân: node \`Tut_Pillar\` (TutorialBlock) có 3 Solid chồng nhau (cao 400 / 430 / 428.6), chắc do nhân bản / Undo khi đang
+  sửa chiều cao. Code chỉ cập nhật Solid đầu, hai cái thừa vẫn chặn mèo theo cỡ cũ; lỗi khi thêm component làm editor huỷ thao tác.
+- Cách sửa: \`TutorialBlock.redraw\` tự gỡ Solid thừa (giữ 1), chỉ thêm Graphics khi node chưa có thứ vẽ nào.
+  Người dùng đổi Height của khối một chút rồi đổi lại để nó vẽ lại, Ctrl+S.
+- Cách tránh lần sau: component tự thêm component khác (executeInEditMode) phải dùng \`getComponents\` và dọn bản thừa,
+  không chỉ \`getComponent ?? addComponent\`. Thấy lỗi "Can't add component" thì mở scene đếm component của node đó.
+- Thêm: \`useGameFont\` trong editor không tải được font qua resources (báo lỗi vàng vô hại) → bỏ qua khi EDITOR.
+
 ### Xoá Graphics rồi gắn Sprite trên cùng node: Sprite không bao giờ hiện
 - Ngày: 07/11/2026 · Nhóm: code
 - Triệu chứng: màn tải đổi hình tạm (Graphics) sang ảnh hoạ tiết (Sprite) trên cùng node: Sprite có ảnh, có màu, đúng lớp

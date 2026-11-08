@@ -11,15 +11,25 @@ const BG = new Color(126, 82, 54, 255);
 /** Ảnh nền màn tải (phủ kín khung hình); chưa có thì tô màu BG */
 const BG_IMAGE = 'art/BG_loading';
 /**
- * Hoạ tiết (theo ảnh mẫu): lưới đều so le từng hàng, mỗi ô CELL đơn vị (hàng lẻ lệch nửa ô), lệch ngẫu nhiên rất ít
- * cho khỏi cứng; ảnh giữ đúng cỡ gốc của file, tất cả nghiêng cùng một góc ANGLE, rất mờ, cả lưới trôi chéo chậm.
- * CELL phải lớn hơn hình to nhất sau khi nghiêng (Icon_fish 188×111 nghiêng 30° chiếm chừng 220×190) để không đè nhau.
+ * Hoạ tiết: rải ngẫu nhiên khắp một vùng rộng hơn khung hình (AREA lần), khoảng cách theo CỠ TỪNG HÌNH:
+ * mép hai hình luôn cách nhau ít nhất GAP (hình nhỏ xếp sát hơn, hình to không dính), không thành hàng,
+ * hình giống nhau không đứng cạnh nhau, rồi lấp các chỗ trống còn nhét vừa hình (không để mảng trống to);
+ * ảnh = cỡ gốc × PATTERN_SCALE, tất cả nghiêng cùng một góc ANGLE, rất mờ, cả vùng trôi chéo chậm
+ * (mép trái nối mép phải, trên nối dưới nên quay vòng liền). GAP lớn hơn thì thưa hơn.
  */
 const PATTERN = new Color(250, 240, 222, 30);
-const CELL = 240;
-const JITTER = 0.1;
-/** Cỡ hình tạm (khi chưa có ảnh); ảnh thật giữ cỡ gốc */
-const ICON_SIZE = 120;
+const AREA = 1.4;
+const GAP = 40;
+const PATTERN_SCALE = 0.8;
+/** Rải lan dần: hình mới cách hình bên cạnh (r1 + r2 + GAP) × 1..(1 + SPREAD); mỗi hình thử PLACE_TRIES chỗ quanh nó */
+const SPREAD = 0.12;
+const PLACE_TRIES = 40;
+/** Lấp chỗ trống: bốc ngần này điểm ngẫu nhiên, chỗ nào còn nhét vừa hình thì đặt thêm */
+const FILL_TRIES = 6000;
+/** Hai hình cùng kiểu phải xa nhau gấp chừng này lần khoảng cách thường */
+const SAME_KIND = 1.5;
+/** Cỡ hình tạm (khi chưa có ảnh); ảnh thật = cỡ gốc × PATTERN_SCALE */
+const ICON_SIZE = 96;
 /** Mọi hoạ tiết nghiêng cùng một góc (độ, dương = xoay ngược chiều kim đồng hồ) */
 const ANGLE = 30;
 const DRIFT_X = 18;
@@ -27,7 +37,7 @@ const DRIFT_Y = -10;
 /** Ảnh hoạ tiết thay hình tạm: mọi ảnh trong thư mục này (lấy ngẫu nhiên; đúng chữ hoa, web phân biệt hoa thường) */
 const PATTERN_DIR = 'art/Loading_pattern';
 /** Hoạ tiết trộn kiểu Screen (shader resources/effects/sprite-screen): độ đậm 0..255 */
-const PATTERN_SCREEN = 85;
+const PATTERN_SCREEN = 45;
 const PATTERN_EFFECT = 'effects/sprite-screen';
 /** Không tải được shader Screen thì vẽ thường với độ đậm này */
 const PATTERN_PLAIN = 70;
@@ -55,13 +65,74 @@ let phase = 0;
 let fadeT = 0;
 let onHidden: (() => void) | null = null;
 
-/** Số cột, số hàng của lưới hoạ tiết: phủ dư khung hình (để trôi không lộ mép), số hàng chẵn cho so le khớp khi quay vòng. */
-function gridSize(): { cols: number; rows: number } {
+interface Spot {
+    x: number;
+    y: number;
+    /** Chỉ số ảnh (hoặc kiểu hình tạm) */
+    f: number;
+    r: number;
+}
+
+/**
+ * Rải hoạ tiết trong vùng quay vòng W × H (tâm ở 0). radii[i] = bán kính hình kiểu i (đã nhân cỡ).
+ * Mép hai hình cách nhau ít nhất GAP; hình giống nhau không đứng gần nhau. Lan dần từ một hình (đều, ngẫu nhiên),
+ * rồi lấp những chỗ trống còn nhét vừa hình nào đó.
+ */
+function packPattern(radii: number[], W: number, H: number): Spot[] {
+    const kinds = radii.length;
+    const spots: Spot[] = [];
+    const wrapX = (x: number) => ((x + W / 2) % W + W) % W - W / 2;
+    const wrapY = (y: number) => ((y + H / 2) % H + H) % H - H / 2;
+    /** Đặt được hình kiểu f ở (x, y) không: không chạm mép hình nào, không sát hình cùng kiểu */
+    const fits = (x: number, y: number, f: number) => spots.every((q) => {
+        const d = wrapDist(x, y, q.x, q.y, W, H);
+        return d >= q.r + radii[f] + GAP && (q.f !== f || d >= (q.r + radii[f] + GAP) * SAME_KIND);
+    });
+    spots.push({ x: 0, y: 0, f: Math.floor(Math.random() * kinds), r: 0 });
+    spots[0].r = radii[spots[0].f];
+    const active = [0];
+    while (active.length) {
+        const ai = Math.floor(Math.random() * active.length);
+        const c = spots[active[ai]];
+        let placed = false;
+        for (let t = 0; t < PLACE_TRIES; t++) {
+            const f = Math.floor(Math.random() * kinds);
+            const ang = Math.random() * Math.PI * 2;
+            const d = (c.r + radii[f] + GAP) * (1 + Math.random() * SPREAD);
+            const x = wrapX(c.x + Math.cos(ang) * d), y = wrapY(c.y + Math.sin(ang) * d);
+            if (fits(x, y, f)) {
+                spots.push({ x, y, f, r: radii[f] });
+                active.push(spots.length - 1);
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) active.splice(ai, 1);
+    }
+    // Lấp chỗ trống: chỗ nào còn nhét vừa một kiểu hình thì đặt (bốc ngẫu nhiên trong các kiểu vừa)
+    for (let t = 0; t < FILL_TRIES; t++) {
+        const x = (Math.random() - 0.5) * W, y = (Math.random() - 0.5) * H;
+        const ok: number[] = [];
+        for (let f = 0; f < kinds; f++) if (fits(x, y, f)) ok.push(f);
+        if (ok.length) {
+            const f = ok[Math.floor(Math.random() * ok.length)];
+            spots.push({ x, y, f, r: radii[f] });
+        }
+    }
+    return spots;
+}
+
+function fieldSize(): { W: number; H: number } {
     const d = view.getDesignResolutionSize();
-    const cols = Math.ceil((d.width * 1.4) / CELL);
-    let rows = Math.ceil((d.height * 1.4) / CELL);
-    if (rows % 2) rows++;
-    return { cols, rows };
+    return { W: d.width * AREA, H: d.height * AREA };
+}
+
+/** Khoảng cách hai điểm trong vùng quay vòng W × H (mép trái nối mép phải, trên nối dưới). */
+function wrapDist(ax: number, ay: number, bx: number, by: number, W: number, H: number): number {
+    let dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
+    if (dx > W / 2) dx = W - dx;
+    if (dy > H / 2) dy = H - dy;
+    return Math.hypot(dx, dy);
 }
 
 /** Vẽ một hình nền tạm (kind 0..4: chân mèo, cá, xương, ngôi sao, chấm tròn), tâm (0, 0), cỡ s. */
@@ -154,43 +225,42 @@ function build(canvas: Node) {
         const k = Math.max(d.width / sf.rect.width, d.height / sf.rect.height);
         bgPic.setScale(k, k, 1);
     });
-    // Hình nền: lưới có lệch ngẫu nhiên, mỗi hình một kiểu, cỡ, góc
+    // Hoạ tiết: rải theo cỡ từng ảnh (cần ảnh tải xong mới biết cỡ); chưa có ảnh thì hình tạm vẽ bằng code
     const field = uiNode('Pattern', root);
     pieces = [];
-    // Kích thước lưới là bội số của ô (số hàng chẵn để so le khớp) để trôi hết một vòng quay lại không bị giật
-    const { cols, rows } = gridSize();
-    const PW = cols * CELL, PH = rows * CELL;
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-            const n = uiNode('Piece', field, CELL, CELL);
-            const x = -PW / 2 + (c + 0.5 + (r % 2) * 0.5) * CELL + (Math.random() - 0.5) * CELL * JITTER;
-            const y = -PH / 2 + (r + 0.5) * CELL + (Math.random() - 0.5) * CELL * JITTER;
-            n.setPosition(x, y, 0);
+    const { W: FW, H: FH } = fieldSize();
+    const place = (radii: number[], make: (n: Node, f: number) => void) => {
+        for (const sp of packPattern(radii, FW, FH)) {
+            const n = uiNode('Piece', field);
+            n.setPosition(sp.x, sp.y, 0);
             n.angle = ANGLE;
-            drawShape(n.addComponent(Graphics), Math.floor(Math.random() * 5), ICON_SIZE);
+            make(n, sp.f);
             pieces.push({ node: n });
         }
-    }
-    // Có ảnh hoạ tiết thật thì thay hình tạm (giữ chỗ, góc; cỡ gốc × 0.7–1.1), trộn kiểu Screen
+    };
+    const placeholders = () => place([0, 1, 2, 3, 4].map(() => ICON_SIZE * 0.5), (n, f) => drawShape(n.addComponent(Graphics), f, ICON_SIZE));
     resources.loadDir(PATTERN_DIR, SpriteFrame, (err, frames) => {
-        if (err || !frames || frames.length === 0) return;
+        if (!field.isValid) return;
+        if (err || !frames || frames.length === 0) {
+            placeholders();
+            return;
+        }
         resources.load(PATTERN_EFFECT, EffectAsset, (e2, effect) => {
+            if (!field.isValid) return;
             let mat: Material | null = null;
             if (!e2 && effect) {
                 mat = new Material();
                 mat.initialize({ effectAsset: effect, defines: { USE_TEXTURE: true } });
             }
-            for (const p of pieces) {
-                if (!p.node.isValid) continue;
-                // Ảnh đặt vào node con: không xoá Graphics rồi gắn Sprite trên cùng node (xoá chạy cuối khung,
-                // gỡ luôn chỗ vẽ của node nên Sprite vừa gắn không bao giờ hiện)
-                p.node.getComponent(Graphics)?.clear();
-                const pic = p.node.getChildByName('Pic') ?? uiNode('Pic', p.node);
-                const sp = pic.getComponent(Sprite) ?? pic.addComponent(Sprite);
-                sp.spriteFrame = frames[Math.floor(Math.random() * frames.length)];
+            // Bán kính mỗi ảnh: nửa đường chéo × cỡ, bớt 10% (hình không vuông kín khung nên vẫn không chạm nhau)
+            const radii = frames.map((fr) => 0.5 * Math.hypot(fr.rect.width, fr.rect.height) * PATTERN_SCALE * 0.9);
+            place(radii, (n, f) => {
+                const sp = n.addComponent(Sprite);
+                sp.spriteFrame = frames[f];
                 if (mat) sp.customMaterial = mat;
                 sp.color = new Color(255, 255, 255, mat ? PATTERN_SCREEN : PATTERN_PLAIN);
-            }
+                n.setScale(PATTERN_SCALE, PATTERN_SCALE, 1);
+            });
         });
     });
     // Mèo giữa màn
@@ -265,8 +335,7 @@ function tick() {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     time += dt;
-    const { cols, rows } = gridSize();
-    const W = cols * CELL, H = rows * CELL;
+    const { W, H } = fieldSize();
     // Hình nền trôi chéo chậm, ra khỏi mép thì quay lại mép bên kia (giữ nguyên góc nghiêng)
     for (const p of pieces) {
         const n = p.node;

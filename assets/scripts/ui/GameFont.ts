@@ -1,4 +1,5 @@
 import { Label, resources, TTFFont } from 'cc';
+import { EDITOR } from 'cc/env';
 
 /**
  * Font chung của game: assets/resources/fonts/SuperBouncer.ttf.
@@ -28,6 +29,8 @@ function apply(label: Label, f: TTFFont) {
 }
 
 export function useGameFont(label: Label) {
+    // Trong editor không tải được font qua resources (chỉ tải được lúc chạy game): giữ font hệ thống, khỏi báo lỗi
+    if (EDITOR) return;
     if (font) {
         apply(label, font);
         return;
