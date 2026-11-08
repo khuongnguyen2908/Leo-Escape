@@ -1,15 +1,13 @@
 import { _decorator, Color, Component, Graphics, Node } from 'cc';
+import { DustPuff } from '../player/DustPuff';
 const { ccclass } = _decorator;
 
 const GLOW = new Color(150, 255, 90, 255);
 const RING = new Color(220, 255, 170, 255);
-const MARK = new Color(235, 60, 50, 255);
-const MARK_EDGE = new Color(255, 245, 225, 255);
 
 /**
  * Dấu cảnh báo trên mặt đất chỗ cột lửa (Axit 3) sắp mọc: vệt sáng xanh độc hình bầu dục rộng bằng cột,
- * nhấp nháy nhanh dần, dấu ! đỏ phía trên. Tự xoá sau life giây (hoặc BossBrain xoá khi cột mọc).
- * Vẽ bằng code; sau này có ảnh riêng thì thay ở đây.
+ * nhấp nháy nhanh dần, dấu ! (ảnh art/fx/Boss/Warn) nhảy phía trên. Tự xoá sau life giây (hoặc BossBrain xoá khi cột mọc).
  */
 @ccclass('AcidWarning')
 export class AcidWarning extends Component {
@@ -29,6 +27,7 @@ export class AcidWarning extends Component {
         w.life = life;
         w.width = width;
         w.draw();
+        DustPuff.spawn('Boss/Warn/frame', n, 0, 200, { scale: 1.6, fps: 14, loopFor: life }); // cao hơn đầu mèo, như dấu ! của các đòn khác
         return w;
     }
 
@@ -59,19 +58,5 @@ export class AcidWarning extends Component {
         g.lineWidth = 5;
         g.ellipse(0, 4, w, 18);
         g.stroke();
-        // Dấu ! đỏ viền trắng phía trên vệt sáng
-        const y = 90 + 6 * Math.sin(this.time * 8);
-        const mark = MARK.clone();
-        mark.a = Math.round(255 * Math.min(1, 0.4 + blink));
-        g.fillColor = MARK_EDGE;
-        g.roundRect(-13, y - 4, 26, 64, 10);
-        g.fill();
-        g.circle(0, y - 26, 15);
-        g.fill();
-        g.fillColor = mark;
-        g.roundRect(-8, y + 1, 16, 54, 7);
-        g.fill();
-        g.circle(0, y - 26, 10);
-        g.fill();
     }
 }

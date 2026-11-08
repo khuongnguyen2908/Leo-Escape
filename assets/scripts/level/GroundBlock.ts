@@ -298,7 +298,10 @@ export class GroundBlock extends Component {
             g.fill();
         }
 
-        const solid = this.getComponent(Solid) ?? this.addComponent(Solid);
+        // Chỉ giữ một Solid: nhân bản / Undo từng để lại nhiều cái chồng nhau (cái thừa giữ cỡ cũ, vẫn chặn mèo)
+        const solids = this.getComponents(Solid);
+        for (let i = 1; i < solids.length; i++) solids[i].destroy();
+        const solid = solids[0] ?? this.addComponent(Solid);
         solid.size = new Size(w, d);
         solid.offset = new Vec2(w / 2, -d / 2);
     }

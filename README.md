@@ -149,7 +149,7 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
   | Máu địch và boss | ×1 | ×1.3 | ×1.6 |
   | Địch gồng đòn mổ | ×1 | ×0.85 | ×0.7 |
   | Nghỉ giữa các đòn (địch, boss) | ×1 | ×0.8 | ×0.65 |
-  | Boss báo trước (cột lửa, phun axit) | ×1 | ×0.85 | ×0.7 |
+  | Boss báo trước (mọi đòn: dáng lấy đà, dấu đỏ, cột lửa...) | ×1 | ×0.85 | ×0.7 |
 
   Chọn xong → màn đen **zoom vào** (lỗ tròn thu lại, `IrisWipe.ts`) + **màn tải** (`LoadingScreen.ts`, đứng 2 giây: nền `PatternBackdrop.ts` (dùng chung với màn thông báo tự lưu) gồm ảnh `BG_loading`, hoạ tiết trong `art/Loading_pattern/`
   (Type = sprite-frame) rải ngẫu nhiên trôi chéo chậm, trộn kiểu **Screen** (shader `resources/effects/sprite-screen.effect`, độ đậm `PATTERN_SCREEN`), trên cùng lớp hạt nhiễu `art/Loading_filter`; mèo giữa màn — khung hình `loading_cat_1`, `_2`... chạy flip-book 12 hình/giây,
@@ -196,8 +196,10 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
 - **2 người:** màn chọn mèo. Mỗi người bấm trái/phải để đưa thẻ (N1, N2) tới dưới con mèo muốn chơi, bấm **Nhảy** để chốt, **Xuống** để bỏ chọn.
   Hai người chốt xong thì đếm 3-2-1 rồi vào game. Hai con không đi xa nhau quá một màn hình (`Max Gap` trên GameManager).
 - Mỗi con một dãy tim và một thanh năng lượng (Leo góc trên trái, Angelo góc trên phải). Hết tim thì **gục**;
-  con kia tới gần, **giữ phím Tương tác 1 giây** để kéo dậy (còn 2 tim). Gục hết (chơi 1 người: Leo gục) thì hiện "Thử lại nào!", màn tối lại rồi **hồi sinh ở checkpoint** gần nhất đã chạm (chưa chạm thì đầu màn), đủ tim, bất tử 1.5 giây; trận boss đánh lại từ đầu, quái đã hạ và cá đã ăn giữ nguyên.
-- Không có thua hẳn: gục hết là sống lại ở checkpoint, không giới hạn, nhưng **mỗi lần gục được đếm** (bảng kết quả, sao thứ 3).
+  (không còn vòng kéo dậy). Gục hết (chơi 1 người: Leo gục) thì 1.2 giây sau hiện màn **GAME OVER** (`GameOverScreen.ts`, kiểu menu tạm dừng: màn tối, tiêu đề + hoa văn,
+  2 mục **Chơi lại** / **Về menu**, ↑ ↓ + Enter hoặc chạm; lúc này không mở được menu tạm dừng). **Chơi lại**: màn tối lại rồi **hồi sinh ở checkpoint** gần nhất đã chạm
+  (chưa chạm thì đầu màn), đủ tim, bất tử 1.5 giây; trận boss đánh lại từ đầu, quái đã hạ và cá đã ăn giữ nguyên. **Về menu**: về màn hình chính.
+- Không có thua hẳn: chọn Chơi lại là sống lại ở checkpoint, không giới hạn, nhưng **mỗi lần gục được đếm** (bảng kết quả, sao thứ 3).
 - **Về đích** (chạm cờ khi đã hạ boss): người chơi thôi điều khiển, đồng hồ dừng, camera đứng yên
   (sát mép phải màn quá thì trượt nhẹ sang trái cho mèo có chỗ chạy khuất: ô *Hold Exit Room* của CameraRig); mèo nảy mừng một nhịp
   rồi tự chạy sang phải ra khỏi khung hình (ô nhóm *Về đích* của GameManager: Win Hop = độ nảy, Win Walk Max = kẹt quá chừng này giây thì vẫn sang tiếp),
@@ -212,10 +214,11 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
 | | Leo (`LeoSkills.ts`) | Angelo (`AngeloSkills.ts`) |
 |---|---|---|
 | Nhảy | **Nhảy thêm 1 lần** trên không (miễn phí, cao 85%; LeoSkills nhóm *Nhảy 2 lần*) | **Nhảy thêm 1 lần** trên không. Đang bay đẩy vào tường thì **bám tường** trượt chậm, Nhảy để **bật tường** |
-| Đánh (J) | Bấm liên tục: **combo 5 nhát** (dưới đất **đứng yên tại chỗ mỗi nhát**, không lao tới, giữ A/D cũng không đi; ô *Slash Still* = 0.22 giây) (nhát 4 **chém xoay** trúng cả sau lưng, nhát 5 **kết liễu** trừ 2 máu, văng xa). Đang bay: combo **3 nhát đầu** như dưới đất, mỗi nhát khựng lại một nhịp. Giữ J đủ 0.8 giây (quả cầu năng lượng xanh gom ở giữa thân, đủ lực thì quả cầu chớp chờ phóng) rồi thả: **sóng kiếm** bay thẳng ~1000, trừ 2 máu mỗi địch, đụng tường thì tan (tốn 30; PlayerController nhóm *Sóng kiếm*). Thả sớm thì quả cầu **xì hơi** tan mất, không tốn gì. **Giữ Xuống + J** trên nền cứng: **quét chân** về phía đang quay mặt, địch nhỏ (gà, chim...) **té nằm** 1.2 giây, không đánh mèo, vẫn chém tiếp được; **boss không bị quét** (không mất máu) (tốn 15; LeoSkills nhóm *Quét chân*, ô *Sweep Trip*). **Giữ Lên + J** dưới đất: **chém hất**, vệt xoáy quét từ sát đất trước mặt cong lên qua đầu (sau lưng mèo), hất địch bay lên (tốn 20); nhảy theo chém tiếp thì địch lơ lửng (chém trúng trên không thì Leo cũng nảy nhẹ lên, ô *Air Hit Lift*), đang bay thì địch không đánh mèo, rơi xuống choáng 0.4 giây. Boss không bị hất. Đứng ngay dưới bục một chiều thì bấm W sẽ nhảy lên bục trước | **Quất dây len**, tầm xa gấp đôi Leo |
-| Đập bụng (giữ Xuống + J khi đang bay) | **Tạm khoá** (ô *Pound Unlocked* của LeoSkills, để dành cho cửa hàng nâng cấp; khoá thì Xuống + J trên không là chém thường). Mở khoá: **Đập bụng** lao xuống (tốn 20), sóng chấn đánh địch xung quanh và làm chúng **choáng** 1.5 giây; rơi càng cao sóng càng rộng (tối đa ×1.6 khi rơi từ cao 600). **Phím K chỉ dùng khi có Angelo**: K trên không đập bụng, K dưới đất **nằm ngửa làm đệm** (K lần nữa để dậy; Angelo rơi trúng bụng thì bật rất cao), S + K Mèo Nổ. Chưa có Angelo thì phím K không làm gì, trang phím và nút K trên điện thoại cũng ẩn | Bấm: **trói chân** địch gần nhất 2 giây (boss ngắn hơn), địch đứng yên và không đánh ai. Giữ: **nằm lì** / đứng dậy |
-| Tuyệt chiêu (giữ Xuống + L) | **Tạm khoá** (ô *Burst Unlocked*; khoá thì Xuống + L là lướt). Mở khoá: **Mèo Nổ**: cần đầy 100 năng lượng, tốn hết. Gồng 0.6 giây (bất tử) rồi nổ: mọi kẻ địch đang thấy trên màn hình mất 3 máu, văng ra, choáng 1 giây. Chỉ dùng trên nền cứng (trên bàn, thùng... bấm Xuống là rơi xuống) | — |
-| Lướt / Tương tác (L) | **Lướt chém** (kiểu Mega Man X, tốn 35): **bấm đúp trái / phải** (A/D hoặc ←/→; điện thoại: đẩy đúp joystick; ô *Double Tap Time*, 0 = tắt). Không còn phím Lướt riêng: chưa có Angelo thì phím L không làm gì, trang phím và nút L cảm ứng ẩn. Đang lướt trên đất mà bấm Nhảy: **dash jump**, bay ngang nhanh gấp 1.7 lần chạy tới khi chạm đất (ô *Dash Jump Speed*). Có Angelo: cạnh Angelo **bê** lên đầu, L lần nữa để **ném** | Ở mép bục cao, quay mặt ra ngoài: **thả dây len** xuống. L / Nhảy / đi để kéo dây lên |
+| Đánh (J) | Bấm liên tục: **combo 5 nhát**, vệt `art/fx/Character/Normal Atk`: nhát 1–4 luân phiên vệt **A** (`Slash_color1` khung 1–5, quét ngang) / **B** (khung 6–9, hất lên), nhát 5 **kết liễu** vòng cung lớn `Slash3` ôm trên đầu mèo; đang bật special thì vệt **màu đỏ** (`Character/Special/…_color2`) (bảng số trong `SlashFx.ts`, `COMBO_SLASH`) (dưới đất **đứng yên tại chỗ một nhịp ngắn mỗi nhát**, không lao tới, giữ A/D cũng không đi; ô *Slash Stop* = 0.12 giây; trúng địch thì địch **loé trắng** và khựng hình ngắn) (không còn chém xoay; nhát 5 **kết liễu** trừ 2 máu, văng xa). Đang bay: combo **3 nhát đầu** như dưới đất, mỗi nhát khựng lại một nhịp. Giữ J đủ 0.8 giây (quả cầu năng lượng xanh gom ở giữa thân, đủ lực thì quả cầu chớp chờ phóng) rồi thả: **sóng kiếm** bay thẳng ~1000, trừ 2 máu mỗi địch, đụng tường thì tan (**không tốn gì**; PlayerController nhóm *Sóng kiếm*). Thả sớm thì quả cầu **xì hơi** tan mất, không tốn gì. **Giữ Xuống + J** trên nền cứng: **quét chân** về phía đang quay mặt, địch nhỏ (gà, chim...) **té nằm** 1.2 giây, không đánh mèo, vẫn chém tiếp được; **boss không bị quét** (không mất máu) (LeoSkills nhóm *Quét chân*, ô *Sweep Trip*). **Giữ Lên + J** dưới đất: **chém hất**, vệt `Slash2` vút từ sát đất trước mặt lên qua đầu (special: màu đỏ), hất địch bay lên; nhảy theo chém tiếp thì địch lơ lửng (chém trúng trên không thì Leo cũng nảy nhẹ lên, ô *Air Hit Lift*), đang bay thì địch không đánh mèo, rơi xuống choáng 0.4 giây. Boss không bị hất. Đứng ngay dưới bục một chiều thì bấm W sẽ nhảy lên bục trước | **Quất dây len**, tầm xa gấp đôi Leo |
+| Đập bụng (giữ Xuống + J khi đang bay) | **Tạm khoá** (ô *Pound Unlocked* của LeoSkills, để dành cho cửa hàng nâng cấp; khoá thì Xuống + J trên không là chém thường). Mở khoá: **Đập bụng** lao xuống, sóng chấn đánh địch xung quanh và làm chúng **choáng** 1.5 giây; rơi càng cao sóng càng rộng (tối đa ×1.6 khi rơi từ cao 600). Phím Kỹ năng giờ là **special** (xem dòng dưới) | Bấm: **trói chân** địch gần nhất 2 giây (boss ngắn hơn), địch đứng yên và không đánh ai. Giữ: **nằm lì** / đứng dậy |
+| Special (L; bộ phím mũi tên: C) | **Thanh nộ đầy** (thanh năng lượng nhấp nháy vàng) thì bấm **L**: hào quang nằm dưới đất quanh chân; trên đầu mèo hiện **kiếm +** (`Character/Atk_up`) chạy 1 lượt rồi tới **khiên +** (`Character/Def_up`); **8 giây** hào quang `art/fx/Character/Special` lặp quanh mèo, sát thương **×1.5**, đánh nhanh **×1.5**, trúng đòn chỉ mất **nửa tim**; thanh tụt dần về 0, hết thì tắt. Chưa đầy mà bấm thì thanh nháy đỏ. Điện thoại: nút ngôi sao cạnh nút đánh, đầy nộ thì phồng nhấp nháy (PlayerController nhóm *Thanh nộ, special (L)*) | — |
+| Tuyệt chiêu (giữ Xuống + L) | **Tạm khoá** (ô *Burst Unlocked*; khoá thì Xuống + L là lướt). Mở khoá: **Mèo Nổ**: cần đầy thanh nộ, tốn hết. Gồng 0.6 giây (bất tử) rồi nổ: mọi kẻ địch đang thấy trên màn hình mất 3 máu, văng ra, choáng 1 giây. Chỉ dùng trên nền cứng (trên bàn, thùng... bấm Xuống là rơi xuống) | — |
+| Lướt / Tương tác (L) | **Lướt né** (không tốn năng lượng, không gây sát thương, **bất tử** suốt lúc lướt + 0.1 giây sau): **bấm đúp trái / phải** (A/D hoặc ←/→; điện thoại: đẩy đúp joystick; ô *Double Tap Time*, 0 = tắt). Không còn phím Lướt riêng: chưa có Angelo thì phím L không làm gì, trang phím và nút L cảm ứng ẩn. Lướt **cúi thấp, ngả người tới, thân kéo dài**, bóng mờ nối đuôi, đường gió trắng sau lưng, bụi tung lúc đạp đi và lúc phanh. Tốc độ phóng nhanh lúc đầu rồi chậm dần về tốc độ chạy, hết lướt **nối đà chạy** luôn (thả phím thì tự chậm lại); đâm tường thì dừng. Đang chém **lướt được ngay** (huỷ nhịp chém); đang lướt **bấm J thì chém liền**. Trên không mỗi lần bay lướt 1 lần; lướt xong chờ 0.3 giây mới lướt tiếp (PlayerController nhóm *Lướt né*: *Dodge Distance* 480, *Dodge Time* 0.26, *Dodge Grace*, *Dodge Cooldown*). Đang lướt trên đất mà bấm Nhảy: **dash jump**, bay ngang nhanh gấp 1.7 lần chạy tới khi chạm đất (ô *Dash Jump Speed*). Có Angelo: cạnh Angelo **bê** lên đầu, L lần nữa để **ném** | Ở mép bục cao, quay mặt ra ngoài: **thả dây len** xuống. L / Nhảy / đi để kéo dây lên |
 | Leo dây | **Giữ Lên** cạnh dây để leo, thả thì đu, Xuống để tụt, Nhảy để buông | — |
 | Bị bê / ném | — | Bị bê: bấm Nhảy để thoát. Bị ném: cuộn tròn bay, Nhảy giữa chừng để nhảy tiếp |
 
@@ -225,7 +228,7 @@ Hiệu ứng dây len, dây thả vẽ tạm bằng code (`SkillFx.ts`, `YarnRop
 
 ## Kẻ địch
 
-**Chạm vào kẻ địch (cả boss) không mất máu**; chỉ đòn đánh của chúng mới gây sát thương.
+**Chạm vào kẻ địch (cả boss) không mất máu**; chỉ đòn đánh của chúng mới gây sát thương (với boss: cào vồ, lao ngang, nhảy đè cũng là đòn đánh).
 Địch nhỏ (chim, gà... `EnemyPatrol`) đánh bằng đòn **mổ**: mèo vào tầm (khoảng hở giữa hai thân ≤ 160, gần ngang nhau) thì dừng lại quay về phía mèo,
 **rướn người + nháy đỏ 0.45 giây** (báo trước để né), rồi lao mổ (không lao xuống vực); mỏ chạm mèo thì mèo mất 1 tim; lùi về, nghỉ 1.2 giây mới mổ tiếp.
 Bị chém trúng lúc đang rướn / lao thì mất đòn. Số liệu: nhóm *Mổ* của EnemyPatrol (Peck Range, Peck Windup, Peck Rest, Peck Speed).
@@ -236,23 +239,26 @@ cá nhấp nhô và nghiêng nhẹ, đốm `MG_coin_sparkle` trên cá nhấp nh
 
 ## Boss
 
-Boss **Chihuahua Độc** (`EnemyPatrol` 40 máu + `BossBrain.ts` + `BossArena.ts`, DemoLevelBuilder tự gắn khi chơi).
+Boss **Chihuahua Độc** (`EnemyPatrol` + `BossBrain.ts` + `BossArena.ts`, DemoLevelBuilder tự gắn khi chơi). **150 máu** (ô *Boss Hp* của BossBrain, đặt lúc vào trận rồi nhân theo độ khó).
+Đánh **kiểu Cuphead**: mỗi phase một **flow đòn cố định** (không random), đòn nào cũng báo trước bằng **dáng riêng của đòn** (boss không nháy đỏ),
+đòn nhắm vào chỗ mèo thì thêm **dấu dưới đất**; càng về sau càng dồn dập.
+**Chạm thân boss không mất tim**; chỉ trúng đòn mới mất (thân boss chỉ gây đòn lúc đang lao ngang hoặc đang bay khi nhảy đè).
 
-**Khu boss (`BossArena`)**: chưa vào trận thì boss đứng yên quay mặt sang phải gặm khúc xương (xương vẽ tạm bằng code). Mèo bước lên khối nền boss đứng:
-hai **dấu X đỏ to mờ** hiện **trên mặt đá của khu boss**, ở hai đầu lối đi (ô *Wall Inset*), chặn đường thật. Mèo phải vào trong khu
-một đoạn (ô *Enter Depth*, 120 tính từ dấu X) mới bắt đầu, nên dấu X hiện ra sau lưng mèo; camera giữ trong khu. Rồi **cảnh mở màn** (mèo đứng yên, không bị đánh), mỗi nhịp cách nhau rõ ràng:
+**Khu boss (`BossArena`)**: chưa vào trận thì boss đứng yên quay mặt sang phải gặm khúc xương (xương vẽ tạm bằng code).
+Mèo **rơi xuống chạm đáy hang** (mặt đá boss đứng) là bắt đầu ngay: hai **dấu X đỏ to mờ** hiện ở hai đầu khu (ô *Wall Inset*), chặn đường thật,
+camera giữ trong khu, rồi **cảnh mở màn** (mèo đứng yên, không bị đánh):
 
 | Giây | Việc |
 |---|---|
 | 0 | Dấu X hiện, **tắt hẳn nhạc thường** (cảnh mở màn không có nhạc) |
-| 0.6 | Camera trượt sang boss |
-| 0.6–2.4 | Boss vẫn quay mặt sang phải **gặm xương** (không quay về phía mèo) |
-| 2.4 | Boss thôi gặm, khựng lại, **dấu ! đỏ** bật lên trên đầu |
-| 3.1 | Khúc xương rơi, boss quay đầu về phía mèo, nảy người; dấu ! tắt |
-| 3.6 | Boss **sủa** (tiếng sủa `bark`): chữ GÂU!!, vòng sóng từ miệng, rung màn hình |
-| 4.5 | Thanh máu trượt lên từ đáy, đầy dần 0 → 40 |
-| 5.6 | Tên CHIHUAHUA ĐỘC + "Chương 1" trượt vào, giữ 1.2 giây, trượt ra |
-| 7.1 | Camera về mèo; 0.5 giây sau mèo điều khiển lại, boss bắt đầu ra đòn, **nhạc trận boss** (`bgm_boss`) |
+| 0.3 | Camera trượt sang boss; boss vẫn quay mặt sang phải **gặm xương** |
+| 1.6 | Boss thôi gặm, khựng lại, **dấu ! đỏ** bật lên trên đầu |
+| 2.1 | Boss **ngáp dài** 1 giây: vươn người, ngả ra sau, chữ "Haaa~" và "z" bay lên |
+| 3.3 | Khúc xương rơi, boss quay đầu về phía mèo, nảy người |
+| 3.8 | Boss **sủa** (tiếng sủa `bark`): chữ GÂU!!, vòng sóng từ miệng, rung màn hình |
+| 4.4 | Tên CHIHUAHUA ĐỘC + "Chương 1" trượt vào, giữ 1.2 giây, trượt ra |
+| 6.6 | **Tên trượt ra hết mới hiện thanh máu**: trượt lên từ đáy, đầy dần |
+| 7.6 | Camera về mèo; 0.5 giây sau mèo điều khiển lại, boss bắt đầu ra đòn, **nhạc trận boss** (`bgm_boss`) |
 
 Gục rồi vào lại thì chỉ **bản ngắn** ~1.5 giây (dấu !, quay đầu, sủa, thanh máu, đánh). Mốc thời gian là ô nhóm *Mở màn* của BossArena.
 Nhạc: nền thường `bgm_forest` (ô *Music* của GameManager), trận boss `bgm_boss` (ô *Boss Music*); hạ boss hoặc gục về checkpoint thì về nhạc thường.
@@ -265,19 +271,42 @@ tới khi thấy cờ. Chạm cờ khi boss còn sống thì hiện chữ "Hạ 
 Mốc phase tính theo phần máu: còn 2/3 sang phase 2, còn 1/3 sang phase 3 (ô *Phase 2 At*, *Phase 3 At*).
 **Mỗi phase boss phải ra đủ 2 đòn** thì máu mới tụt qua mốc (phase 3: mới chết được) - ô *Min Attacks Per Phase*. Chém trước đó vẫn trúng nhưng máu dừng ngay trên mốc.
 
-| Phase | Máu | Đòn | Nghỉ giữa hai đòn |
+| Phase | Máu | Flow đòn (ra đúng thứ tự, hết thì quay lại đòn 1; vào phase mới bắt đầu từ đòn 1) | Nghỉ giữa hai đòn |
 |---|---|---|---|
-| 1 | 100 → 68 | Axit 1 | 2.6 giây |
-| 2 | 67 → 35 | Axit 1 hoặc Axit 2 (1 bom), không lặp liền; đi nhanh ×1.3 | 2 giây |
-| 3 | 34 → 0 | Axit 1, Axit 2 (2 bom: chỗ mèo + trước mặt mèo) hoặc Axit 3 (cột ra dồn dập hơn), không lặp liền; đi nhanh ×1.5 | 1.5 giây |
+| 1 | 150 → 101 | Cào vồ → Sủa sóng âm → Phun độc → Nhảy đè | 2 giây |
+| 2 | 100 → 52 | Cào vồ → Lao ngang trái rồi phải → Bắn gai vòng cổ → Hàm răng bẫy → Bom đầu lâu (1 quả); đi nhanh ×1.3 | 1.6 giây |
+| 3 | 51 → 0 | Cào vồ → Gọi bầy chó con → Sấm sét (3 tia) → 6 cột lửa xanh (dồn dập hơn) → **Đòn đôi**; đi nhanh ×1.5 | 1.2 giây |
 
-- Chuyển phase: boss nhảy múa 1.5 giây tại chỗ, nốt nhạc `Boss/Dance` quanh đầu, **bất tử** lúc này.
-- Thời gian nghỉ tính từ lúc đòn trước xong (6 cột lửa mất khoảng 2 giây), nên từ đầu đòn này tới đầu đòn sau dài hơn số nghỉ.
-- **Axit 1**: phồng người 0.4 giây rồi phun cục độc bay vòng cung tới chỗ mèo, chạm đất (hoặc trúng mèo) nổ vũng `Boss/Axit`.
-- **Axit 2**: bom đầu lâu `Boss/Axit 2` mọc ngay chỗ mèo; vòng dưới đất là cảnh báo, tới lúc bốc khói (khung 6–11) mới gây đòn.
-- **Axit 3**: 6 **dấu cảnh báo** (vệt sáng xanh dưới đất + dấu ! đỏ, `AcidWarning.ts`) hiện cùng lúc khắp khu boss; 1 giây sau (ô *Pillar Warning*)
-  6 cột lửa xanh `Boss/Axit 3` lần lượt mọc từ trái sang phải đúng chỗ dấu, dấu nào tới lượt thì tắt. Cột cao hẳn (khung 4–19) mới gây đòn,
-  vùng gây đòn rộng 100: **đứng giữa hai dấu thì không bị trúng**.
+Thứ tự đòn là bảng `FLOWS` đầu file `BossBrain.ts` (muốn đổi thứ tự thì đổi ở đó).
+
+- Chuyển phase: boss nhảy múa 1.5 giây tại chỗ, nốt nhạc `Boss/Dance` quanh đầu, **bất tử** lúc này; đòn đang dở biến mất.
+- Thời gian nghỉ tính từ lúc đòn trước xong, nên từ đầu đòn này tới đầu đòn sau dài hơn số nghỉ.
+- Mỗi đòn một nhóm ô trong BossBrain (*Cào gần*, *Sủa sóng âm*, *Nhảy đè*, *Lao ngang*, *Bắn gai*, *Hàm răng*, *Chó con*, *Sấm sét*, *Axit 1–3*).
+  Độ khó nhân thời gian báo trước (cột "Boss báo trước" ở bảng độ khó) cho mọi đòn.
+- Boss chỉ có 1 ảnh: dáng ra đòn (ngáp, cúi lao, ngả người vồ, run) làm bằng co giãn / nghiêng hình (`EnemyPatrol.pose`).
+- Vật của đòn mới (sóng âm, gai, hàm răng, khối đá, chó con) là `BossHazard.ts`, **vẽ tạm bằng code**; chó con tạm dùng ảnh boss thu nhỏ. Có ảnh thì thay sau.
+- Ảnh hiệu ứng trong `art/fx/Boss`: **`Thuner`** (hoặc `Thunder` nếu đổi tên) sét đánh xuống đất ×5.5, **`Impact`** vệt va chạm lặp ở mặt boss suốt lúc lao ngang ×4.5,
+  **`Slam`** bụi lấp lánh khi nhảy đè đáp đất ×5.5, **`Warn`** dấu ! nhảy cao hơn đầu mèo ngay trên chỗ sắp đánh (hàm răng, sấm; nhảy đè chỉ có vệt đỏ), trên 6 dấu cột lửa và trên đầu boss lúc mở màn.
+- Tiếng boss (`assets/resources/sounds`, file .ogg của bạn): `boss_claw` (cào vồ), `boss_charge` (mỗi đoạn lao ngang), `boss_charge_stun` (đâm tường),
+  `boss_toxic` (phun độc), `boss_spike` (mỗi cây gai bắn ra), `spike_land` (mỗi cây gai cắm đất), `jaw_snap` (hàm răng sập), `thunder` (sấm),
+  `call dog` (mỗi chó con chạy ra). Còn tiếng tạm tổng hợp bằng code (chép đè cùng tên để thay): `boss_slam` (nhảy đè), `boss_growl` (báo đòn),
+  `boss_yawn` (mở màn), `pup_die` (chó con chết).
+- **Cào vồ** (đòn thường; vệt móng ảnh `art/fx/Boss/Claw`): boss chúi người **chạy tới sát mèo** (750, ô *Claw Run*; dừng khi mặt boss cách mèo 140, ô *Claw Range*), rồi ngả người 0.5 giây và vồ tới. Lướt / nhảy ra xa là né.
+- **Phun độc** (Axit 1): phồng người, ngửa nhẹ 0.4 giây rồi phun cục độc bay vòng cung tới chỗ mèo, chạm đất (hoặc trúng mèo) nổ vũng `Boss/Axit`.
+- **Sủa sóng âm**: ngả ra sau, GÂU!!, 3 vòng sóng bay ngang **đẩy mèo lùi** về phía tường (không mất máu; đang lướt thì xuyên qua).
+- **Nhảy đè**: vệt đỏ dưới chân mèo (không có !) 0.8 giây trong lúc boss thụp xuống lấy đà, rồi nhảy vòng cung đáp đúng chỗ đó: rung màn, bụi hai bên, quanh chỗ đáp mất tim.
+- **Lao ngang**: cúi thấp còn cao 200 (ô *Shove Height*; mèo nhảy cao ~300), cào đất 0.6 giây, rồi **lao từng đoạn ngắn** (tối đa 700, ô *Shove Leg*; tốc độ 1300)
+  **về phía mèo**, hết đoạn khựng 0.4 giây, quay về phía mèo lao tiếp, tối đa 4 lượt (ô *Shove Legs*). Vệt `Impact` lặp ở mặt boss suốt lúc lao.
+  **Lao tông tường** (mèo đứng sát tường rồi nhảy / lướt qua) thì rung màn và **boss choáng 2 giây** (sao xoay, đứng yên, ô *Shove Stun*): lúc chém thoải mái.
+- **Bắn gai**: vòng cổ loé sáng 0.6 giây, rồi **bắn từng cây một** (cách nhau 0.12 giây, ô *Spike Gap*), 8 cây gai bay vòng cung rơi xáo trộn khắp khu, cắm đất 0.9 giây rồi biến. Đứng vào khe giữa hai cây.
+- **Hàm răng bẫy**: boss gầm cúi đầu + vệt đỏ dưới chân mèo + dấu ! phía trên 0.75 giây, rồi hai hàm răng đất trồi lên sập lại đúng chỗ đó.
+- **Bom đầu lâu** (Axit 2): boss chồm người lên 0.5 giây (ô *Bomb Windup*), dậm xuống thì bom `Boss/Axit 2` mọc ngay chỗ mèo (phase 3 thêm quả trước mặt mèo); vòng dưới đất là cảnh báo, bốc khói (khung 6–11) mới gây đòn.
+- **Chó con**: boss thụp người rồi **nhảy lùi về sát góc phải** khu boss, đứng **sủa liên tục** (WOOF, mỗi tiếng cách 0.55 giây, ô *Pup Bark Gap*), mỗi tiếng sủa 1 chó con chạy (560) tới mèo, tổng 4 con. Chém 1 nhát là chết, chạm vào thì mất tim; nhảy qua cũng được.
+- **Sấm sét**: boss **đứng yên run bần bật** 1 giây (ô *Thunder Warn*); 3 chỗ hiện vệt đỏ + dấu ! (1 chỗ gần mèo, 2 chỗ ngẫu nhiên, cách nhau ít nhất 350, ô *Bolt Count*, *Bolt Gap*),
+  rồi **cả 3 tia sét đánh xuống cùng lúc** (ảnh `Thuner` + vệt sét từ trên trời). Đứng vào khe giữa các dấu là an toàn.
+- **6 cột lửa xanh** (Axit 3): boss ngồi thụp, 6 **dấu cảnh báo** (`AcidWarning.ts`) hiện cùng lúc; 1 giây sau (ô *Pillar Warning*) 6 cột lửa `Boss/Axit 3` lần lượt mọc
+  từ trái sang phải (phase 3 dồn dập hơn), cột cao hẳn (khung 4–19) mới gây đòn, vùng gây đòn rộng 100: **đứng giữa hai dấu thì không bị trúng**.
+- **Đòn đôi** (phase 3): sủa sóng âm đẩy mèo dồn về tường, vừa xong là lao ngang hoặc nhảy đè liền, không nghỉ.
 - Dính axit: **trúng độc** 2 giây (`PoisonStatus.ts`), bọt độc quanh mèo, cứ 1 giây rút **nửa tim** (tổng 1 tim). Dính lại khi đang độc thì tính lại 2 giây.
   Không bị đẩy lùi. Đang lướt thì né được axit. Thanh tim hiện được nửa tim.
 - Boss chết: đầu lâu nổ `Boss/Death` (×10.5). Quái nhỏ chết: tia nổ `Enemy death` (×3.9).
@@ -298,9 +327,10 @@ Phím mặc định (đổi được trong menu **Esc → Cài đặt → Bàn p
 | Nhảy (giữ lâu nhảy cao, nhả sớm nhảy thấp). Leo nhảy miễn phí | **K** | Num 0 |
 | Chém: bấm liên tục ra combo 5 nhát. Giữ đủ 0.8 giây rồi thả: **sóng kiếm** | J | Num 1 |
 | **Lướt: bấm đúp trái / phải** | A A / D D | ← ← / → → |
+| **Special** (đầy thanh nộ; kiểu Mũi tên: C) | **L** | Num 2 |
 
-**Game chỉ có 2 nút: Đánh (J) và Nhảy (K)** (kiểu Mũi tên: X đánh, Z nhảy); mọi đòn kết hợp đều từ 2 nút này với hướng.
-Không còn Angelo, nên Kỹ năng / Tương tác / Đổi mèo không gán phím. Máy nào còn lưu bộ phím cũ (Space nhảy, K kỹ năng, L tương tác)
+**Game có 3 nút: Đánh (J), Nhảy (K) và Special (L)** (kiểu Mũi tên: X đánh, Z nhảy, C special); mọi đòn kết hợp đều từ Đánh / Nhảy với hướng.
+Không còn Angelo, nên Tương tác / Đổi mèo không gán phím. Máy nào đã lưu cài đặt mà chưa có phím Special thì tự gán L (hoặc C). Máy nào còn lưu bộ phím cũ (Space nhảy, K kỹ năng, L tương tác)
 thì tự đổi sang bộ mới khi mở game.
 | Menu tạm dừng | Esc | Esc |
 
@@ -336,9 +366,9 @@ thì tự tắt; quay lại thì hiện lại (bấm X thì phải ra khỏi vù
 Nút ⚙ Cập nhật tạo sẵn 3 vùng (chưa có vùng nào mới tạo): **Hint_CoBan** x=600 (chạy, nhảy, nhảy 2 lần), **Hint_Chem** x=3050 (chém, lướt bằng bấm đúp),
 **Hint_NangCao** x=4750 (sóng kiếm, quét chân, chém hất). Kéo node để dời, tích ô nhóm *Dạy đòn* để đổi đòn, Size / Offset là cỡ vùng.
 
-**Năng lượng** (thanh xanh dưới hàng tim, tối đa 100): chạy, nhảy, nhảy 2 lần, chém combo đều **miễn phí**; chỉ kỹ năng tốn:
-lướt 35, sóng kiếm 30, chém hất 20, đập bụng 20, quét chân 15, Mèo Nổ hết thanh. (Angelo: quất dây và nhảy 2 lần vẫn tốn.) Vừa dùng thì chờ 0.6 giây mới hồi lại.
-Không đủ năng lượng thì không làm được và thanh nháy đỏ. Chỉnh trong PlayerController, nhóm "Năng lượng".
+**Thanh nộ** (thanh xanh dưới hàng tim, tối đa 100): **bắt đầu màn rỗng, không tự hồi**; mỗi nhát chém / sóng kiếm / chém hất / quét chân **trúng địch +5**
+(~20 nhát là đầy; ô *Rage On Hit*). Đầy thì thanh **nhấp nháy vàng, phồng nhẹ** và kêu một tiếng: bấm **L** (mũi tên: C) bật special 8 giây (thanh vàng cam, tụt dần),
+lúc đang bật không nạp thêm. Mọi thứ khác (chạy, nhảy, lướt, combo, sóng kiếm, chiêu) đều **miễn phí**.
 
 ## Animation (ảnh nhiều khung)
 
@@ -359,10 +389,10 @@ Không đủ năng lượng thì không làm được và thanh nháy đỏ. Ch�
 - **File gốc bộ khói** nằm ở `art-nguon/SmokeFX` (ngoài `assets` để không vào bản build; file `.ase` mở bằng Aseprite).
   Mỗi file PNG ở đó là một dải nhiều ô. Muốn đổi dải nào dùng cho việc nào: sửa bảng `JOBS` trong `tools/cat_khoi.py`, chạy
   `python tools/cat_khoi.py` để đo thử, rồi `python tools/cat_khoi.py --ghi` để cắt ra `art/fx` (ghi đè ảnh cũ cùng tên).
-- **Vệt chém của Leo** (bộ *SlashFX Combos*, file gốc ở `art-nguon/SlashFX`, mỗi ô 128×128, cắt bằng `tools/cat_khoi.py`):
-  combo `FX_cut1_` (vòng qua đầu), `FX_cut2_` (quét từ dưới lên), `FX_cut3_` (quét ngang),
-  `FX_spin_` (nhát 4 chém xoay), `FX_finish_` (nhát 5 kết liễu); `FX_airspin_` vệt xoáy của chém hất; `FX_sweep_` quét chân;
-  Lướt: vệt `FX_sweep_` giãn dài theo đường lướt (`DashFx.ts`) + bụi `FX_run_` sau gót + bóng mờ.
+- **Vệt chém của Leo**: combo J và chém hất dùng bộ *Pixel Art Animations - Slashes* (128×128) trong `art/fx/Character/Normal Atk` (`Slash_color1` A/B, `Slash3_color1` kết liễu, `Slash2_color1` chém hất),
+  lúc special dùng bản màu đỏ trong `art/fx/Character/Special` (`…_color2`). Bộ cũ *SlashFX Combos* (`FX_cut1_`…`FX_finish_`, file gốc `art-nguon/SlashFX`)
+  chỉ còn dùng vệt `FX_cut3_` lúc phóng sóng kiếm; `FX_sweep_` quét chân;
+  Lướt: dáng cúi người (`PlayerVisual.setDash`) + bóng mờ nối đuôi + đường gió trắng vẽ bằng code + bụi `FX_run_` lúc đạp đi và lúc phanh.
   `FX_wave_` sóng kiếm (`SwordWave.ts`, phóng ra cách mèo 220, ngang ngực).
   `FX_charge_` gồng sóng kiếm ở giữa thân mèo, phóng to ×2.5 (`ChargeFx.ts`, cắt từ `art-nguon/ChargeFX`): giữ J quá 0.15 giây thì khung 1 → 4 lớn dần,
   đủ lực thì chớp bằng chính hình gốc (khung 3 ↔ 4) tới khi thả J; thả sớm thì xì hơi (khung 5 → 8, vòng tan). Chưa có ảnh thì dùng vòng sáng vẽ bằng code.
@@ -385,7 +415,7 @@ Không đủ năng lượng thì không làm được và thanh nháy đỏ. Ch�
 
 ## Âm thanh
 
-Mọi tiếng nằm trong `assets/resources/sounds`. Hiện là tiếng tạm tổng hợp bằng code (`ui_*` tạo bằng `python tools/tao_tieng_ui.py assets/resources/sounds`); muốn thay thì chép file mới
+Mọi tiếng nằm trong `assets/resources/sounds`. Một phần là tiếng thật (.ogg) bạn thêm, phần còn lại là tiếng tạm tổng hợp bằng code (`ui_*` tạo bằng `python tools/tao_tieng_ui.py assets/resources/sounds`); muốn thay thì chép file mới
 (.wav, .mp3 hoặc .ogg) **đè lên với cùng tên**, không cần sửa code. Âm lượng và tên bài nhạc nền chỉnh ở GameManager (Canvas), nhóm "Âm thanh".
 
 | File | Khi nào phát |
@@ -400,10 +430,14 @@ Mọi tiếng nằm trong `assets/resources/sounds`. Hiện là tiếng tạm t�
 | `ui_zoom_in` / `ui_zoom_out` | Màn đen thu lại / nở ra |
 | `ui_page` / `ui_text` | Lật trang truyện / chữ thoại hiện dần |
 | `ui_door` | Ra cửa EXIT màn hướng dẫn |
-| `jump` / `land` / `drop` | Nhảy / đáp đất mạnh / xuống khỏi bục |
-| `slash1`, `slash2`, `slash3` | Nhát combo 1, 2, từ 3 trở đi (và sóng kiếm); `slash2` cũng cho quét chân |
+| `jump` | Mèo bật nhảy (cả leo bục bằng W); chạm đất không kêu |
+| `land` / `drop` | Đáp đất mạnh của chiêu, boss / xuống khỏi bục |
+| `slash1` / `slash3` | Nhát combo 1–4 (và quét chân S+J) / nhát 5 kết liễu (và sóng kiếm) |
+| `slash_up` | Chém hất W+J |
+| `special_on` / `special_off` | Bật special (L / C): mỗi vòng sáng của hào quang kêu `special_on` 1 lần, vòng cuối kêu `special_off` |
 | `hit` | Chém trúng kẻ địch |
-| `dash` | Lướt chém (L hoặc bấm đúp A/D) |
+| `dash` | Lướt né (bấm đúp A/D) |
+| `Run 1` / `Run 2` | Tiếng bước chân lúc chạy, luân phiên theo nhịp nhún |
 | `hurt` | Mèo bị đánh |
 | `enemy_die` | Kẻ địch gục |
 | `coin` / `heal` / `checkpoint` | Nhặt cá / nhặt chai nước / chạm điểm hồi sinh |
@@ -420,16 +454,20 @@ assets/scripts/
 │  ├─ ColliderDebug.ts    vẽ khung va chạm
 │  ├─ Hittable.ts         danh sách thứ chém trúng được
 │  ├─ Sound.ts            phát tiếng hiệu ứng và nhạc nền (assets/resources/sounds)
-│  └─ HitStop.ts          khựng hình ngắn khi chém trúng
+│  ├─ HitStop.ts          khựng hình ngắn khi chém trúng
+│  └─ Silhouette.ts       vật liệu tô một màu (chân mèo dấu lưu, địch loé trắng khi trúng đòn)
 ├─ player/
 │  ├─ PlayerInput.ts      gom bàn phím và cảm ứng
-│  ├─ PlayerController.ts chạy, nhảy, combo chém 5 nhát, chém trên không, lướt chém + dash jump, sóng kiếm (giữ J), bị đánh
+│  ├─ PlayerController.ts chạy, nhảy, combo chém 5 nhát, chém trên không, lướt né + dash jump, sóng kiếm (giữ J), bị đánh
 │  ├─ SwordWave.ts        sóng kiếm bay thẳng (giữ J rồi thả)
 │  ├─ PlayerVisual.ts     hoạt ảnh tween (nhún, nghiêng, bẹp khi đáp, dãn khi nhảy)
 │  ├─ SlashFx.ts          vệt chém lưỡi liềm vẽ bằng code
-│  ├─ DashFx.ts           vệt chém dài khi lướt chém
 │  └─ HitSpark.ts         tia lửa khi chém trúng
-├─ enemy/EnemyPatrol.ts   kẻ địch đi tuần, bị chém thì văng lùi, dùng cho cả boss
+├─ enemy/
+│  ├─ EnemyPatrol.ts      kẻ địch đi tuần, bị chém thì văng lùi, dùng cho cả boss (dáng ra đòn)
+│  ├─ BossBrain.ts        bộ não boss: phase, chọn đòn, 12 đòn
+│  ├─ BossArena.ts        khu boss: dấu X chặn, cảnh mở màn, hạ boss
+│  └─ BossHazard.ts       vật của đòn boss vẽ bằng code (sóng âm, gai, hàm răng, sấm, khối đá, chó con)
 ├─ camera/
 │  ├─ CameraRig.ts        bám nhân vật, nhìn trước, giới hạn mép màn, rung màn hình
 │  └─ ParallaxLayer.ts    lớp cảnh trôi theo hệ số

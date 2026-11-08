@@ -33,11 +33,11 @@ export type LangCode = 'vi' | 'en';
 const LAYOUT_KEYS: Record<'wasd' | 'arrows', KeyMap> = {
     wasd: {
         left: KeyCode.KEY_A, right: KeyCode.KEY_D, up: KeyCode.KEY_W, down: KeyCode.KEY_S,
-        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.NONE, interact: KeyCode.NONE, swap: KeyCode.NONE,
+        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.KEY_L, interact: KeyCode.NONE, swap: KeyCode.NONE,
     },
     arrows: {
         left: KeyCode.ARROW_LEFT, right: KeyCode.ARROW_RIGHT, up: KeyCode.ARROW_UP, down: KeyCode.ARROW_DOWN,
-        jump: KeyCode.KEY_Z, attack: KeyCode.KEY_X, skill: KeyCode.NONE, interact: KeyCode.NONE, swap: KeyCode.NONE,
+        jump: KeyCode.KEY_Z, attack: KeyCode.KEY_X, skill: KeyCode.KEY_C, interact: KeyCode.NONE, swap: KeyCode.NONE,
     },
 };
 
@@ -50,7 +50,7 @@ const OLD_LAYOUTS: Partial<KeyMap>[] = [
 const DEFAULT_KEYS: KeyMap[] = [
     {
         left: KeyCode.KEY_A, right: KeyCode.KEY_D, up: KeyCode.KEY_W, down: KeyCode.KEY_S,
-        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.NONE, interact: KeyCode.NONE, swap: KeyCode.NONE,
+        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.KEY_L, interact: KeyCode.NONE, swap: KeyCode.NONE,
     },
     {
         left: KeyCode.ARROW_LEFT, right: KeyCode.ARROW_RIGHT, up: KeyCode.ARROW_UP, down: KeyCode.ARROW_DOWN,
@@ -100,6 +100,11 @@ function load(): Data {
             const stale = p0.skill !== KeyCode.NONE || p0.interact !== KeyCode.NONE || p0.swap !== KeyCode.NONE;
             if (same && stale) d.keys[0] = { ...LAYOUT_KEYS[i === 0 ? 'wasd' : 'arrows'] };
         });
+        // Bản trước chưa có phím special (Kỹ năng để trống): gán theo bộ phím đang dùng (WASD: L, mũi tên: C)
+        if (p0.skill === KeyCode.NONE) {
+            if (p0.jump === KeyCode.KEY_K && p0.attack === KeyCode.KEY_J) p0.skill = KeyCode.KEY_L;
+            else if (p0.jump === KeyCode.KEY_Z && p0.attack === KeyCode.KEY_X) p0.skill = KeyCode.KEY_C;
+        }
     } catch (e) {
         console.warn('[Settings] Không đọc được cài đặt đã lưu, dùng mặc định.', e);
     }

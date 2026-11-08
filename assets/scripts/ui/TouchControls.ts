@@ -110,8 +110,8 @@ export class TouchControls extends Component {
         }
         this.makeButton('attack', right - this.attackPos.x, bottom + this.attackPos.y, this.attackRadius, this.attackFrame);
         this.makeButton('jump', right - this.jumpPos.x, bottom + this.jumpPos.y, this.radius, this.jumpFrame);
-        // Nút Kỹ năng (K) chỉ dùng khi có Angelo; chưa có thì đập bụng = Xuống + Đánh, Mèo Nổ = Xuống + Lướt
-        if (GameSession.angelo) this.makeButton('skill', right - this.skillPos.x, bottom + this.skillPos.y, this.attackRadius * 0.85, this.skillFrame);
+        // Nút special (ngôi sao cạnh nút đánh): đầy thanh nộ thì phồng nhấp nháy, chạm để bật
+        this.makeButton('skill', right - this.skillPos.x, bottom + this.skillPos.y, this.attackRadius * 0.85, this.skillFrame);
         // Nút L (tương tác) chỉ khi có Angelo; chưa có thì lướt bằng đẩy đúp joystick
         if (GameSession.angelo) this.makeButton('interact', right - this.interactPos.x, bottom + this.interactPos.y, this.attackRadius * 0.8, this.interactFrame);
         // Nút đổi mèo: chỉ khi có Angelo và chơi 1 người (điện thoại luôn chơi 1 người)
@@ -212,6 +212,18 @@ export class TouchControls extends Component {
         n.on(Node.EventType.TOUCH_START, press);
         n.on(Node.EventType.TOUCH_END, release);
         n.on(Node.EventType.TOUCH_CANCEL, release);
+    }
+
+    private time = 0;
+
+    update(dt: number) {
+        // Nút special: đầy nộ thì phồng nhấp nháy, đang bật thì to hơn một chút
+        this.time += dt;
+        const btn = this.node.getChildByName('Btn_skill');
+        const cat = GameManager.instance?.player;
+        if (!btn || !cat) return;
+        const k = cat.specialOn ? 1.08 : cat.specialReady ? 1 + 0.12 * (0.5 + 0.5 * Math.sin(this.time * 8)) : 1;
+        btn.setScale(k, k, 1);
     }
 
     /** Nút tạm: tròn nâu, viền kem, biểu tượng kem ở giữa. */

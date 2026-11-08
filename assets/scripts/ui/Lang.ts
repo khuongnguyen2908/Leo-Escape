@@ -193,14 +193,16 @@ const TEXT = {
     'action.down': ['Xuống bục', 'Down'],
     'action.jump': ['Nhảy', 'Jump'],
     'action.attack': ['Đánh', 'Attack'],
-    'action.skill': ['Kỹ năng', 'Skill'],
+    'action.skill': ['Bùng nổ', 'Special'],
     'action.interact': ['Tương tác', 'Interact'],
     'action.swap': ['Đổi mèo', 'Swap cat'],
     'action.dash': ['Lướt', 'Dash'],
 
     // Trong màn
     'hud.tryAgain': ['Thử lại nào!', 'Try again!'],
-    'revive.hold': ['Giữ {0}', 'Hold {0}'],
+    'gameover.title': ['GAME OVER', 'GAME OVER'],
+    'gameover.retry': ['Chơi lại', 'Retry'],
+    'gameover.menu': ['Về menu', 'Quit to menu'],
     'goal.locked': ['Hạ boss trước đã!', 'Defeat the boss first!'],
 
     // Kết quả

@@ -1,10 +1,11 @@
-import { _decorator, Color, Component, Graphics, Node, Rect, Sprite, SpriteFrame, tween, UIOpacity, UITransform, Vec3 } from 'cc';
+import { _decorator, Color, Component, Graphics, Material, Node, Rect, Sprite, SpriteFrame, tween, UIOpacity, UITransform, Vec3 } from 'cc';
 import { moveTowards, overlaps } from '../core/Box';
 import type { DifficultyStats } from '../core/Difficulty';
 import { Hittable, registerHittable, unregisterHittable } from '../core/Hittable';
 import { HitStop } from '../core/HitStop';
 import { Sound } from '../core/Sound';
 import { PlatformerBody } from '../core/PlatformerBody';
+import { loadSilhouette } from '../core/Silhouette';
 import { GameManager } from '../game/GameManager';
 import { Achievements } from '../game/Achievements';
 import { DustPuff } from '../player/DustPuff';
@@ -14,6 +15,8 @@ const { ccclass, property, requireComponent } = _decorator;
 const _player = new Rect();
 const _self = new Rect();
 const HIT_TINT = new Color(255, 120, 120, 255);
+/** Trúng đòn thì loé trắng cả hình trong chừng này giây (tính sau lúc khựng hình) */
+const HIT_FLASH = 0.06;
 /** Nháy đỏ đậm lúc rướn người báo trước khi mổ */
 const PECK_TINT = new Color(255, 60, 60, 255);
 const _beak = new Rect();
@@ -96,6 +99,10 @@ export class EnemyPatrol extends Component implements Hittable {
     private animTime = 0;
     private hitCooldown = 0;
     private stun = 0;
+    /** Còn > 0 thì đang loé trắng (vật liệu tô một màu) */
+    private flash = 0;
+    private flashOn = false;
+    private flashMat: Material | null = null;
     private knockVel = 0;
     private shakeTime = 0;
     private pop = 0;
@@ -118,6 +125,15 @@ export class EnemyPatrol extends Component implements Hittable {
     invulnerable = false;
     /** Boss: máu không tụt dưới số này (BossBrain đặt: chưa ra đủ đòn của phase thì chưa qua mốc phase) */
     hpFloor = 0;
+    /**
+     * Boss: dáng do BossBrain đặt khi ra đòn (cúi lao, ngả người vồ, ngáp, run): nhân thêm vào độ co giãn hình,
+     * cộng góc nghiêng (dương = ngả ra sau lưng), dời hình. Về { 1, 1, 0, 0, 0 } là dáng thường.
+     */
+    readonly pose = { sx: 1, sy: 1, angle: 0, x: 0, y: 0 };
+    /** Boss: đang paused mà khác null thì tự chạy ngang với vận tốc này (lao, nhảy đè) */
+    drive: number | null = null;
+    /** Boss: còn > 0 thì nháy đỏ báo trước đòn */
+    private tellTime = 0;
 
     /** Bị hất tung rơi xuống đất thì choáng thêm chừng này giây. */
     private static readonly LAND_DAZE = 0.4;
@@ -157,6 +173,22 @@ export class EnemyPatrol extends Component implements Hittable {
         this.dir = x >= this.node.position.x ? 1 : -1;
     }
 
+    /** Boss: nháy đỏ báo trước đòn trong seconds giây. */
+    tell(seconds: number) {
+        this.tellTime = Math.max(this.tellTime, seconds);
+    }
+
+    /** Boss: đặt máu tối đa (và máu hiện tại) — BossBrain gọi lúc đầu, trước khi áp độ khó. */
+    setMaxHp(hp: number) {
+        this.hp = Math.max(1, Math.round(hp));
+        this.maxHpValue = this.hp;
+    }
+
+    /** Thân vật lý (BossBrain đọc chạm đất, đâm tường, đặt vận tốc nhảy). */
+    get physics(): PlatformerBody {
+        return this.body;
+    }
+
     /** Lấy đà trước khi ra đòn: phồng người một nhịp. */
     windup() {
         this.pop = 0.9;
@@ -174,6 +206,9 @@ export class EnemyPatrol extends Component implements Hittable {
         this.hpFloor = 0;
         this.paused = false;
         this.invulnerable = false;
+        this.drive = null;
+        this.tellTime = 0;
+        Object.assign(this.pose, { sx: 1, sy: 1, angle: 0, x: 0, y: 0 });
         this.stun = 0;
         this.knockVel = 0;
         this.dazed = 0;
@@ -208,6 +243,7 @@ export class EnemyPatrol extends Component implements Hittable {
 
     start() {
         DustPuff.preload(this.big ? BOSS_DEATH : ENEMY_DEATH);
+        loadSilhouette((m) => { this.flashMat = m; });
         this.maxHpValue = Math.max(1, this.hp);
         this.dir = this.startDirection >= 0 ? 1 : -1;
         this.startX = this.node.position.x;
@@ -291,12 +327,12 @@ export class EnemyPatrol extends Component implements Hittable {
             return;
         }
 
-        // Boss đang ra đòn / nhảy múa: đứng yên (vẫn bị đẩy lùi khi bị chém); đụng vào không mất máu
+        // Boss đang ra đòn / nhảy múa: đứng yên (vẫn bị đẩy lùi khi bị chém), hoặc tự chạy theo drive (lao, nhảy đè)
         if (this.paused) {
             if (this.stun > 0) this.stun -= dt;
             this.knockVel = moveTowards(this.knockVel, 0, 1600 * dt);
             if (b.grounded && !this.groundAt(Math.sign(this.knockVel))) this.knockVel = 0;
-            b.velocity.x = this.knockVel;
+            b.velocity.x = this.drive ?? this.knockVel;
             b.move(dt);
             this.animate(dt);
             return;
@@ -467,6 +503,11 @@ export class EnemyPatrol extends Component implements Hittable {
             sy *= 0.9;
             ang -= 8 * this.dir;
         }
+        // Dáng do BossBrain đặt (ra đòn)
+        const pose = this.pose;
+        sx *= pose.sx;
+        sy *= pose.sy;
+        ang += pose.angle * this.dir;
         v.setScale(this.baseScale * flip * sx, this.baseScale * sy, 1);
         // Té: xoay quanh chân, ngã nằm nghiêng 90° về phía bị quét tới; nâng lên nửa bề ngang để không lún xuống đất,
         // dời ngang nửa chiều cao để thân nằm giữa chỗ đứng
@@ -481,12 +522,26 @@ export class EnemyPatrol extends Component implements Hittable {
             tx = -this.tripDir * (h / 2) * Math.sin(a);
             ty = (w / 2) * Math.sin(a);
         }
-        v.setPosition(jx + tx, hop * 6 + ty, 0);
+        v.setPosition(jx + tx + pose.x * this.dir, hop * 6 + ty + pose.y, 0);
         v.angle = ang;
         if (this.sprite) {
-            const warn = this.peck === 'windup' && Math.floor(this.peckTime * 14) % 2 === 0;
-            this.sprite.color = warn ? PECK_TINT : this.stun > 0 && Math.floor(this.animTime * 16) % 2 === 0 ? HIT_TINT : Color.WHITE;
+            if (this.tellTime > 0) this.tellTime -= dt;
+            const warn = (this.peck === 'windup' && Math.floor(this.peckTime * 14) % 2 === 0)
+                || (this.tellTime > 0 && Math.floor(this.tellTime * 14) % 2 === 0);
+            if (this.flash > 0) this.flash -= dt;
+            this.setFlash(this.flash > 0);
+            this.sprite.color = this.flashOn ? Color.WHITE
+                : warn ? PECK_TINT : this.stun > 0 && Math.floor(this.animTime * 16) % 2 === 0 ? HIT_TINT : Color.WHITE;
         }
+    }
+
+    /** Bật / tắt loé trắng (chỉ đổi vật liệu khi khác trạng thái cũ). */
+    private setFlash(on: boolean) {
+        on = on && !!this.flashMat && !!this.sprite;
+        if (on === this.flashOn || !this.sprite) return;
+        this.flashOn = on;
+        this.sprite.customMaterial = on ? this.flashMat : null;
+        if (on) this.sprite.color = Color.WHITE;
     }
 
     /** Bị trói chân seconds giây (boss to xác bị trói ngắn hơn). */
@@ -565,6 +620,8 @@ export class EnemyPatrol extends Component implements Hittable {
         }
         this.hp = Math.max(this.hpFloor, this.hp - damage);
         this.hitCooldown = 0.12; // chỉ để một nhát chém không tính 2 lần
+        this.flash = HIT_FLASH;
+        this.setFlash(true);
         const heavy = this.targetHeight > 250; // boss to xác: văng ít, giật ít
         const away = fromX === undefined ? -this.dir : (this.node.position.x >= fromX ? 1 : -1);
         this.knockVel = away * this.knockback * power * (heavy ? 0.25 : 1);
@@ -585,6 +642,8 @@ export class EnemyPatrol extends Component implements Hittable {
     /** Gục: văng ra sau, lật nghiêng rồi mờ dần. */
     private die(away: number) {
         this.dead = true;
+        // Nhát kết liễu vẫn loé trắng một chút rồi mới về màu thường (xác không chạy update nữa)
+        this.scheduleOnce(() => this.setFlash(false), HIT_FLASH + 0.05);
         if (!this.big) Achievements.addBirdKill();
         this.clearStars();
         Sound.play('enemy_die');

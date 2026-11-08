@@ -1,12 +1,11 @@
-import { _decorator, Color, Component, Node, Rect, Size, Sprite, tween, UIOpacity, Vec2, Vec3 } from 'cc';
+import { _decorator, Color, Component, Graphics, Node, Rect, Size, Sprite, tween, UIOpacity, UITransform, Vec2, Vec3 } from 'cc';
 import { CameraRig } from '../camera/CameraRig';
 import { clamp, moveTowards, overlaps } from '../core/Box';
-import { Hittable, Hittables } from '../core/Hittable';
+import { Hittables } from '../core/Hittable';
 import { HitStop } from '../core/HitStop';
 import { PlatformerBody } from '../core/PlatformerBody';
 import { Solid } from '../core/Solid';
 import { Sound } from '../core/Sound';
-import { DashFx } from './DashFx';
 import { DustPuff } from './DustPuff';
 import { HitSpark } from './HitSpark';
 import { CatSkills } from './CatSkills';
@@ -18,10 +17,23 @@ import { ChargeFx } from './ChargeFx';
 import { SwordWave } from './SwordWave';
 const { ccclass, property, requireComponent } = _decorator;
 
-const GHOST_TINT = new Color(255, 236, 200, 255);
+/** Bóng mờ nối đuôi khi lướt: sáng, nhạt màu */
+const GHOST_TINT = new Color(255, 246, 228, 255);
+/** Đường gió trắng mảnh sau lưng khi lướt: [cao so với chân, dài] */
+const WIND_LINES: [number, number][] = [[105, 120], [70, 190], [35, 100]];
+/** Đường gió tắt dần trong chừng này giây sau khi hết lướt */
+const WIND_FADE = 0.15;
 const CHARGE_TINT = new Color(120, 220, 255, 255);
 /** Giữ J quá chừng này giây mới hiện hiệu ứng gồng (bấm chém nhanh thì không hiện) */
 const CHARGE_SHOW = 0.15;
+/** Hào quang quanh mèo lúc bật special (folder art/fx/Character/Special), lặp suốt lúc bật */
+const SPECIAL_FX = 'Character/Special/frame';
+/** Bật special: kiếm + (tăng công) hiện trên đầu mèo chạy 1 lượt, xong tới khiên + (tăng thủ) */
+const ATK_UP = 'Character/Atk_up/frame';
+const DEF_UP = 'Character/Def_up/frame';
+const BUFF_FPS = 20;
+/** Tốc độ khung hào quang special */
+const SPECIAL_FPS = 14;
 /** Hào quang dưới chân khi đang giữ J (folder art/fx/Hold), lặp tới khi buông */
 const HOLD_FX = 'Hold/frame';
 /**
@@ -29,14 +41,15 @@ const HOLD_FX = 'Hold/frame';
  * Tầm chém khớp với vệt chém đã phóng to trong SlashFx (Attack Range 170: vệt nhát 1–2 tới ~210, nhát 3 ~260, nhát 5 ~350).
  */
 const COMBO: [number, number, number, number, number, number][] = [
-    [1.2, 1, 1, 1, 55, 7],
-    [1.2, 1, 1, 1, 55, 7],
-    [1.5, 1.1, 1.3, 1, 70, 9],
-    [0.95, 1.2, 1.3, 1, 70, 10],    // nhát 4: chém xoay, tầm này tính cho cả hai bên
-    [2, 1.3, 2.2, 2, 110, 18],      // nhát 5: kết liễu
+    [1.2, 1, 1, 1, 70, 7],          // nhát 1: vệt A (quét ngang)
+    [1.2, 1, 1, 1, 70, 7],          // nhát 2: vệt B (hất lên)
+    [1.2, 1, 1.1, 1, 75, 8],        // nhát 3: A
+    [1.2, 1, 1.1, 1, 75, 8],        // nhát 4: B (không còn chém xoay)
+    [2, 1.3, 2.2, 2, 130, 18],      // nhát 5: kết liễu, vòng cung lớn (Slash3)
 ];
-const SPIN_STEP = 3;
-/** Bụi nâu tung sau gót khi lướt trên mặt đất */
+/** Không còn nhát chém xoay (trúng cả sau lưng); để -1 */
+const SPIN_STEP = -1;
+/** Bụi nâu tung lúc đạp đi và lúc phanh khi lướt trên mặt đất */
 const DASH_DUST = 'FX_run_';
 const _self = new Rect();
 const _hit = new Rect();
@@ -116,19 +129,16 @@ export class PlayerController extends Component {
     airHitLift = 300;
 
     @property({ group: 'Tấn công', tooltip: 'Chém trên mặt đất thì đứng yên chừng này giây mỗi nhát (giữ A/D cũng không đi). 0 = vừa chém vừa đi được' })
-    slashStill = 0.22;
+    slashStop = 0.12;
 
-    @property({ group: 'Lướt chém', tooltip: 'Bấm đúp trái/phải trong khoảng này (giây) thì lướt. 0 = tắt bấm đúp' })
+    @property({ group: 'Lướt né', tooltip: 'Bấm đúp trái/phải trong khoảng này (giây) thì lướt. 0 = tắt bấm đúp' })
     doubleTapTime = 0.25;
 
-    @property({ group: 'Lướt chém', tooltip: 'Nhảy khi đang lướt: bay ngang nhanh gấp bao nhiêu lần tốc độ chạy (tới khi chạm đất)' })
+    @property({ group: 'Lướt né', tooltip: 'Nhảy khi đang lướt: bay ngang nhanh gấp bao nhiêu lần tốc độ chạy (tới khi chạm đất)' })
     dashJumpSpeed = 1.7;
 
     @property({ group: 'Sóng kiếm (giữ J lâu)', tooltip: 'Giữ J bao lâu (giây) thì gồng xong, thả ra phóng sóng kiếm' })
     chargeTime = 0.8;
-
-    @property({ group: 'Sóng kiếm (giữ J lâu)', tooltip: 'Năng lượng tốn mỗi lần phóng' })
-    waveEnergy = 30;
 
     @property({ group: 'Sóng kiếm (giữ J lâu)', tooltip: 'Bay xa bao nhiêu' })
     waveDistance = 1000;
@@ -139,14 +149,17 @@ export class PlayerController extends Component {
     @property({ group: 'Sóng kiếm (giữ J lâu)', tooltip: 'Mỗi kẻ địch trúng mất bao nhiêu máu' })
     waveDamage = 2;
 
-    @property({ group: 'Lướt chém', tooltip: 'Lướt xa bao nhiêu' })
-    dashDistance = 560;
+    @property({ group: 'Lướt né', tooltip: 'Lướt xa bao nhiêu' })
+    dodgeDistance = 480;
 
-    @property({ group: 'Lướt chém', tooltip: 'Thời gian lướt (giây), càng nhỏ càng nhanh' })
-    dashTime = 0.2;
+    @property({ group: 'Lướt né', tooltip: 'Thời gian lướt (giây): phóng nhanh lúc đầu, chậm dần về tốc độ chạy' })
+    dodgeTime = 0.26;
 
-    @property({ group: 'Lướt chém', tooltip: 'Mỗi kẻ địch bị lướt qua mất bao nhiêu máu' })
-    dashDamage = 2;
+    @property({ group: 'Lướt né', tooltip: 'Hết lướt còn bất tử thêm chừng này giây (lỡ dừng ngay chỗ kẻ địch)' })
+    dodgeGrace = 0.1;
+
+    @property({ group: 'Lướt né', tooltip: 'Hết lướt chờ chừng này giây mới lướt tiếp được' })
+    dodgeCooldown = 0.3;
 
     @property({ group: 'Đi lên (W)', tooltip: 'Bục một chiều cao hơn chân trong khoảng này thì bấm W là lên được' })
     climbHeight = 420;
@@ -157,23 +170,24 @@ export class PlayerController extends Component {
     @property({ group: 'Ngồi, xuống bục', tooltip: 'Bấm Xuống 2 lần trong khoảng này (giây) khi đứng trên bục một chiều thì rơi xuyên xuống' })
     downTapTime = 0.3;
 
-    @property({ group: 'Năng lượng' })
+    @property({ group: 'Thanh nộ, special (L)', tooltip: 'Thanh nộ đầy là bao nhiêu (thanh năng lượng trên HUD)' })
     maxEnergy = 100;
 
-    @property({ group: 'Năng lượng', tooltip: 'Hồi bao nhiêu năng lượng mỗi giây' })
-    energyRegen = 18;
+    @property({ group: 'Thanh nộ, special (L)', tooltip: 'Mỗi nhát chém / sóng kiếm / chiêu trúng địch được thêm chừng này nộ (đang bật special thì không thêm)' })
+    rageOnHit = 5;
 
-    @property({ group: 'Năng lượng', tooltip: 'Vừa dùng năng lượng thì chờ bao lâu (giây) mới bắt đầu hồi' })
-    regenDelay = 0.6;
+    @property({ group: 'Thanh nộ, special (L)', tooltip: 'Special (phím L, cần đầy nộ) kéo dài bao lâu (giây); thanh nộ tụt dần về 0 trong lúc này' })
+    specialTime = 8;
 
-    @property({ group: 'Năng lượng', tooltip: 'Tốn mỗi lần nhảy 2 lần của Angelo (Leo nhảy miễn phí)' })
-    jumpEnergy = 10;
+    @property({ group: 'Thanh nộ, special (L)', tooltip: 'Lúc bật special: sát thương nhân chừng này' })
+    specialDamage = 1.5;
 
-    @property({ group: 'Năng lượng', tooltip: 'Tốn mỗi lần Angelo quất dây (Leo chém thường miễn phí)' })
-    slashEnergy = 12;
+    @property({ group: 'Thanh nộ, special (L)', tooltip: 'Lúc bật special: đánh nhanh gấp chừng này' })
+    specialSpeed = 1.5;
 
-    @property({ group: 'Năng lượng', tooltip: 'Tốn mỗi lần lướt chém' })
-    dashEnergy = 35;
+    @property({ group: 'Thanh nộ, special (L)', tooltip: 'Lúc bật special: trúng đòn chỉ mất chừng này tim (0.5 = nửa tim)' })
+    specialDefense = 0.5;
+
 
     body!: PlatformerBody;
     facing = 1;
@@ -192,7 +206,8 @@ export class PlayerController extends Component {
     /** Còn > 0 thì không tự đổi vận tốc ngang (vừa nhảy bật tường, vừa bị ném). */
     pushLock = 0;
     invincible = 0;
-    energy = 100;
+    /** Thanh nộ (hiện trên thanh năng lượng): bắt đầu rỗng, đầy lên khi đánh trúng địch, không tự hồi */
+    energy = 0;
     /** Còn > 0 khi vừa bấm mà không đủ năng lượng (thanh năng lượng nháy đỏ). */
     energyWarn = 0;
 
@@ -223,22 +238,32 @@ export class PlayerController extends Component {
     private lastTapDir = 0;
     private lastTapAge = 99;
     private dashFromGround = false;
-    private dashDustTimer = 0;
     private dashJump = false;
-    private regenWait = 0;
+    /** Còn > 0: đang bật special (giây còn lại) */
+    private specialLeft = 0;
+    private specialFx: DustPuff | null = null;
+    /** Đã chạy hào quang bao lâu; mỗi vòng sáng mới hiện ra thì kêu special_on, vòng cuối kêu special_off */
+    private auraTime = 0;
+    private auraOffPlayed = false;
     private ghostTimer = 0;
-    private dashFx: DashFx | null = null;
-    private readonly dashHits = new Set<Hittable>();
+    /** Còn > 0 thì chưa lướt tiếp được */
+    private dashCooldown = 0;
+    /** Đã lướt trên không (mỗi lần bay chỉ lướt 1 lần, chạm đất thì được lại) */
+    private airDashed = false;
+    private wind: Graphics | null = null;
+    private windFade = 0;
 
     onLoad() {
         this.body = this.getComponent(PlatformerBody)!;
-        this.energy = this.maxEnergy;
+        this.energy = 0;
         PlayerInput.init();
         preloadSlashImages();
         SwordWave.preload();
-        DashFx.preload();
         ChargeFx.preload();
         DustPuff.preload(HOLD_FX);
+        DustPuff.preload(SPECIAL_FX);
+        DustPuff.preload(ATK_UP);
+        DustPuff.preload(DEF_UP);
         DustPuff.preload(DASH_DUST);
     }
 
@@ -250,13 +275,20 @@ export class PlayerController extends Component {
         if (this.invincible > 0) this.invincible -= dt;
         const canControl = this.controlEnabled && this.hurtLock <= 0 && !this.downed;
 
-        // Năng lượng: vừa dùng thì chờ một chút rồi mới hồi
+        // Thanh nộ không tự hồi; đang bật special thì tụt dần, hết thì tắt
         if (this.energyWarn > 0) this.energyWarn -= dt;
-        if (this.regenWait > 0) this.regenWait -= dt;
-        else this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegen * dt);
+        if (this.specialLeft > 0) {
+            this.specialLeft -= dt;
+            this.energy = this.maxEnergy * Math.max(0, this.specialLeft) / Math.max(0.01, this.specialTime);
+            this.auraSound(dt);
+            if (this.specialLeft <= 0) this.endSpecial();
+        }
 
-        // Đang lướt chém thì bỏ qua chạy/nhảy/chém thường
+        // Đang lướt thì bỏ qua chạy/nhảy/chém thường
         if (this.dashGrace > 0) this.dashGrace -= dt;
+        if (this.dashCooldown > 0) this.dashCooldown -= dt;
+        if (b.grounded) this.airDashed = false;
+        this.fadeWind(dt);
         if (this.dashTimer > 0) {
             this.updateDash(dt);
             return;
@@ -287,7 +319,7 @@ export class PlayerController extends Component {
         }
         if (dir !== 0) this.facing = dir;
 
-        // Bấm đúp trái/phải: lướt chém
+        // Bấm đúp trái/phải: lướt né
         this.lastTapAge += dt;
         if (dir !== 0 && dir !== this.prevDir) {
             if (this.doubleTapTime > 0 && dir === this.lastTapDir && this.lastTapAge <= this.doubleTapTime) {
@@ -323,7 +355,7 @@ export class PlayerController extends Component {
                 this.jumping = false;
                 this.coyote = this.buffer = 0;
                 this.visual?.playJump();
-                Sound.play('jump', 0.5);
+                Sound.play('jump', 0.6);
             }
         }
 
@@ -352,7 +384,7 @@ export class PlayerController extends Component {
         this.attackQueued = this.controls.consumeAttack() ? 0.15 : this.attackQueued - dt;
         if (this.attackQueued > 0 && this.attackTimer <= 0 && canControl) {
             this.attackQueued = 0;
-            if (this.skills?.attack()) this.attackTimer = this.slashInterval * 1.6;
+            if (this.skills?.attack()) this.attackTimer = this.slashInterval * 1.6 / this.attackSpeedMult;
             else this.slash();
         }
 
@@ -384,7 +416,7 @@ export class PlayerController extends Component {
         } else {
             let fired = false;
             if (canHold && !this.controls.attackHeld) {
-                if (this.holdTime >= this.chargeTime && this.spend(this.waveEnergy)) {
+                if (this.holdTime >= this.chargeTime) {
                     this.fireWave();
                     fired = true;
                 }
@@ -413,7 +445,6 @@ export class PlayerController extends Component {
         if (b.grounded && !this.wasGrounded) {
             const impact = fallSpeed / b.maxFallSpeed;
             this.visual?.playLand(impact);
-            if (impact > 0.3) Sound.play('land', Math.min(1, impact));
         }
         this.wasGrounded = b.grounded;
         this.visual?.sync(b.grounded, v.x / this.moveSpeed, v.y, this.facing, this.invincible > 0 || (this.charged && !this.chargeFx));
@@ -478,18 +509,21 @@ export class PlayerController extends Component {
         this.comboStep = this.comboTimer > 0 ? (this.comboStep + 1) % length : 0;
         const step = this.comboStep;
         const last = step === length - 1 && length > 1;
-        this.attackTimer = this.slashInterval + (last ? this.finisherPause * (step >= 4 ? 1.5 : 1) : 0);
-        this.comboTimer = this.slashInterval + this.comboWindow;
+        // Special: đánh nhanh hơn (nhịp chém, nghỉ sau nhát cuối, đứng khựng đều ngắn lại)
+        const speed = this.attackSpeedMult;
+        this.attackTimer = (this.slashInterval + (last ? this.finisherPause * (step >= 4 ? 1.5 : 1) : 0)) / speed;
+        this.comboTimer = this.slashInterval / speed + this.comboWindow;
         if (air) {
             if (v.y < 0) v.y *= 0.3; // chém trên không thì khựng lơ lửng một nhịp
-        } else if (this.slashStill > 0) {
-            // Chém trên mặt đất: đứng yên tại chỗ mỗi nhát, không lao tới, giữ A/D cũng không đi
+        } else if (this.slashStop > 0) {
+            // Chém trên mặt đất: đứng yên tại chỗ một nhịp ngắn mỗi nhát, không lao tới, giữ A/D cũng không đi
             v.x = 0;
-            this.lunge = this.slashStill;
+            this.lunge = this.slashStop / speed;
         }
-        this.fx().play(this.facing, step);
+        this.fx().play(this.facing, step, this.specialOn, this.attackSpeedMult);
         this.visual?.playAttack();
-        Sound.play(`slash${Math.min(step, 2) + 1}`, step >= 3 ? 0.9 : 0.7);
+        // Nhát 1–4: slash1; nhát 5 (kết liễu): slash3
+        Sound.play(step >= 4 ? 'slash3' : 'slash1', step >= 4 ? 0.9 : 0.7);
 
         const [rangeK, heightK, power, damage, stop, shake] = COMBO[step];
         const big = step >= 2;
@@ -514,7 +548,7 @@ export class PlayerController extends Component {
             const ox = _other.x + _other.width / 2;
             // Chém xoay: đẩy địch ra xa khỏi mèo (đứng phía nào văng phía đó)
             const from = spin ? (ox >= cx ? cx - 1 : cx + 1) : this.node.position.x;
-            h.takeHit(from, power, damage);
+            h.takeHit(from, power, damage * this.damageMult);
             hits++;
             // Tia lửa ở chỗ lưỡi chém chạm vào kẻ địch
             const sx = clamp(ox, _hit.x, _hit.x + _hit.width);
@@ -522,6 +556,7 @@ export class PlayerController extends Component {
             if (this.node.parent) HitSpark.spawn(this.node.parent, sx, sy, ox >= cx ? 1 : -1, big);
         }
         if (hits > 0) {
+            this.addRage(this.rageOnHit);
             if (air) v.y = Math.max(v.y, this.airHitLift);
             Sound.play('hit', big ? 1 : 0.8);
             HitStop.trigger(stop);
@@ -535,11 +570,11 @@ export class PlayerController extends Component {
         if (!parent) return;
         const p = this.node.position;
         this.visual?.playAttack();
-        this.fx().play(this.facing, 2);
+        this.fx().playLegacy(this.facing, 2);
         Sound.play('slash3', 1);
         // Sóng phóng ra trước mặt (ảnh rộng ~300, mép sau vừa chạm thân mèo), ngang ngực
         SwordWave.fire(parent, p.x + this.facing * 220, p.y + 95, this.facing,
-            { speed: this.waveSpeed, distance: this.waveDistance, damage: this.waveDamage });
+            { speed: this.waveSpeed, distance: this.waveDistance, damage: this.waveDamage * this.damageMult, onHit: () => this.addRage(this.rageOnHit) });
         CameraRig.instance?.shake(6, 0.1);
     }
 
@@ -552,85 +587,162 @@ export class PlayerController extends Component {
 
     /** Trừ năng lượng nếu đủ; không đủ thì báo (thanh nháy đỏ) và trả về false. */
     private spend(cost: number): boolean {
-        if (this.energy < cost) {
+        if (this.energy < cost || this.specialLeft > 0) {
             this.energyWarn = 0.45;
             return false;
         }
         this.energy -= cost;
-        this.regenWait = this.regenDelay;
         return true;
     }
 
-    /** Lướt chém nếu đang điều khiển được và đủ năng lượng (phím Lướt / bấm đúp). Trả về true nếu lướt. */
+    // ---------- Thanh nộ, special ----------
+
+    /** Đang bật special. */
+    get specialOn() { return this.specialLeft > 0; }
+
+    /** Thanh nộ đầy, bật special được. */
+    get specialReady() { return this.specialLeft <= 0 && this.energy >= this.maxEnergy - 0.01; }
+
+    /** Sát thương nhân thêm (special: ×1.5). */
+    get damageMult() { return this.specialLeft > 0 ? this.specialDamage : 1; }
+
+    /** Tốc độ đánh nhân thêm (special: ×1.5). */
+    get attackSpeedMult() { return this.specialLeft > 0 ? Math.max(0.1, this.specialSpeed) : 1; }
+
+    /** Số tim mất khi trúng đòn (special: nửa tim). */
+    damageTaken(amount: number): number {
+        return this.specialLeft > 0 ? amount * this.specialDefense : amount;
+    }
+
+    /** Đánh trúng địch: thêm nộ (đang bật special thì không thêm). Vừa đầy thì kêu một tiếng báo. */
+    addRage(amount: number) {
+        if (this.specialLeft > 0 || amount <= 0) return;
+        const was = this.energy;
+        this.energy = Math.min(this.maxEnergy, this.energy + amount);
+        if (was < this.maxEnergy - 0.01 && this.energy >= this.maxEnergy - 0.01) Sound.play('checkpoint', 0.6);
+    }
+
+    /** Phím special (L / C): đầy nộ thì bật special (hào quang quanh mèo, 8 giây); chưa đầy thì thanh nháy đỏ. Trả về true nếu bật. */
+    trySpecial(): boolean {
+        if (this.specialLeft > 0 || !this.controlEnabled || this.downed) return false;
+        if (this.energy < this.maxEnergy - 0.01) {
+            this.energyWarn = 0.45;
+            Sound.play('ui_deny', 0.6);
+            return false;
+        }
+        this.specialLeft = this.specialTime;
+        this.auraTime = 0;
+        this.auraOffPlayed = false;
+        Sound.play('special_on', 1);
+        CameraRig.instance?.shake(8, 0.25);
+        this.visual?.playJump();
+        // Hào quang lặp quanh thân mèo, nằm sau hình mèo
+        if (this.specialFx?.isValid) this.specialFx.node.destroy();
+        // Hào quang nằm dưới đất quanh chân mèo
+        this.specialFx = DustPuff.spawn(SPECIAL_FX, this.node, 0, 8, { scale: 1.9, fps: SPECIAL_FPS, center: true, loopFor: this.specialTime });
+        this.specialFx?.node.setSiblingIndex(0);
+        // Kiếm + hiện trên đầu chạy 1 lượt, xong tới khiên +
+        const headY = this.body.size.height + 110;
+        DustPuff.spawn(ATK_UP, this.node, 0, headY, { scale: 2.1, fps: BUFF_FPS, center: true });
+        const atkTime = Math.max(0.3, DustPuff.frames(ATK_UP).length / BUFF_FPS);
+        this.scheduleOnce(() => {
+            if (this.specialLeft > 0) DustPuff.spawn(DEF_UP, this.node, 0, headY, { scale: 2.1, fps: BUFF_FPS, center: true });
+        }, atkTime);
+        return true;
+    }
+
+    /** Mỗi vòng sáng mới của hào quang: kêu special_on; vòng cuối cùng (không đủ thời gian cho vòng sau) kêu special_off. */
+    private auraSound(dt: number) {
+        if (this.auraOffPlayed) return;
+        const cycle = Math.max(0.2, (DustPuff.frames(SPECIAL_FX).length || 9) / SPECIAL_FPS);
+        const before = Math.floor(this.auraTime / cycle);
+        this.auraTime += dt;
+        if (Math.floor(this.auraTime / cycle) === before) return;
+        if (this.specialLeft > cycle) {
+            Sound.play('special_on', 1);
+        } else {
+            Sound.play('special_off', 0.9);
+            this.auraOffPlayed = true;
+        }
+    }
+
+    /** Hết giờ special: tắt hào quang, thanh nộ về 0 (đánh trúng để tích lại). */
+    private endSpecial() {
+        this.specialLeft = 0;
+        this.energy = 0;
+        if (this.specialFx?.isValid) this.specialFx.node.destroy();
+        this.specialFx = null;
+        if (!this.auraOffPlayed) Sound.play('special_off', 0.9);
+        this.auraOffPlayed = true;
+    }
+
+    /**
+     * Lướt né (phím Lướt / bấm đúp): không tốn năng lượng, không gây sát thương, bất tử suốt lúc lướt.
+     * Đang chém cũng lướt được ngay (huỷ nhịp chém). Trên không mỗi lần bay chỉ lướt 1 lần. Trả về true nếu lướt.
+     */
     tryDash(): boolean {
-        if (this.dashTimer > 0 || !this.controlEnabled || this.hurtLock > 0 || this.downed) return false;
+        if (this.dashTimer > 0 || this.dashCooldown > 0 || !this.controlEnabled || this.hurtLock > 0 || this.downed) return false;
         if (!(this.skills?.canDash ?? true)) return false;
-        if (!this.spend(this.dashEnergy)) return false;
+        if (!this.body.grounded) {
+            if (this.airDashed) return false;
+            this.airDashed = true;
+        }
         this.startDash();
         return true;
     }
 
-    /** Bắt đầu lướt chém về hướng đang quay mặt. */
+    /** Bắt đầu lướt về hướng đang quay mặt: huỷ nhịp chém, cúi người, bụi tung lúc đạp đi. */
     private startDash() {
-        this.dashTimer = this.dashTime;
+        this.dashTimer = this.dodgeTime;
         this.dashFromGround = this.body.grounded;
-        this.dashDustTimer = 0;
         this.dashJump = false;
-        this.dashHits.clear();
         this.ghostTimer = 0;
+        // Huỷ nhịp chém đang dở: lướt đi liền
         this.attackQueued = 0;
+        this.attackTimer = 0;
+        this.comboTimer = 0;
+        this.lunge = 0;
         this.jumping = false;
-        this.visual?.playAttack();
+        this.visual?.setDash(1);
         Sound.play('dash');
-        CameraRig.instance?.shake(5, 0.1);
         const parent = this.node.parent;
-        if (parent) {
-            const p = this.node.position;
-            this.dashFx = DashFx.spawn(parent, p.x, p.y + this.body.size.height * 0.5, this.facing);
+        if (!parent) return;
+        const p = this.node.position;
+        if (this.dashFromGround) DustPuff.spawn(DASH_DUST, parent, p.x - this.facing * 30, p.y, { dir: this.facing, scale: 5, fps: 24 });
+        // Đường gió: node riêng nằm ngay sau lưng mèo, vẽ lại mỗi khung
+        if (!this.wind || !this.wind.isValid) {
+            const n = new Node('DashWind');
+            n.layer = this.node.layer;
+            parent.addChild(n);
+            this.wind = n.addComponent(Graphics);
         }
+        this.wind.node.setSiblingIndex(Math.max(0, this.node.getSiblingIndex()));
+        this.windFade = 0;
     }
 
     private updateDash(dt: number) {
         const b = this.body;
-        b.velocity.set(this.facing * this.dashDistance / this.dashTime, 0);
+        // Tốc độ giảm đều từ đỉnh xuống tốc độ chạy: đi đúng Dodge Distance trong Dodge Time, hết lướt nối đà chạy luôn
+        const k = clamp(1 - this.dashTimer / this.dodgeTime, 0, 1);
+        const end = this.moveSpeed;
+        const peak = Math.max(end, (2 * this.dodgeDistance) / this.dodgeTime - end);
+        b.velocity.set(this.facing * (peak + (end - peak) * k), 0);
         b.gravityScale = 0;
         b.move(dt);
         this.dashTimer -= dt;
+        this.visual?.setDash(1 - k * 0.35);
 
-        // Chém mọi kẻ địch chạm vào trên đường lướt, mỗi con một lần
-        const r = b.getRect(_self);
-        _hit.set(r.x - 20, r.y - 20, r.width + 40, r.height + 40);
-        for (const h of Hittables.slice()) {
-            if (this.dashHits.has(h) || !h.canBeHit || !overlaps(_hit, h.getHitRect(_other))) continue;
-            this.dashHits.add(h);
-            h.takeHit(this.node.position.x - this.facing * 200, 1.4, this.dashDamage);
-            const sx = _other.x + _other.width / 2;
-            const sy = clamp(_other.y + _other.height / 2, _hit.y, _hit.y + _hit.height);
-            if (this.node.parent) HitSpark.spawn(this.node.parent, sx, sy, this.facing, true);
-            Sound.play('hit');
-            HitStop.trigger(45);
-            CameraRig.instance?.shake(10, 0.15);
-        }
-
-        // Bóng mờ đuổi theo sau
+        // Bóng mờ nối đuôi
         this.ghostTimer -= dt;
         if (this.ghostTimer <= 0) {
-            this.ghostTimer = 0.035;
+            this.ghostTimer = 0.03;
             this.spawnGhost();
         }
-        const p = this.node.position;
-        this.dashFx?.extendTo(p.x);
-
-        // Bụi nâu tung sau gót khi lướt trên mặt đất
-        this.dashDustTimer -= dt;
-        if (this.dashFromGround && b.grounded && this.dashDustTimer <= 0 && this.node.parent) {
-            this.dashDustTimer = 0.05;
-            DustPuff.spawn(DASH_DUST, this.node.parent, p.x - this.facing * 40, p.y, { dir: this.facing, scale: 4.5, fps: 24 });
-        }
+        this.drawWind(1 - k * 0.6);
 
         // Lướt trên mặt đất mà bấm Nhảy: nhảy giữ đà lướt (kiểu Mega Man X)
         if (this.dashFromGround && this.controlEnabled && this.controls.consumeJump()) {
-            this.endDash(false);
+            this.endDash();
             this.dashJump = true;
             b.velocity.x = this.facing * this.moveSpeed * this.dashJumpSpeed;
             this.coyote = 0;
@@ -638,25 +750,62 @@ export class PlayerController extends Component {
             return;
         }
 
-        // Hết thời gian hoặc đâm vào tường thì dừng, kết thúc bằng một nhát vung rộng
+        // Đang lướt bấm Đánh: dừng lướt, ra nhát chém liền (khung sau update thường xử lý, kể cả chiêu W + J / S + J)
+        if (this.controlEnabled && this.controls.consumeAttack()) {
+            this.endDash();
+            b.velocity.x = this.facing * this.moveSpeed * 0.5;
+            this.attackQueued = 0.15;
+            return;
+        }
+
+        // Hết thời gian: nối đà chạy (thả phím thì tự chậm lại như dừng chạy). Đâm tường thì dừng hẳn
         if (this.dashTimer <= 0 || b.hitLeft || b.hitRight) {
-            this.endDash(true);
-            b.velocity.set(this.facing * this.moveSpeed * 0.5, 0);
+            const wall = b.hitLeft || b.hitRight;
+            this.endDash();
+            b.velocity.set(wall ? 0 : this.facing * end, 0);
+            const parent = this.node.parent;
+            if (parent && b.grounded) {
+                const p = this.node.position;
+                DustPuff.spawn(DASH_DUST, parent, p.x + this.facing * 20, p.y, { dir: -this.facing, scale: 3.5, fps: 24 });
+            }
         }
         this.visual?.sync(b.grounded, this.facing, 0, this.facing, false);
     }
 
-    /** Kết thúc lướt; finisher: vung thêm một nhát rộng ở cuối đường lướt. */
-    private endDash(finisher: boolean) {
+    /** Kết thúc lướt: còn bất tử thêm một chút, chờ hồi rồi mới lướt tiếp; dáng người bật lại từ từ. */
+    private endDash() {
         this.dashTimer = 0;
-        this.dashGrace = 0.3;
+        this.dashGrace = this.dodgeGrace;
+        this.dashCooldown = this.dodgeCooldown;
         this.body.gravityScale = 1;
-        this.dashFx?.release();
-        this.dashFx = null;
-        if (finisher) {
-            this.fx().play(this.facing, 2);
-            Sound.play('slash3', 0.7);
+        this.visual?.setDash(0);
+        this.windFade = WIND_FADE;
+    }
+
+    /** Vẽ đường gió trắng mảnh sau lưng mèo, đậm a (0..1). */
+    private drawWind(a: number) {
+        const g = this.wind;
+        if (!g || !g.isValid) return;
+        const p = this.node.position;
+        g.node.setPosition(p.x, p.y, 0);
+        g.clear();
+        if (a <= 0.01) return;
+        g.lineWidth = 4;
+        g.lineCap = Graphics.LineCap.ROUND;
+        g.strokeColor = new Color(255, 255, 255, Math.round(220 * a));
+        const back = -this.facing;
+        for (const [y, len] of WIND_LINES) {
+            g.moveTo(back * 60, y);
+            g.lineTo(back * (60 + len * (0.5 + 0.5 * a)), y);
         }
+        g.stroke();
+    }
+
+    /** Đường gió tắt dần sau khi hết lướt. */
+    private fadeWind(dt: number) {
+        if (this.windFade <= 0 || this.dashTimer > 0) return;
+        this.windFade -= dt;
+        this.drawWind(Math.max(0, this.windFade / WIND_FADE) * 0.4);
     }
 
     /** Bóng mờ của mèo tại chỗ đang đứng, mờ dần rồi tự xoá. */
@@ -676,10 +825,13 @@ export class PlayerController extends Component {
         g.angle = vis.angle;
         const gs = g.addComponent(Sprite);
         gs.spriteFrame = sp.spriteFrame;
+        // Cùng gốc với hình mèo (giữa bàn chân), không thì bóng tụt xuống nửa thân, lún dưới đất
+        const va = vis.getComponent(UITransform)?.anchorPoint;
+        if (va) g.getComponent(UITransform)?.setAnchorPoint(va);
         gs.color = GHOST_TINT;
         const op = g.addComponent(UIOpacity);
-        op.opacity = 150;
-        tween(op).to(0.22, { opacity: 0 }).call(() => g.destroy()).start();
+        op.opacity = 115;
+        tween(op).to(0.2, { opacity: 0 }).call(() => g.destroy()).start();
     }
 
     private fx(): SlashFx {
@@ -702,7 +854,7 @@ export class PlayerController extends Component {
         this.body.velocity.y = speed;
         this.jumping = true;
         this.visual?.playJump();
-        Sound.play('jump', volume);
+        Sound.play('jump', Math.min(1, volume + 0.2));
     }
 
     /** Trừ năng lượng nếu đủ; không đủ thì báo (thanh nháy đỏ) và trả về false. Kỹ năng dùng chung. */
@@ -713,12 +865,7 @@ export class PlayerController extends Component {
     /** Gục xuống (hết tim) hoặc đứng dậy (được kéo dậy). */
     setDowned(on: boolean) {
         this.downed = on;
-        if (this.dashTimer > 0) {
-            this.dashTimer = 0;
-            this.body.gravityScale = 1;
-            this.dashFx?.release();
-            this.dashFx = null;
-        }
+        if (this.dashTimer > 0) this.endDash();
         this.body.velocity.x = 0;
         if (on) this.skills?.interrupt();
         this.visual?.setDowned(on);

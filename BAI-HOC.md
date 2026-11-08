@@ -18,6 +18,15 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 
 ## Scene và editor
 
+### Mèo như đứng trong tường cuối màn (ô đá xếp tay lấn ra ngoài khung va chạm)
+- Ngày: 08/11/2026 · Nhóm: scene
+- Triệu chứng: tới chân bức tường đá cao cuối màn (chỗ cờ goal), mèo bị chặn nhưng hình lại đứng lọt vào trong mặt tường.
+- Nguyên nhân: khối `Ground-002` xếp tay (Manual): ô góc `Tile_2` đặt lấn sang trái 215 so với gốc node, còn Solid luôn bắt đầu
+  từ gốc node (x 0 → Width). Va chạm đúng, chỉ hình vẽ lấn ra.
+- Cách sửa: người dùng đổi `Tile_2` Position X 283 → 498 cho mép hình trùng mép va chạm.
+- Cách tránh lần sau: xếp tay ô đá thì mép ngoài cùng của hình phải nằm trong [0, Width] của khối (nhất là khối cao làm tường).
+  Kiểm tra nhanh bằng JS: so khung các `Tile_*` với `_width` của GroundBlock (đoạn đo trong lịch sử phiên 08/11).
+
 ### Chuyển thư mục ra khỏi `assets` khi Creator đang mở
 - Ngày: 05/11/2026 · Nhóm: editor
 - Triệu chứng: `mv "assets/resources/art/fx/SlashFX Combos" art-nguon/SlashFX` báo `Device or resource busy`.
@@ -232,6 +241,65 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 
 ## Code giao diện (menu, bảng)
 
+### Mèo bị kéo to gấp mấy lần sau khi game giật
+- Ngày: 08/11/2026 · Nhóm: code
+- Triệu chứng: chụp màn hình thấy hình Leo cao gấp ~4 lần, vài khung sau tự về lại.
+- Nguyên nhân: `PlayerVisual` tính lò xo nhún (squash) bằng một bước Euler với cả dt của khung. Trình duyệt / máy giật làm một khung dài
+  (khung xem trước bị ẩn: cả giây) thì lò xo cứng (K 320) văng quá đà, độ co giãn ra số rất lớn.
+- Cách sửa: chia dt thành bước nhỏ (≤ 1/120 giây, tối đa 0.1 giây mỗi khung) và kẹp squash trong ±0.45.
+- Cách tránh lần sau: mọi lò xo / hiệu ứng tính theo dt (tween tự viết, rung, nảy) phải chia bước nhỏ hoặc kẹp dt; thử bằng cách gọi `update(1)` một phát xem có văng không.
+
+### Vệt móng boss nằm đè lên mặt boss
+- Ngày: 08/11/2026 · Nhóm: code
+- Triệu chứng: lúc boss cào vồ, ảnh `Boss/Claw` chồng lên đầu boss thay vì ở trước mặt; đẩy vệt xa thêm cũng không hết.
+- Nguyên nhân: vệt được đặt cố định trong màn ngay lúc bắt đầu vồ, rồi boss lao tới ~150 (950 × 0.16 giây) và chạy đè lên chính vệt của mình.
+- Cách sửa: `BossBrain` giữ node vệt (`clawMark`), mỗi khung lúc vồ đặt lại x = mép khung va chạm phía trước + `CLAW_AHEAD` (140).
+- Cách tránh lần sau: hiệu ứng gắn với một thân đang di chuyển thì cho nó bám theo thân (hoặc tính chỗ thân sẽ dừng), đừng đặt cố định lúc khởi động đòn.
+
+### Hai file tiếng cùng tên khác đuôi (jump.wav + jump.ogg)
+- Ngày: 08/11/2026 · Nhóm: asset
+- Triệu chứng: thêm `jump.ogg` mới nhưng trong game lúc nghe tiếng mới, lúc nghe tiếng cũ.
+- Nguyên nhân: `Sound` gọi tiếng theo tên không đuôi; hai file cùng tên thì bản nào tải xong sau sẽ đè bản kia, không đoán được.
+- Cách sửa: thay tiếng thì xoá file cũ (cả `.meta`), chỉ để lại một file mỗi tên.
+- Cách tránh lần sau: trước khi gắn tiếng mới, liệt kê thư mục `sounds` tìm tên trùng khác đuôi.
+- Bẫy khi sửa file: trong GNU sed, gạch chéo ngược + dấu huyền là "đầu dòng", nên lệnh sed thay chuỗi đó đã chèn dấu huyền vào đầu mọi dòng
+  (phải xoá lại). Sửa chữ có dấu huyền thì dùng Edit, đừng dùng sed.
+
+### Đoán phím "đang trống" mà không xem bộ phím mặc định
+- Ngày: 08/11/2026 · Nhóm: làm việc
+- Triệu chứng: đề xuất và làm special ở "phím K (Kỹ năng, đang bỏ trống)"; thử thì bấm K chỉ ra nhảy, special không bật.
+- Nguyên nhân: nhớ theo bộ phím cũ (Space nhảy, K kỹ năng). Bộ hiện tại (`core/Settings.ts`, `LAYOUT_KEYS`): WASD = J đánh, **K nhảy**,
+  Kỹ năng không gán phím; Mũi tên = X đánh, Z nhảy. Nút cảm ứng "K" cũng là nút nhảy.
+- Cách sửa: hỏi lại người dùng, special gán **L** (WASD) / **C** (mũi tên); máy đã lưu cài đặt mà phím Kỹ năng trống thì tự gán khi mở game.
+- Cách tránh lần sau: trước khi đề xuất phím / nút cho tính năng mới, mở `LAYOUT_KEYS` / `DEFAULT_KEYS` trong `Settings.ts` xem phím nào đang dùng,
+  và nhớ cài đặt cũ đã lưu trên máy người chơi (cần đoạn tự gán trong `load()`).
+
+### Nhuộm màu ảnh có màu sẵn (thanh năng lượng xanh) không ra màu muốn
+- Ngày: 08/11/2026 · Nhóm: code
+- Triệu chứng: thanh năng lượng đầy nộ / đang special đặt `Sprite.color` vàng nhưng nhìn ra xanh ô liu tối, khó nhận ra.
+- Nguyên nhân: `Sprite.color` nhân với màu ảnh: ảnh `MG_energy_fill` màu xanh lá nhân vàng ra ô liu; chỉ làm tối / ngả màu, không đổi hẳn màu được.
+- Cách sửa: lúc đó gán `customMaterial` = shader tô một màu (`core/Silhouette.ts`), `color` = vàng; hết thì trả `customMaterial = null`.
+- Cách tránh lần sau: ảnh đã có màu mà muốn đổi hẳn sang màu khác (loé trắng, tô vàng) thì dùng shader tô một màu, không nhuộm `color`.
+
+### Đòn boss mới viết ra mà không né được
+- Ngày: 08/11/2026 · Nhóm: code
+- Triệu chứng: thử bằng mèo giả trên preview: lao ngang lượt về luôn trúng (boss dừng ở tường 0.35 giây rồi lao ngược ngay, mèo vừa đáp
+  sau lưng boss không kịp nhảy); nền gợn sóng luôn trúng (mỗi khối nhô 0.5 giây, khối sau cách 0.075 giây → dải đá cao rộng ~500).
+- Nguyên nhân: đặt số theo cảm giác, không so với khả năng của mèo. Mèo nhảy cao ~300 (1250² / 2·2600), ở trên độ cao h trong khoảng
+  thời gian giải 1250t − 1300t² > h (trên 200: từ 0.2 tới 0.76 giây). Boss lao qua chỗ mèo mất (bề ngang chạm + bề ngang mèo) / tốc độ.
+- Cách sửa: lao 1500 → 1300, dội tường khựng 0.55 giây và nháy đỏ (ô *Shove Turn*); gợn sóng mỗi khối 0.35 giây, cách 0.1 giây, cao 130.
+  Đo lại bằng mèo giả: né được với phản xạ 0.1–0.2 giây.
+- Cách tránh lần sau: đòn nào bắt nhảy qua / chạy khỏi thì tính trước "mèo có kịp không" bằng các số trên, rồi thử bằng mèo giả
+  (vòng lặp tự tick, ra quyết định né như người chơi) trước khi báo xong. Đòn nào cũng phải có báo trước rõ và có cách né.
+
+### Bóng mờ khi lướt lún xuống dưới mặt đất
+- Ngày: 08/11/2026 · Nhóm: code
+- Triệu chứng: chụp lúc mèo lướt thấy các bóng mờ nối đuôi nằm thấp, nửa dưới chìm xuống nền đá.
+- Nguyên nhân: `spawnGhost` tạo node Sprite mới với gốc mặc định (giữa hình, 0.5 / 0.5), còn hình mèo đặt gốc ở bàn chân (0.5 / 0),
+  nên chép vị trí sang thì bóng tụt xuống nửa thân.
+- Cách sửa: bóng lấy cùng anchor với hình mèo (`UITransform.setAnchorPoint`).
+- Cách tránh lần sau: chép hình một node sang node mới (bóng, ảnh chụp lại) thì chép cả anchor, không chỉ vị trí / scale / góc.
+
 ### Khối vẽ trong editor bị chồng component, sửa scene xong "tự nhảy về"
 - Ngày: 08/11/2026 · Nhóm: scene
 - Triệu chứng: console editor báo "Can't add component 'cc.UITransform' because Tut_Pillar already contains…",
@@ -242,6 +310,9 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   Người dùng đổi Height của khối một chút rồi đổi lại để nó vẽ lại, Ctrl+S.
 - Cách tránh lần sau: component tự thêm component khác (executeInEditMode) phải dùng \`getComponents\` và dọn bản thừa,
   không chỉ \`getComponent ?? addComponent\`. Thấy lỗi "Can't add component" thì mở scene đếm component của node đó.
+- Bổ sung 08/11/2026: `GroundBlock` cũng bị y hệt (`Ground-002` 5 Solid, một khối khác 4, một khối 2) mà lần trước chỉ sửa
+  TutorialBlock. Đã sửa `GroundBlock.redraw` cùng cách; người dùng Ctrl+S, mỗi khối còn 1 Solid. Sửa lỗi kiểu này thì
+  tìm mọi chỗ `getComponent(X) ?? this.addComponent(X)` trong `assets/scripts` và sửa hết một lần.
 - Thêm: \`useGameFont\` trong editor không tải được font qua resources (báo lỗi vàng vô hại) → bỏ qua khi EDITOR.
 
 ### Xoá Graphics rồi gắn Sprite trên cùng node: Sprite không bao giờ hiện
@@ -428,6 +499,13 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   (`cc.js.getClassByName('X').prototype.hàm = ...`), đo, rồi mới sửa code thật. Xong thì tải lại trang để bỏ bản vá.
   Combo trên không: đo vị trí cả hai bên ngay lúc chém (bọc hàm `slash`) mới thấy đòn trượt vì mèo rơi nhanh hơn địch.
 - Bẫy: thử chiêu có bấm W (chém hất) cạnh bàn/ghế thì W làm mèo nhảy lên bục trước. Đặt mèo và địch ở chỗ trống không có bục phía trên.
+- Bẫy (08/11/2026): tắt `Landing` bằng JS để vào thẳng màn chơi thì mèo vẫn ở trạng thái chờ (`idle = true`): boss không coi là mục tiêu,
+  không bị đánh. Gọi `GameManager.instance.beginPlay(false)` sau khi tắt Landing.
+- Bẫy (08/11/2026): mèo giả nhảy bằng `startJump` mà không giữ phím Nhảy thì game cắt nhảy (thả phím sớm = nhảy thấp), chỉ cao ~200.
+  Muốn nhảy cao hết cỡ thì đặt `cat.jumping = false` ngay sau `startJump`.
+- Bẫy (08/11/2026): đếm số lần mèo trúng đòn thì đừng xoá `invincible` sau mỗi lần trúng: chạm thân boss sẽ tính mỗi khung, ra số ảo.
+- Bẫy (08/11/2026): dịch mèo tới cuối màn (sau x ~9000) là vào khu boss: tường chắn khu boss hiện ra, lướt bị chặn giữa chừng,
+  tưởng va chạm lỗi. Thử chỗ đó thì tắt `BossArena` (`enabled = false`) và ẩn node `Boss` trước khi dịch mèo.
 - Bẫy (06/11/2026): trước khi kết luận "phím không ăn", đo số khung hình chạy trong 0.5 giây (`cc.director.getTotalFrames()`).
   Ra 0 thì trình duyệt đang bóp khung hình (mèo không chạy, menu đọc phím trong update không đổi): chuyển sang tự tick.
   Ảnh chụp lúc đó có thể là khung cũ: kiểm tra bằng số (node có tồn tại, opacity...) chứ đừng chỉ nhìn ảnh.

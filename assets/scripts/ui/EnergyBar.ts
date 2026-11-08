@@ -1,4 +1,5 @@
-import { _decorator, Color, Component, Graphics, Node, Size, Sprite, SpriteFrame } from 'cc';
+import { _decorator, Color, Component, Graphics, Material, Node, Size, Sprite, SpriteFrame } from 'cc';
+import { loadSilhouette } from '../core/Silhouette';
 import { GameManager } from '../game/GameManager';
 import { PlayerController } from '../player/PlayerController';
 const { ccclass, property } = _decorator;
@@ -8,6 +9,9 @@ const TRACK = new Color(118, 100, 98, 255);
 const FILL = new Color(96, 190, 222, 255);
 const SHINE = new Color(190, 235, 248, 255);
 const WARN = new Color(232, 84, 72, 255);
+/** Thanh nộ đầy (bấm phím special được): nhấp nháy vàng; đang bật special: vàng cam */
+const READY = new Color(255, 214, 90, 255);
+const SPECIAL = new Color(255, 170, 60, 255);
 
 /**
  * Thanh năng lượng dưới hàng tim, đọc năng lượng của mèo mỗi frame. Nhảy, chém, lướt đều tốn năng lượng;
@@ -33,9 +37,16 @@ export class EnergyBar extends Component {
     private warnGfx: Graphics | null = null;
     private shown = 1;
     private warn = false;
+    /** Màu thanh lúc này (đầy / đang special), null = màu thường */
+    private glow: Color | null = null;
+    private time = 0;
+    private baseScale = NaN;
+    private solidMat: Material | null = null;
+    private solidOn = false;
     private baseX = NaN;
 
     start() {
+        loadSilhouette((m) => { this.solidMat = m; });
         if (this.frameFrame) this.child('Frame').addComponent(Sprite).spriteFrame = this.frameFrame;
         if (this.fillFrame) {
             const sp = this.child('Fill').addComponent(Sprite);
@@ -80,10 +91,24 @@ export class EnergyBar extends Component {
         if (isNaN(this.baseX)) this.baseX = this.node.position.x;
         const pos = this.node.position;
         this.node.setPosition(this.baseX + (warnLeft > 0 ? Math.sin(warnLeft * 90) * 6 : 0), pos.y, pos.z);
+        // Đầy nộ: nhấp nháy vàng, phồng nhẹ (bấm phím special được); đang bật special: vàng cam
+        this.time += dt;
+        const ready = !!p && p.specialReady;
+        const pulse = ready ? 0.5 + 0.5 * Math.sin(this.time * 8) : 0;
+        this.glow = p && p.specialOn ? SPECIAL : ready ? (pulse > 0.5 ? READY : FILL) : null;
+        if (isNaN(this.baseScale)) this.baseScale = this.node.scale.x;
+        const k = this.baseScale * (1 + 0.04 * pulse);
+        this.node.setScale(k, k, 1);
 
         if (this.fillSprite) {
             this.fillSprite.fillRange = this.shown;
-            this.fillSprite.color = this.warn ? WARN : Color.WHITE;
+            // Ảnh thanh màu xanh: nhân màu không ra vàng được, nên lúc đầy nộ / đang special tô hẳn một màu (shader tô một màu)
+            const solid = !this.warn && !!this.glow && !!this.solidMat;
+            if (solid !== this.solidOn) {
+                this.solidOn = solid;
+                this.fillSprite.customMaterial = solid ? this.solidMat : null;
+            }
+            this.fillSprite.color = this.warn ? WARN : this.glow ?? Color.WHITE;
         }
         if (this.warnGfx) this.warnGfx.node.active = this.warn;
         if (this.fillGfx) this.drawFill(this.fillGfx, this.shown);
@@ -103,7 +128,7 @@ export class EnergyBar extends Component {
             g.stroke();
         }
         if (fw < innerH) return;
-        g.fillColor = this.warn ? WARN : FILL;
+        g.fillColor = this.warn ? WARN : this.glow ?? FILL;
         g.roundRect(-w / 2 + pad, -innerH / 2, fw, innerH, innerH / 2);
         g.fill();
         g.fillColor = SHINE;

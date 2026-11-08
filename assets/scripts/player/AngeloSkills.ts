@@ -48,9 +48,6 @@ export class AngeloSkills extends Component implements CatSkills, Carryable {
     @property({ tooltip: 'Trói chân bao lâu (giây). Boss bị trói ngắn hơn' })
     bindTime = 2;
 
-    @property({ tooltip: 'Năng lượng tốn mỗi lần trói' })
-    bindEnergy = 25;
-
     @property({ tooltip: 'Giữ Kỹ năng bao lâu (giây) thì nằm lì / đứng dậy' })
     anchorHold = 0.45;
 
@@ -173,7 +170,6 @@ export class AngeloSkills extends Component implements CatSkills, Carryable {
     attack(): boolean {
         if (this.state !== 'none') return true;
         const c = this.cat;
-        if (!c.useEnergy(c.slashEnergy)) return true;
         const r = c.body.getRect(_me);
         const cx = r.x + r.width / 2, cy = r.y + r.height * 0.6;
         const tipX = cx + c.facing * this.whipRange;
@@ -213,7 +209,7 @@ export class AngeloSkills extends Component implements CatSkills, Carryable {
             if (parent) SkillFx.ring(parent, p.x + this.wallSide * 30, p.y + 60, 50, YARN, 0.2, 0);
             return true;
         }
-        if (this.airLeft > 0 && c.useEnergy(c.jumpEnergy)) {
+        if (this.airLeft > 0) {
             this.airLeft--;
             c.startJump(c.jumpSpeed * 0.85);
             if (parent) SkillFx.ring(parent, p.x, p.y, 70, YARN, 0.25, 4);
@@ -275,13 +271,12 @@ export class AngeloSkills extends Component implements CatSkills, Carryable {
             if (parent) SkillFx.line(parent, cx, cy, cx + c.facing * 160, cy - 10, YARN, 0.2, 5);
             return;
         }
-        if (!c.useEnergy(this.bindEnergy)) return;
         const e = best.getHitRect(_o);
         if (parent) SkillFx.line(parent, cx, cy, e.x + e.width / 2, e.y + 20, YARN, 0.3, 6);
         best.bind!(this.bindTime);
         c.facing = e.x + e.width / 2 >= cx ? 1 : -1;
         c.visual?.playAttack();
-        Sound.play('slash2', 0.6);
+        Sound.play('slash1', 0.6);
     }
 
     // ---------- Nằm lì ----------

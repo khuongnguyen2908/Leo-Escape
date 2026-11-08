@@ -24,6 +24,8 @@ export interface WaveOptions {
     damage?: number;
     /** Phóng to ảnh. Mặc định 5.1 (cao cỡ thân Leo) */
     scale?: number;
+    /** Trúng kẻ địch thì gọi (mèo cộng nộ), mỗi con một lần */
+    onHit?: () => void;
 }
 
 /**
@@ -37,6 +39,7 @@ export class SwordWave extends Component {
     private speed = 1300;
     private left = 1000;
     private damage = 2;
+    private onHit: (() => void) | null = null;
     private readonly hits = new Set<Hittable>();
 
     static preload() {
@@ -54,6 +57,7 @@ export class SwordWave extends Component {
         w.speed = opt.speed ?? 1300;
         w.left = opt.distance ?? 1000;
         w.damage = opt.damage ?? 2;
+        w.onHit = opt.onHit ?? null;
         // Ảnh lặp suốt đường bay (chưa tải xong thì sóng vẫn đánh, chỉ không thấy hình)
         // Ô ảnh cắt lấy tâm ô gốc làm tâm, phần vẽ lệch sau và lên trên: dời lại cho lưỡi liềm nằm giữa node
         const k = (opt.scale ?? 5.1) / 5.1;
@@ -74,6 +78,7 @@ export class SwordWave extends Component {
             if (this.hits.has(h) || !h.canBeHit || !overlaps(_hit, h.getHitRect(_other))) continue;
             this.hits.add(h);
             h.takeHit(x - this.dir * 200, 1.6, this.damage);
+            this.onHit?.();
             const parent = this.node.parent;
             if (parent) HitSpark.spawn(parent, _other.x + _other.width / 2, p.y, this.dir, true);
             Sound.play('hit', 0.9);

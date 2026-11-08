@@ -29,9 +29,31 @@ const IMAGE_STYLES: ImageStyle[] = [
     ['FX_finish_', 225, 64, 6.2, true, true],    // nhát 5: kết liễu, cong ngược lại, sau lưng mèo
 ];
 
+/**
+ * Bộ vệt chém mới (art/fx/Character): thường dùng màu 1 (Normal Atk/…_color1), đang bật special dùng màu đỏ (Special/…_color2).
+ * Slash: 9 khung = 2 nhát (A: khung 1–5 quét ngang, B: khung 6–9 hất lên); Slash2: chém hất; Slash3: vòng cung lớn (nhát 5 kết liễu).
+ */
+export type SlashKind = 'Slash' | 'Slash2' | 'Slash3';
+export function slashSet(kind: SlashKind, special: boolean): string {
+    return special ? `Character/Special/${kind}_color2_frame` : `Character/Normal Atk/${kind}_color1_frame`;
+}
+
+/** Combo 5 nhát: [bộ vệt, khung đầu, khung cuối, x tâm phía trước, y tâm so với chân, phóng to] — A B A B rồi kết liễu */
+const COMBO_SLASH: [SlashKind, number, number, number, number, number][] = [
+    ['Slash', 0, 4, 125, 150, 3.4],
+    ['Slash', 5, 8, 125, 150, 3.4],
+    ['Slash', 0, 4, 125, 150, 3.4],
+    ['Slash', 5, 8, 125, 150, 3.4],
+    ['Slash3', 0, 99, 35, 140, 3.4],   // vòng cung ôm trên đầu mèo, chỗ hở ngay đầu
+];
+
 /** Tải trước mọi bộ ảnh vệt chém (gọi lúc vào màn). */
 export function preloadSlashImages() {
     for (const [prefix] of IMAGE_STYLES) DustPuff.preload(prefix);
+    for (const kind of ['Slash', 'Slash2', 'Slash3'] as SlashKind[]) {
+        DustPuff.preload(slashSet(kind, false));
+        DustPuff.preload(slashSet(kind, true));
+    }
 }
 
 /**
@@ -56,8 +78,27 @@ export class SlashFx extends Component {
     private facing = 1;
     private style = 0;
 
-    /** Vệt chém nhát combo (0..4). Ảnh chưa tải xong thì vẽ tạm bằng code. */
-    play(facing: number, combo: number) {
+    /**
+     * Vệt chém nhát combo (0..4): A B A B (bộ Slash) rồi kết liễu (Slash3); special: màu đỏ, chạy nhanh theo nhịp đánh.
+     * Ảnh chưa tải xong thì vẽ tạm bằng code.
+     */
+    play(facing: number, combo: number, special = false, speed = 1) {
+        this.facing = facing >= 0 ? 1 : -1;
+        const i = Math.max(0, Math.min(COMBO_SLASH.length - 1, combo));
+        const [kind, from, to, x, y, scale] = COMBO_SLASH[i];
+        const prefix = slashSet(kind, special);
+        if (DustPuff.ready(prefix)) {
+            DustPuff.spawn(prefix, this.node, this.facing * x, y,
+                { dir: this.facing, scale, fps: this.imageFps * speed, center: true, from, to });
+            return;
+        }
+        this.style = Math.min(STYLES.length - 1, i);
+        this.t = 0;
+        this.draw();
+    }
+
+    /** Vệt chém cũ (bộ FX_cut…) — dùng lúc phóng sóng kiếm. */
+    playLegacy(facing: number, combo: number) {
         this.facing = facing >= 0 ? 1 : -1;
         const i = Math.max(0, Math.min(IMAGE_STYLES.length - 1, combo));
         const [prefix, x, y, scale, flipX, behind] = IMAGE_STYLES[i];

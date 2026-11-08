@@ -33,6 +33,9 @@ export interface FxOptions {
     hold?: boolean;
     /** > 0: lặp hết các khung trong chừng ấy giây rồi tự xoá (sao choáng...) */
     loopFor?: number;
+    /** Chỉ chạy đoạn khung from → to (đếm từ 0, tính cả to). Mặc định cả bộ */
+    from?: number;
+    to?: number;
 }
 
 function getSet(prefix: string): FrameSet {
@@ -129,11 +132,15 @@ export class DustPuff extends Component {
      * Bộ ảnh chưa tải xong thì trả về null (lần sau sẽ có).
      */
     static spawn(prefix: string, parent: Node, x: number, y: number, opt: FxOptions = {}): DustPuff | null {
-        const frames = getSet(prefix).frames;
-        if (frames.length === 0) {
+        const all = getSet(prefix).frames;
+        if (all.length === 0) {
             DustPuff.preload(prefix);
             return null;
         }
+        const frames = opt.from !== undefined || opt.to !== undefined
+            ? all.slice(Math.max(0, opt.from ?? 0), Math.min(all.length, (opt.to ?? all.length - 1) + 1))
+            : all;
+        if (frames.length === 0) return null;
         const scale = opt.scale ?? 1;
         const n = new Node('DustPuff');
         n.layer = parent.layer;

@@ -2,7 +2,7 @@ import { _decorator, Color, Component, Node, Rect, Size, Vec2, Vec3 } from 'cc';
 import { CameraRig } from '../camera/CameraRig';
 import { computeBox, overlaps } from '../core/Box';
 import { difficultyStats, DifficultyStats } from '../core/Difficulty';
-import { keyName, Settings } from '../core/Settings';
+import { Settings } from '../core/Settings';
 import { Sound } from '../core/Sound';
 import { TimeScale } from '../core/TimeScale';
 import { AngeloSkills } from '../player/AngeloSkills';
@@ -12,12 +12,11 @@ import { PlayerController } from '../player/PlayerController';
 import { SoulWisp } from '../player/SoulWisp';
 import { PlayerInput } from '../player/PlayerInput';
 import { PoisonStatus } from '../player/PoisonStatus';
-import { ReviveRing } from '../player/ReviveRing';
 import { RunDust } from '../player/RunDust';
 import { CoinCounter } from '../ui/CoinCounter';
+import { GameOverScreen } from '../ui/GameOverScreen';
 import { HeartsHUD } from '../ui/HeartsHUD';
 import { LandingScreen } from '../ui/LandingScreen';
-import { T } from '../ui/Lang';
 import { PauseMenu } from '../ui/PauseMenu';
 import { ResultsScreen } from '../ui/ResultsScreen';
 import { ScreenFade } from '../ui/ScreenFade';
@@ -117,6 +116,8 @@ export class GameManager extends Component {
     /** Về đích: thời gian (giây) từ lúc chạm cờ; âm là chưa về đích */
     private outroTime = -1;
     private respawning = false;
+    /** Đang hiện màn GAME OVER */
+    private gameOver = false;
     /** Gục hết thì chờ chừng này giây (hiện "Try again!") rồi hồi sinh ở checkpoint */
     private respawnDelay = 1.2;
     private playing = false;
@@ -139,7 +140,7 @@ export class GameManager extends Component {
     onLoad() {
         GameManager.instance = this;
         TimeScale.reset(); // vào màn (chơi lại giữa lúc slow motion) thì về tốc độ bình thường
-        PauseMenu.blockOpen = () => this.finished;
+        PauseMenu.blockOpen = () => this.finished || this.gameOver;
         PlayerInput.reset();
         if (!this.angeloEnabled) this.removeAngelo();
         GameSession.angelo = !!this.partner;
@@ -165,7 +166,6 @@ export class GameManager extends Component {
             c.controls = PlayerInput.none;
             c.idle = true; // chưa vào chơi thì chưa bị đánh
             this.attachSkills(c);
-            if (!c.getComponent(ReviveRing)) c.addComponent(ReviveRing);
             // Trúng độc (axit của boss): cứ 1 giây rút nửa tim
             const poison = c.getComponent(PoisonStatus) ?? c.addComponent(PoisonStatus);
             poison.onTick = (amount) => this.damage(c, amount);
@@ -376,7 +376,8 @@ export class GameManager extends Component {
 
     /** Kẻ địch, vật nguy hiểm đánh trúng mèo cat từ vị trí fromX. */
     hurtCat(cat: PlayerController, fromX: number) {
-        if (!this.finished && cat.hurt(fromX)) this.damage(cat, 1);
+        // Đang bật special thì chỉ mất nửa tim
+        if (!this.finished && cat.hurt(fromX)) this.damage(cat, cat.damageTaken(1));
     }
 
     /** Mèo chạm axit của boss: trúng độc (không bị đẩy lùi). Đang lướt thì né được. */
@@ -582,11 +583,7 @@ export class GameManager extends Component {
 
     private updateRevive(dt: number) {
         for (const c of this.cats) {
-            const ring = c.getComponent(ReviveRing);
-            if (!c.downed) {
-                ring?.hide();
-                continue;
-            }
+            if (!c.downed) continue;
             const helper = this.cats.find((o) => o !== c && !o.downed);
             let progress = this.revive.get(c) ?? 0;
             const near = !!helper && Math.abs(helper.node.position.x - c.node.position.x) < this.reviveRange
@@ -598,7 +595,6 @@ export class GameManager extends Component {
                 this.standUp(c);
                 continue;
             }
-            ring?.show(progress, helper ? T('revive.hold', this.interactKeyName(helper)) : '');
         }
     }
 
@@ -607,17 +603,7 @@ export class GameManager extends Component {
         cat.hp = Math.min(this.maxHp, this.reviveHp);
         cat.setDowned(false);
         this.hudFor(cat)?.setHp(cat.hp, this.maxHp);
-        cat.getComponent(ReviveRing)?.hide();
         Sound.play('heal');
-    }
-
-    /** Tên phím Tương tác của người đang điều khiển con mèo helper (để hiện trên vòng kéo dậy). */
-    private interactKeyName(helper: PlayerController): string {
-        if (GameSession.mode === 2) {
-            const p = helper === this.player ? GameSession.leoPlayer : GameSession.angeloPlayer;
-            return keyName(Settings.key(p, 'interact'));
-        }
-        return keyName(Settings.key(0, 'interact'));
     }
 
     /** Rơi xuống vực: mất 1 tim, đứng lại cạnh đồng đội (hoặc điểm lưu nếu đồng đội cũng đang gục). */
@@ -646,9 +632,28 @@ export class GameManager extends Component {
             c.controlEnabled = false;
             c.getComponent(PoisonStatus)?.clear();
         }
-        this.hud?.showMessage(T('hud.tryAgain'));
-        // Chữ hiện một lúc, màn tối hẳn, đổi chỗ trong bóng tối rồi sáng lại
-        this.scheduleOnce(() => ScreenFade.blink(() => this.respawnNow()), this.respawnDelay);
+        // Gục một lúc rồi hiện màn GAME OVER: Chơi lại (về checkpoint) hoặc Về menu
+        this.scheduleOnce(() => this.showGameOver(), this.respawnDelay);
+    }
+
+    private showGameOver() {
+        if (this.finished) return;
+        this.gameOver = true;
+        const screen = GameOverScreen.show(this.node, {
+            retry: () => {
+                // Màn tối hẳn, đổi chỗ trong bóng tối rồi sáng lại
+                ScreenFade.blink(() => {
+                    if (screen.isValid) screen.node.destroy();
+                    this.gameOver = false;
+                    this.respawnNow();
+                });
+            },
+            menu: () => ScreenFade.to(255, 0.3, () => {
+                LandingScreen.passed = false;
+                GameSession.reset();
+                reloadScene();
+            }),
+        });
     }
 
     /** Trong lúc màn tối: mọi con mèo đứng dậy ở checkpoint, đủ tim; boss đánh lại từ đầu. */
@@ -658,7 +663,6 @@ export class GameManager extends Component {
         this.hud?.hideMessage();
         this.cats.forEach((c, i) => {
             this.revive.delete(c);
-            c.getComponent(ReviveRing)?.hide();
             _pos.set(this.respawnPoint.x - i * 120, this.respawnPoint.y + 20, 0);
             c.respawn(_pos);
             c.hp = this.maxHp;

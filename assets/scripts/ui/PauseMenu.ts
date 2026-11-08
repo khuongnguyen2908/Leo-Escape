@@ -315,8 +315,8 @@ export class PauseMenu extends Component {
     private buildControls() {
         const two = GameSession.angelo;
         const players = two ? 2 : 1;
-        // Không có Angelo: chỉ phím của Người 1; bỏ dòng Đổi mèo, Kỹ năng, Tương tác (lướt chỉ bằng bấm đúp)
-        const actions = two ? ACTIONS : ACTIONS.filter((a) => a !== 'swap' && a !== 'skill' && a !== 'interact');
+        // Không có Angelo: chỉ phím của Người 1; bỏ dòng Đổi mèo, Tương tác (lướt chỉ bằng bấm đúp). Giữ dòng K (special)
+        const actions = two ? ACTIONS : ACTIONS.filter((a) => a !== 'swap' && a !== 'interact');
         const cellX = two ? CELL_X2 : [VALUE_X];
         const step = two ? 46 : 62;
         const { root, nav, focus } = this.makePage('controls', () => this.show('options', true), 'opt.controlsTitle');

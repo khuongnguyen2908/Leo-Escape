@@ -5,6 +5,7 @@ import { Solid } from '../core/Solid';
 import { Sound } from '../core/Sound';
 import { TimeScale } from '../core/TimeScale';
 import { GameManager } from '../game/GameManager';
+import { DustPuff } from '../player/DustPuff';
 import { SkillFx } from '../player/SkillFx';
 import { BossHealthBar } from '../ui/BossHealthBar';
 import { Lang, T } from '../ui/Lang';
@@ -20,7 +21,6 @@ const NAME = new Color(255, 236, 200, 255);
 const NAME_LINE = new Color(150, 40, 40, 255);
 const BARK = new Color(255, 245, 225, 255);
 const BARK_RING = new Color(255, 230, 190, 255);
-const ALERT = new Color(255, 70, 60, 255);
 const ALERT_LINE = new Color(70, 20, 20, 255);
 
 type State = 'idle' | 'intro' | 'fight' | 'done';
@@ -28,9 +28,10 @@ type State = 'idle' | 'intro' | 'fight' | 'done';
 /**
  * Khu đánh boss (BossBrain tự gắn cùng node boss):
  *  - Chưa vào trận: boss đứng yên quay mặt sang phải gặm khúc xương (xương vẽ tạm bằng code).
- *  - Mèo bước lên khối đá của boss: hai dấu X đỏ to mờ chặn hai đầu khu (chặn thật), camera giữ trong khu, rồi
- *    cảnh mở màn từng nhịp: camera trượt sang boss → boss gặm xương → quay đầu → sủa → thanh máu hiện, đầy dần
- *    → tên boss trượt vào rồi ra → camera về mèo, bắt đầu đánh. Lần sau (gục rồi quay lại) chỉ chiếu bản ngắn.
+ *  - Mèo rơi xuống chạm đáy hang (khối đá của boss): hai dấu X đỏ to mờ chặn hai đầu khu (chặn thật), camera giữ trong khu,
+ *    rồi cảnh mở màn từng nhịp: camera trượt sang boss → boss gặm xương → giật mình (!) → ngáp dài → quay đầu → sủa
+ *    → tên boss trượt vào rồi ra → xong mới hiện thanh máu, đầy dần → camera về mèo, bắt đầu đánh.
+ *    Lần sau (gục rồi quay lại) chỉ chiếu bản ngắn.
  *  - Boss chết: khựng hình, chớp sáng, chữ ĐÃ HẠ BOSS!, mở hai dấu X, camera hết bị giữ.
  *  - Mèo gục hết, về checkpoint: mở dấu X, boss về gặm xương, vào lại thì bản ngắn.
  * Mọi mốc thời gian là ô chỉnh ở đây (giây, tính từ lúc bước vào khu).
@@ -38,25 +39,31 @@ type State = 'idle' | 'intro' | 'fight' | 'done';
 @ccclass('BossArena')
 export class BossArena extends Component {
     @property({ group: 'Mở màn', tooltip: 'Camera bắt đầu trượt sang boss' })
-    panAt = 0.6;
+    panAt = 0.3;
 
     @property({ group: 'Mở màn', tooltip: 'Boss thôi gặm, khựng lại, dấu ! đỏ bật lên trên đầu (vẫn quay mặt sang phải)' })
-    alertAt = 2.4;
+    alertAt = 1.6;
+
+    @property({ group: 'Mở màn', tooltip: 'Boss ngáp dài (vươn người, chữ Haaa~)' })
+    yawnAt = 2.1;
+
+    @property({ group: 'Mở màn', tooltip: 'Ngáp bao lâu (giây)' })
+    yawnTime = 1;
 
     @property({ group: 'Mở màn', tooltip: 'Boss quay đầu về phía mèo' })
-    turnAt = 3.1;
+    turnAt = 3.3;
 
     @property({ group: 'Mở màn', tooltip: 'Boss sủa' })
-    barkAt = 3.6;
+    barkAt = 3.8;
 
-    @property({ group: 'Mở màn', tooltip: 'Thanh máu boss hiện ra, đầy dần' })
-    barAt = 4.5;
+    @property({ group: 'Mở màn', tooltip: 'Tên boss trượt vào (trượt vào, giữ, trượt ra mất khoảng 2.1 giây)' })
+    nameAt = 4.4;
 
-    @property({ group: 'Mở màn', tooltip: 'Tên boss trượt vào' })
-    nameAt = 5.6;
+    @property({ group: 'Mở màn', tooltip: 'Thanh máu boss hiện ra, đầy dần (sau khi tên boss trượt ra hết)' })
+    barAt = 6.6;
 
     @property({ group: 'Mở màn', tooltip: 'Camera trượt về mèo, bắt đầu đánh' })
-    fightAt = 7.1;
+    fightAt = 7.6;
 
     @property({ group: 'Mở màn', tooltip: 'Bản ngắn (gục rồi vào lại): bắt đầu đánh sau chừng này giây' })
     shortFightAt = 1.5;
@@ -64,8 +71,6 @@ export class BossArena extends Component {
     @property({ tooltip: 'Dấu X cách mép trong của khu boss (khu = mặt đá boss đứng, chừa 60 mỗi đầu) bao xa về phía mép khối đá' })
     wallInset = 20;
 
-    @property({ tooltip: 'Mèo phải vào trong khu sâu chừng này (tính từ dấu X) mới bắt đầu cảnh mở màn, để dấu X hiện ra sau lưng mèo' })
-    enterDepth = 120;
 
     @property({ group: 'Hạ boss', tooltip: 'Slow motion lúc boss chết: chậm còn bao nhiêu (0.15 = 15% tốc độ)' })
     slowLow = 0.15;
@@ -141,9 +146,9 @@ export class BossArena extends Component {
         }
     }
 
-    /** x có nằm hẳn trong khu chưa (qua dấu X một đoạn enterDepth). */
-    isInside(x: number): boolean {
-        return x >= this.left - this.wallInset + this.enterDepth && x <= this.right + this.wallInset - this.enterDepth;
+    /** Mèo đã rơi xuống chạm đáy hang chưa (đứng trên mặt đá của boss, trong hai dấu X). */
+    landed(x: number, y: number, grounded: boolean): boolean {
+        return grounded && Math.abs(y - this.groundY) < 30 && x >= this.left - this.wallInset && x <= this.right + this.wallInset;
     }
 
     /** Có mèo vừa bước vào khu (BossBrain gọi). */
@@ -169,10 +174,11 @@ export class BossArena extends Component {
         const e = this.boss!;
         this.scheduleOnce(() => CameraRig.instance?.setTargets([e.node]), this.panAt);
         this.scheduleOnce(() => this.alert(), this.alertAt);
+        this.scheduleOnce(() => this.yawn(), this.yawnAt);
         this.scheduleOnce(() => this.turn(), this.turnAt);
         this.scheduleOnce(() => this.bark(), this.barkAt);
-        this.scheduleOnce(() => BossHealthBar.instance?.reveal(), this.barAt);
         this.scheduleOnce(() => this.showName(), this.nameAt);
+        this.scheduleOnce(() => BossHealthBar.instance?.reveal(), this.barAt);
         this.scheduleOnce(() => GameManager.instance?.followCats(), this.fightAt);
         this.scheduleOnce(() => this.startFight(), this.fightAt + 0.5);
     }
@@ -195,7 +201,7 @@ export class BossArena extends Component {
         Sound.play('checkpoint', 0.7);
         const n = uiNode('Alert', e.node);
         n.setPosition(0, e.targetHeight + 70, 0);
-        uiLabel(n, '!', 150, ALERT, { outline: ALERT_LINE, outlineWidth: 12 });
+        DustPuff.spawn('Boss/Warn/frame', n, 0, 0, { scale: 2.4, fps: 14, center: true, loopFor: 30 });
         n.setScale(0.2, 0.2, 1);
         tween(n)
             .to(0.16, { scale: new Vec3(1.35, 1.35, 1) }, { easing: 'backOut' })
@@ -211,6 +217,32 @@ export class BossArena extends Component {
         if (!n || !n.isValid) return;
         const op = n.getComponent(UIOpacity) ?? n.addComponent(UIOpacity);
         tween(op).to(0.25, { opacity: 0 }).call(() => n.destroy()).start();
+    }
+
+    /** Ngáp dài: vươn người lên, ngả ra sau rồi về dáng thường; chữ Haaa~ và chữ z bay lên trên đầu. */
+    private yawn() {
+        const e = this.boss!;
+        this.clearAlert();
+        Sound.play('boss_yawn', 0.9);
+        const k = { v: 0 };
+        const apply = () => Object.assign(e.pose, { sx: 1 - 0.06 * k.v, sy: 1 + 0.16 * k.v, angle: 9 * k.v });
+        tween(k).to(this.yawnTime * 0.45, { v: 1 }, { easing: 'sineOut', onUpdate: apply })
+            .delay(this.yawnTime * 0.2)
+            .to(this.yawnTime * 0.35, { v: 0 }, { easing: 'sineIn', onUpdate: apply })
+            .call(() => Object.assign(e.pose, { sx: 1, sy: 1, angle: 0 }))
+            .start();
+        const parent = e.node.parent;
+        if (!parent) return;
+        const p = e.node.position;
+        for (const [txt, size, dx, dy, delay] of [['Haaa~', 72, 60, 30, 0], ['z', 54, 200, 90, 0.35]] as [string, number, number, number, number][]) {
+            const n = uiNode('Yawn', parent);
+            n.setPosition(p.x + dx, p.y + e.targetHeight + dy, 0);
+            uiLabel(n, txt, size, BARK, { outline: ALERT_LINE, outlineWidth: 6 });
+            const op = n.addComponent(UIOpacity);
+            op.opacity = 0;
+            tween(op).delay(delay).to(0.2, { opacity: 255 }).delay(this.yawnTime * 0.5).to(0.3, { opacity: 0 }).call(() => n.destroy()).start();
+            tween(n).delay(delay).by(this.yawnTime + 0.3, { position: new Vec3(20, 60, 0) }).start();
+        }
     }
 
     /** Quay lại: khúc xương rơi xuống, boss quay về phía mèo, nảy người; dấu ! tắt dần. */

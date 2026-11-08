@@ -1,5 +1,6 @@
 import { _decorator, Color, Component, Sprite, SpriteFrame, UIOpacity, UITransform } from 'cc';
 import { clamp } from '../core/Box';
+import { Sound } from '../core/Sound';
 const { ccclass, property } = _decorator;
 
 const SPRING_K = 320;
@@ -61,6 +62,12 @@ export class PlayerVisual extends Component {
     private squashVel = 0;
     private hurtFlash = 0;
     private attackLean = 0;
+    /** Tiếng bước chân: bước thứ mấy (mỗi nửa nhịp nhún là 1 bước), lần này dùng Run 1 hay Run 2 */
+    private stepIndex = -1;
+    private stepAlt = false;
+    /** Dáng lướt: 0 = thường, 1 = cúi thấp, ngả tới, thân kéo dài */
+    private dash = 0;
+    private dashTarget = 0;
 
     // Trạng thái do PlayerController đẩy sang mỗi frame
     private grounded = true;
@@ -161,6 +168,12 @@ export class PlayerVisual extends Component {
         this.attackLean = 0.2;
     }
 
+    /** Dáng lướt (PlayerController đẩy sang mỗi khung khi lướt): bật lên ngay, thả ra thì bật lại từ từ. */
+    setDash(k: number) {
+        this.dashTarget = clamp(k, 0, 1);
+        if (this.dashTarget > this.dash) this.dash = this.dashTarget;
+    }
+
     playHurt() {
         this.squash = 0.25;
         this.hurtFlash = 0.2;
@@ -168,14 +181,29 @@ export class PlayerVisual extends Component {
 
     update(dt: number) {
         this.time += dt;
-        this.squashVel += (-SPRING_K * this.squash - SPRING_D * this.squashVel) * dt;
-        this.squash += this.squashVel * dt;
+        // Lò xo nhún: chia nhỏ bước (game giật một khung dài thì lò xo không văng quá đà, hình mèo không bị kéo to), giới hạn độ co giãn
+        let rem = Math.min(dt, 0.1);
+        while (rem > 0) {
+            const h = Math.min(rem, 1 / 120);
+            this.squashVel += (-SPRING_K * this.squash - SPRING_D * this.squashVel) * h;
+            this.squash = clamp(this.squash + this.squashVel * h, -0.45, 0.45);
+            rem -= h;
+        }
 
         let sx = 1, sy = 1, y = 0, angle = 0;
         const speed = Math.abs(this.runRatio);
 
         if (this.grounded && speed > 0.05) {
             this.runPhase += dt * this.runBobSpeed * (0.5 + 0.5 * speed);
+            // Mỗi lần chân chạm đất (nhịp nhún về 0): tiếng bước Run 1 / Run 2 luân phiên; đang lướt thì thôi
+            const step = Math.floor(this.runPhase / Math.PI);
+            if (step !== this.stepIndex) {
+                if (this.stepIndex >= 0 && this.dash < 0.3 && speed > 0.3) {
+                    Sound.play(this.stepAlt ? 'Run 2' : 'Run 1', 0.35);
+                    this.stepAlt = !this.stepAlt;
+                }
+                this.stepIndex = step;
+            }
             const s = Math.sin(this.runPhase);
             y = Math.abs(s) * this.runBobHeight * speed;
             angle = -this.facing * this.runTilt * speed + s * 2;
@@ -214,6 +242,15 @@ export class PlayerVisual extends Component {
             sy = 1 + 0.03 * Math.sin(this.time * 2);
             const ref = this.idleFrame ?? this.sprite?.spriteFrame;
             y = ref ? ref.rect.width * this.baseScale * this.widthScale * 0.5 * lie * 0.8 : 0;
+        }
+
+        // Lướt: cúi thấp 22%, thân dài thêm 25%, ngả tới 12 độ, không nhún bước chạy
+        this.dash += (this.dashTarget - this.dash) * Math.min(1, dt * 14);
+        if (this.dash > 0.001) {
+            sx *= 1 + 0.25 * this.dash;
+            sy *= 1 - 0.22 * this.dash;
+            angle -= this.facing * 12 * this.dash;
+            y *= 1 - this.dash;
         }
 
         // Ngồi: thấp xuống 38%, bè ra 12% (chuyển mượt)

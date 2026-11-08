@@ -1,10 +1,10 @@
-import { Color, EffectAsset, Graphics, Material, Node, resources, Sprite, SpriteFrame } from 'cc';
+import { Color, Graphics, Material, Node, resources, Sprite, SpriteFrame } from 'cc';
+import { loadSilhouette } from '../core/Silhouette';
 import { MENU_OUTLINE } from './MenuStyle';
 import { uiNode } from './UiKit';
 
-/** Ảnh chân mèo (dùng chung với hoạ tiết màn tải) và shader tô một màu */
+/** Ảnh chân mèo (dùng chung với hoạ tiết màn tải); tô một màu bằng shader sprite-silhouette (core/Silhouette) */
 const PAW_IMAGE = 'art/Loading_pattern/Icon_paw';
-const SILHOUETTE_EFFECT = 'effects/sprite-silhouette';
 /** Viền: 8 bản tô nâu lệch quanh hình chừng này đơn vị */
 const OUTLINE = 4;
 const GLOW = new Color(255, 244, 220, 255);
@@ -20,8 +20,6 @@ export function drawPaw(g: Graphics, r: number, color: Color) {
         g.fill();
     }
 }
-
-let material: Material | null = null;
 
 /** Chân mèo Icon_paw tô một màu: node gốc + điều khiển quầng sáng. */
 export interface PawIcon {
@@ -80,18 +78,7 @@ export function pawIcon(parent: Node, size: number, fill: Color = Color.WHITE): 
     };
     resources.load(`${PAW_IMAGE}/spriteFrame`, SpriteFrame, (err, sf) => {
         if (err || !sf) return;
-        if (material) {
-            build(sf, material);
-            return;
-        }
-        resources.load(SILHOUETTE_EFFECT, EffectAsset, (e2, effect) => {
-            if (e2 || !effect) return;
-            if (!material) {
-                material = new Material();
-                material.initialize({ effectAsset: effect, defines: { USE_TEXTURE: true } });
-            }
-            build(sf, material);
-        });
+        loadSilhouette((mat) => build(sf, mat));
     });
     return {
         node: root,
