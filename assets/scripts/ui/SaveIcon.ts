@@ -1,28 +1,27 @@
-import { Color, director, Graphics, Node, view } from 'cc';
-import { uiNode } from './UiKit';
+import { director, Label, Node, UIOpacity, UITransform, view } from 'cc';
+import { T } from './Lang';
+import { MENU_OUTLINE, MENU_TEXT } from './MenuStyle';
+import { pawIcon } from './PawIcon';
+import { setText, uiLabel, uiNode } from './UiKit';
 
-/** Hiện bao lâu (giây): mờ vào, nhấp nháy, mờ ra */
-const SHOW = 1.6;
-const SIZE = 30;
-const PAW = new Color(250, 246, 236, 255);
-
-/** Vẽ chân mèo (đệm thịt + 4 ngón) tâm (0, 0), cỡ r; dùng chung cho màn thông báo tự lưu. */
-export function drawPaw(g: Graphics, r: number, color: Color) {
-    g.fillColor = color;
-    g.ellipse(0, -r * 0.28, r * 0.62, r * 0.5);
-    g.fill();
-    const toes: [number, number, number][] = [[-0.62, 0.3, 0.22], [-0.24, 0.62, 0.24], [0.24, 0.62, 0.24], [0.62, 0.3, 0.22]];
-    for (const [x, y, s] of toes) {
-        g.ellipse(x * r, y * r, s * r, s * r * 1.2);
-        g.fill();
-    }
-}
+/** Nhịp (giây): hiện dần, "Đang lưu..." tới lúc này thì đổi sang "Đã lưu", đứng, mờ đi */
+const IN = 0.25;
+const SAVED_AT = 1.2;
+const OUT_AT = 2.1;
+const OUT = 0.35;
+/** Cỡ chân mèo, khoảng cách tới chữ; mép phải chữ cách mép phải khung hình, tâm cách mép trên (cùng hàng tim / ô cá, trên nút bánh răng) */
+const PAW = 64;
+const SPACE = 14;
+const MARGIN_RIGHT = 30;
+const MARGIN_TOP = 79;
 
 let current: Node | null = null;
 
 /**
- * Biểu tượng đang lưu: chân mèo nhỏ ở góc dưới phải, mờ vào, nhấp nháy rồi mờ ra (~1.6 giây).
- * GameManager gọi SaveIcon.show() mỗi lần ghi ô lưu (chạm checkpoint, qua màn). Chạy bằng setInterval, độ mờ nằm trong màu vẽ.
+ * Dấu tự lưu (kiểu A): góc phải trên (cùng hàng tim / ô cá, phía trên nút bánh răng), chân mèo Icon_paw tô trắng viền nâu + chữ.
+ * Đang lưu: chân mèo nhún nhịp, chữ "Đang lưu..." nhấp nháy → lưu xong: chữ "Đã lưu", chân mèo nảy lên và loé sáng
+ * rồi mờ đi (~2.5 giây). GameManager gọi SaveIcon.show() mỗi lần ghi ô lưu (đi ngang checkpoint, qua màn).
+ * Chạy bằng setInterval, luôn nằm trên cùng (cả trên màn đen chuyển cảnh).
  */
 export const SaveIcon = {
     show() {
@@ -30,35 +29,61 @@ export const SaveIcon = {
         if (!canvas) return;
         if (current?.isValid) current.destroy();
         const d = view.getDesignResolutionSize();
-        const n = uiNode('SaveIcon', canvas, SIZE * 3, SIZE * 3);
-        n.setPosition(d.width / 2 - 80, -d.height / 2 + 80, 0);
-        n.setSiblingIndex(canvas.children.length - 1);
-        current = n;
-        const g = n.addComponent(Graphics);
+        const root = uiNode('SaveIcon', canvas);
+        root.setPosition(d.width / 2 - MARGIN_RIGHT, d.height / 2 - MARGIN_TOP, 0);
+        const op = root.addComponent(UIOpacity);
+        op.opacity = 0;
+        current = root;
+        // Chữ canh mép phải ở gốc; chân mèo đứng bên trái chữ
+        const label: Label = uiLabel(root, '', 34, MENU_TEXT, { outline: MENU_OUTLINE, outlineWidth: 4, name: 'Text' });
+        label.node.getComponent(UITransform)!.setAnchorPoint(1, 0.5);
+        const textOp = label.node.addComponent(UIOpacity);
+        const setLabel = (key: 'save.saving' | 'save.saved') => {
+            setText(label, T(key));
+            label.updateRenderData(true);
+        };
+        setLabel('save.saving');
+        // Chỗ chân mèo theo chữ dài nhất (để đổi chữ không làm chân mèo nhảy chỗ)
+        const savingW = label.node.getComponent(UITransform)!.width;
+        const pawX = -savingW - SPACE - PAW / 2;
+        const paw = pawIcon(root, PAW);
+        paw.node.setPosition(pawX, 0, 0);
+        let saved = false;
         const start = Date.now();
         const timer = setInterval(() => {
-            if (!g.isValid) {
+            if (!root.isValid) {
                 clearInterval(timer);
                 return;
             }
             // Luôn nằm trên cùng (màn đen chuyển cảnh cũng tự đưa mình lên trên cùng)
             const top = canvas.children.length - 1;
-            if (n.getSiblingIndex() !== top) n.setSiblingIndex(top);
+            if (root.getSiblingIndex() !== top) root.setSiblingIndex(top);
             const t = (Date.now() - start) / 1000;
-            const fade = Math.min(1, t / 0.25, Math.max(0, (SHOW - t) / 0.35));
-            const blink = 0.7 + 0.3 * Math.abs(Math.cos(t * 5));
-            g.clear();
-            // Quầng sáng mờ phía sau
-            for (let i = 0; i < 4; i++) {
-                g.fillColor = new Color(200, 225, 255, Math.round(22 * fade));
-                g.circle(0, 0, SIZE * (0.8 + i * 0.25));
-                g.fill();
+            op.opacity = Math.round(255 * Math.min(1, t / IN, Math.max(0, (OUT_AT + OUT - t) / OUT)));
+            if (t < SAVED_AT) {
+                // Đang lưu: chân mèo nhún, nghiêng qua lại; chữ nhấp nháy
+                const b = Math.abs(Math.sin(t * 8));
+                paw.node.setPosition(pawX, b * 8, 0);
+                paw.node.angle = Math.sin(t * 8) * 8;
+                textOp.opacity = Math.round(255 * (0.55 + 0.45 * Math.abs(Math.cos(t * 4))));
+            } else {
+                if (!saved) {
+                    saved = true;
+                    setLabel('save.saved');
+                    textOp.opacity = 255;
+                    paw.node.angle = 0;
+                }
+                // Lưu xong: chân mèo nảy lên một nhịp và loé sáng rồi tắt dần
+                const s = t - SAVED_AT;
+                const pop = s < 0.12 ? s / 0.12 : Math.max(0, 1 - (s - 0.12) / 0.25);
+                paw.node.setPosition(pawX, 0, 0);
+                paw.node.setScale(1 + 0.25 * pop, 1 + 0.25 * pop, 1);
+                paw.setGlow(s < 0.15 ? s / 0.15 : Math.max(0, 1 - (s - 0.15) / 0.6));
             }
-            drawPaw(g, SIZE, new Color(PAW.r, PAW.g, PAW.b, Math.round(255 * fade * blink)));
-            if (t >= SHOW) {
+            if (t >= OUT_AT + OUT) {
                 clearInterval(timer);
-                n.destroy();
-                if (current === n) current = null;
+                root.destroy();
+                if (current === root) current = null;
             }
         }, 16);
     },

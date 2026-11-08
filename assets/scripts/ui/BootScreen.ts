@@ -2,7 +2,8 @@ import { _decorator, Color, Component, EventKeyboard, Graphics, Input, input, in
 import { Settings } from '../core/Settings';
 import { Sound } from '../core/Sound';
 import { menuDivider, MENU_OUTLINE, MENU_SOFT } from './MenuStyle';
-import { drawPaw } from './SaveIcon';
+import { PatternBackdrop } from './PatternBackdrop';
+import { pawIcon, PawIcon } from './PawIcon';
 import { T } from './Lang';
 import { setText, UI, uiLabel, uiNode } from './UiKit';
 const { ccclass } = _decorator;
@@ -32,9 +33,9 @@ type Step = 'logo' | 'notice' | 'loading' | 'press' | 'done';
 
 /**
  * Màn khởi động, chạy một lần khi mở game (LandingScreen gắn vào node Landing):
- *   1. Logo 1, 2. Logo 2 (màn đen, mỗi logo 3 giây; bấm phím / chạm để bỏ qua logo đang hiện),
- *   2b. Thông báo tự lưu: chân mèo phát sáng giữa màn + 2 dòng "game tự lưu, đừng tắt khi biểu tượng này hiện" (SaveIcon hiện
- *       chân mèo đó ở góc màn hình mỗi lần lưu); tự qua sau ~4 giây, bấm để qua nhanh,
+ *   1. Logo 1, 2. Logo 2 (màn đen, mỗi logo 3 giây; không bấm để bỏ qua được),
+ *   2b. Thông báo tự lưu (nền giống màn tải: BG_loading + hoạ tiết trôi + lớp lọc): chân mèo Icon_paw phát sáng giữa màn + 2 dòng "game tự lưu, đừng tắt khi biểu tượng này hiện" (SaveIcon hiện
+ *       chân mèo đó ở góc màn hình mỗi lần lưu); tự qua sau ~4 giây, không bấm để qua nhanh được,
  *   3. Banner (nền + logo game của Landing) kèm thanh tải, tải trước ảnh hiệu ứng,
  *   4. Thanh tải đổi thành nút START phập phồng (nhân bản node Start của Landing: ảnh nút + chữ START, chỉnh trong scene).
  *      Bấm nút, hoặc Enter / Space / phím Nhảy / Đánh, thì gọi onDone (LandingScreen cho menu hiện ra). Phím khác không tính.
@@ -48,7 +49,6 @@ export class BootScreen extends Component {
     private step: Step = 'logo';
     private logoIndex = -1;
     private logoNode: Node | null = null;
-    private skipLogo: (() => void) | null = null;
     private bar: Node | null = null;
     private barFill: Graphics | null = null;
     private barLabel: Label | null = null;
@@ -73,11 +73,6 @@ export class BootScreen extends Component {
         g.rect(-d.width * 1.5, -d.height * 1.5, d.width * 3, d.height * 3);
         g.fill();
         this.black = bg.addComponent(UIOpacity);
-        // Chạm bất kỳ đâu chỉ để bỏ qua logo; tới bước START thì phải chạm đúng nút
-        this.root.on(Node.EventType.TOUCH_END, () => {
-            if (this.step === 'logo') this.skipLogo?.();
-            else if (this.step === 'notice') this.skipNotice?.();
-        }, this);
         input.on(Input.EventType.KEY_DOWN, this.onKey, this);
         this.nextLogo();
     }
@@ -89,7 +84,7 @@ export class BootScreen extends Component {
     update(dt: number) {
         if (this.step === 'notice') {
             this.pressTime += dt;
-            this.paintGlow(this.pressTime);
+            this.updateNotice(dt, this.pressTime);
         } else if (this.step === 'loading') {
             this.loadTime += dt;
             // Thanh chạy theo tiến độ tải thật nhưng không nhanh hơn LOAD_MIN giây
@@ -144,37 +139,26 @@ export class BootScreen extends Component {
             const k = Math.min(1, 900 / sf.rect.width, 500 / sf.rect.height);
             pic.setScale(k, k, 1);
         });
-        let skipped = false;
-        const out = () => {
-            if (skipped || !n.isValid) return;
-            skipped = true;
-            this.skipLogo = null;
-            Tween.stopAllByTarget(op);
-            tween(op).to(LOGO_OUT * (op.opacity / 255), { opacity: 0 }).call(() => this.nextLogo()).start();
-        };
-        this.skipLogo = out;
-        tween(op).to(LOGO_IN, { opacity: 255 }).delay(LOGO_HOLD).call(out).start();
+        // Hiện, giữ, mờ đi trọn nhịp (không cho bấm bỏ qua)
+        tween(op).to(LOGO_IN, { opacity: 255 }).delay(LOGO_HOLD).to(LOGO_OUT, { opacity: 0 }).call(() => this.nextLogo()).start();
     }
 
     // ---------- Thông báo tự lưu ----------
 
-    private notice: Node | null = null;
-    private noticeGlow: Graphics | null = null;
-    private skipNotice: (() => void) | null = null;
+    private noticeBackdrop: PatternBackdrop | null = null;
+    private noticePaw: PawIcon | null = null;
 
     private showNotice() {
         this.step = 'notice';
         const n = uiNode('Notice', this.root);
-        this.notice = n;
         const op = n.addComponent(UIOpacity);
         op.opacity = 0;
-        // Chân mèo phát sáng (quầng sáng vẽ lại theo nhịp thở trong update)
-        const glow = uiNode('Glow', n, 300, 300);
-        glow.setPosition(0, 150, 0);
-        this.noticeGlow = glow.addComponent(Graphics);
-        const paw = uiNode('Paw', n, 160, 160);
-        paw.setPosition(0, 150, 0);
-        drawPaw(paw.addComponent(Graphics), 64, new Color(250, 246, 236, 255));
+        // Nền giống màn tải: ảnh BG_loading, hoạ tiết trôi, lớp lọc
+        this.noticeBackdrop = new PatternBackdrop(n);
+        // Chân mèo Icon_paw tô trắng viền nâu, quầng sáng phồng xẹp như thở (trong update) — cùng hình với dấu tự lưu trong game
+        const paw = pawIcon(n, 130);
+        paw.node.setPosition(0, 150, 0);
+        this.noticePaw = paw;
         menuDivider(n, 10, 520);
         const l1 = uiLabel(n, '', 34, MENU_SOFT, { outline: MENU_OUTLINE, outlineWidth: 3, name: 'Line1' });
         setText(l1, T('boot.notice1'));
@@ -183,35 +167,19 @@ export class BootScreen extends Component {
         setText(l2, T('boot.notice2'));
         l2.node.setPosition(0, -100, 0);
         menuDivider(n, -165, 300);
-        let gone = false;
-        const out = () => {
-            if (gone || !n.isValid) return;
-            gone = true;
-            this.skipNotice = null;
-            Tween.stopAllByTarget(op);
-            tween(op).to(NOTICE_OUT * (op.opacity / 255), { opacity: 0 }).call(() => {
-                n.destroy();
-                this.notice = null;
-                this.noticeGlow = null;
-                this.startLoading();
-            }).start();
-        };
-        this.skipNotice = out;
-        tween(op).to(NOTICE_IN, { opacity: 255 }).delay(NOTICE_HOLD).call(out).start();
+        // Hiện, giữ, mờ đi trọn nhịp (không cho bấm qua nhanh) rồi sang thanh tải
+        tween(op).to(NOTICE_IN, { opacity: 255 }).delay(NOTICE_HOLD).to(NOTICE_OUT, { opacity: 0 }).call(() => {
+            if (n.isValid) n.destroy();
+            this.noticeBackdrop = null;
+            this.noticePaw = null;
+            this.startLoading();
+        }).start();
     }
 
-    /** Quầng sáng quanh chân mèo: các vòng tròn chồng nhau rất mờ, phồng xẹp như thở. */
-    private paintGlow(t: number) {
-        const g = this.noticeGlow;
-        if (!g || !g.isValid) return;
-        const op = this.notice?.getComponent(UIOpacity)?.opacity ?? 255;
-        const k = 0.85 + 0.15 * Math.sin(t * 2.2);
-        g.clear();
-        for (let i = 0; i < 7; i++) {
-            g.fillColor = new Color(200, 225, 255, Math.round(14 * (op / 255)));
-            g.circle(0, 0, (40 + i * 16) * k);
-            g.fill();
-        }
+    /** Màn thông báo: hoạ tiết trôi, quầng sáng quanh chân mèo phồng xẹp như thở. */
+    private updateNotice(dt: number, t: number) {
+        this.noticeBackdrop?.update(dt);
+        this.noticePaw?.setGlow(0.55 + 0.45 * Math.sin(t * 2.2));
     }
 
     // ---------- Banner + thanh tải ----------
@@ -308,13 +276,7 @@ export class BootScreen extends Component {
     }
 
     private onKey(e: EventKeyboard) {
-        if (this.step === 'logo' || this.step === 'notice') {
-            // Esc để mở Cài đặt / thoát không tính
-            if (e.keyCode === KeyCode.ESCAPE || e.keyCode === KeyCode.MOBILE_BACK) return;
-            if (this.step === 'logo') this.skipLogo?.();
-            else this.skipNotice?.();
-            return;
-        }
+        // Logo, thông báo tự lưu, thanh tải: phím nào cũng không tính
         if (this.step !== 'press') return;
         const k = e.keyCode;
         const ok = k === KeyCode.ENTER || k === KeyCode.NUM_ENTER || k === KeyCode.SPACE

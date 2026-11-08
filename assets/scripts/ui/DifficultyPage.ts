@@ -24,25 +24,30 @@ const SHADE = new Color(0, 0, 0, 255);
 /** Dải ngang: cao, khoảng cách tâm hai dải */
 const BAND_H = 128;
 const BAND_STEP = 140;
-/** Chỗ biểu tượng, tên (mép trái), mô tả (mép trái) */
-const ICON_X = -330;
+/** Tên (mép trái), mô tả (mép trái) */
 const NAME_X = -230;
 const DESC_X = 290;
 const DESC_W = 640;
-/** Biểu tượng tạm (chưa có ảnh art/diff_1..3) và cỡ ảnh tối đa */
-const ICON_SIZE = 120;
+/** Biểu tượng độ khó: ảnh đầu boss, mức n có n cái xếp ngang sát bên trái tên mức */
+const BOSS_ICON = 'art/MG_icon_boss';
+/** Phóng so với cỡ gốc của ảnh, cách giữa hai icon, icon gần tên nhất cách mép trái tên */
+const ICON_SCALE = 1.4;
+const ICON_GAP = 6;
+const ICON_TO_NAME = 24;
+/** Cỡ hình tạm (chưa có ảnh) */
+const ICON_FALLBACK = 88;
 
 interface Band {
     root: Node;
     bg: Graphics;
     content: UIOpacity;
-    icon: Node;
+    icons: Node[];
 }
 
 /**
  * Trang chọn độ khó (ô lưu mới, sau trang ô lưu): 3 dải ngang chạy hết bề ngang, mỗi dải có biểu tượng trôi nhấp nhô,
- * tên mức và một dòng mô tả. Dải đang chọn sáng rõ và cao hơn, hai dải kia mờ. Biểu tượng: ảnh diff_1, diff_2, diff_3
- * trong assets/resources/art (chưa có thì vẽ tạm). ↑ / ↓ hoặc rê chuột để chọn; Enter / Nhảy / Đánh / chạm để vào;
+ * tên mức và một dòng mô tả. Dải đang chọn sáng rõ và cao hơn, hai dải kia mờ. Biểu tượng: ảnh MG_icon_boss trong
+ * assets/resources/art, mức 1 một cái, mức 2 hai cái, mức 3 ba cái (chưa có ảnh thì vẽ tạm). ↑ / ↓ hoặc rê chuột để chọn; Enter / Nhảy / Đánh / chạm để vào;
  * Esc (điện thoại: nút ← tròn góc trên trái) quay lại trang ô lưu. LandingScreen tạo trang này và nghe onPick / onBack.
  */
 @ccclass('DifficultyPage')
@@ -98,13 +103,15 @@ export class DifficultyPage extends Component {
 
     update(dt: number) {
         this.time += dt;
-        // Biểu tượng trôi nhấp nhô, mỗi cái lệch nhịp nhau; cái đang chọn trôi mạnh hơn
+        // Biểu tượng trôi nhấp nhô, mỗi cái lệch nhịp nhau (cả trong cùng một dải); dải đang chọn trôi mạnh hơn
         this.bands.forEach((b, i) => {
             const on = i === this.focus;
             const amp = on ? 12 : 6;
-            const t = this.time * 1.7 + i * 2.1;
-            b.icon.setPosition(ICON_X, Math.sin(t) * amp, 0);
-            b.icon.angle = Math.sin(t * 0.8 + 1) * (on ? 6 : 3);
+            b.icons.forEach((icon, k) => {
+                const t = this.time * 1.7 + i * 2.1 + k * 1.3;
+                icon.setPosition(icon.position.x, Math.sin(t) * amp, 0);
+                icon.angle = Math.sin(t * 0.8 + 1) * (on ? 6 : 3);
+            });
         });
         if (this.picked || Date.now() < this.acceptAt) return;
         const c = PlayerInput.merged;
@@ -146,18 +153,30 @@ export class DifficultyPage extends Component {
         const bg = uiNode('Bg', root, d.width, BAND_H).addComponent(Graphics);
         const content = uiNode('Content', root).addComponent(UIOpacity);
         const box = content.node;
-        // Biểu tượng: ảnh diff_n, chưa có thì vẽ tạm
-        const icon = uiNode('Icon', box, ICON_SIZE, ICON_SIZE);
-        icon.setPosition(ICON_X, 0, 0);
-        const ig = icon.addComponent(Graphics);
-        this.drawIcon(ig, i);
-        resources.load(`art/diff_${i + 1}/spriteFrame`, SpriteFrame, (err, sf) => {
-            if (err || !sf || !icon.isValid) return;
-            ig.clear();
-            const pic = uiNode('Pic', icon);
-            pic.addComponent(Sprite).spriteFrame = sf;
-            const k = Math.min(ICON_SIZE * 1.3 / sf.rect.width, ICON_SIZE * 1.3 / sf.rect.height);
-            pic.setScale(k, k, 1);
+        // Biểu tượng: i + 1 đầu boss xếp ngang, cái cuối sát bên trái tên mức (vị trí đặt lại khi ảnh tải xong)
+        const icons: Node[] = [];
+        const place = (w: number) => {
+            icons.forEach((icon, k) => {
+                const fromName = icons.length - 1 - k;
+                icon.setPosition(NAME_X - ICON_TO_NAME - w / 2 - fromName * (w + ICON_GAP), icon.position.y, 0);
+            });
+        };
+        for (let k = 0; k <= i; k++) {
+            const icon = uiNode(`Icon${k + 1}`, box, ICON_FALLBACK, ICON_FALLBACK);
+            this.drawIcon(icon.addComponent(Graphics));
+            icons.push(icon);
+        }
+        place(ICON_FALLBACK);
+        resources.load(`${BOSS_ICON}/spriteFrame`, SpriteFrame, (err, sf) => {
+            if (err || !sf || !box.isValid) return;
+            for (const icon of icons) {
+                icon.getComponent(Graphics)?.clear();
+                // Ảnh trên node con (không gắn Sprite cùng node với Graphics)
+                const pic = uiNode('Pic', icon);
+                pic.addComponent(Sprite).spriteFrame = sf;
+                pic.setScale(ICON_SCALE, ICON_SCALE, 1);
+            }
+            place(sf.rect.width * ICON_SCALE);
         });
         const name = uiLabel(box, '', 84, NAME_COLORS[i], { outline: TITLE_OUTLINE, outlineWidth: 3, name: 'Name' });
         Lang.bind(name, `diff.${i}` as TextKey);
@@ -176,44 +195,23 @@ export class DifficultyPage extends Component {
             this.setFocus(i, false);
             this.pick(i);
         });
-        return { root, bg, content, icon };
+        return { root, bg, content, icons };
     }
 
-    /** Biểu tượng tạm: CASUAL hình thoi bo tròn có lá, NORMAL mặt nạ sừng hai mắt xanh, MANIAC đầu lâu gai. */
-    private drawIcon(g: Graphics, i: number) {
+    /** Hình tạm khi chưa có ảnh MG_icon_boss: đầu lâu xám viền nâu. */
+    private drawIcon(g: Graphics) {
+        const r = ICON_FALLBACK * 0.4;
         g.clear();
-        g.lineWidth = 6;
+        g.lineWidth = 5;
         g.strokeColor = UI.brown;
-        if (i === 0) {
-            g.fillColor = new Color(236, 222, 176, 255);
-            g.moveTo(0, 54); g.lineTo(46, 0); g.lineTo(0, -54); g.lineTo(-46, 0); g.close();
-            g.fill(); g.stroke();
-            g.fillColor = new Color(140, 170, 70, 255);
-            g.ellipse(0, 4, 14, 24);
-            g.fill(); g.stroke();
-        } else if (i === 1) {
-            g.fillColor = new Color(214, 196, 160, 255);
-            g.moveTo(-60, 40); g.lineTo(-30, -10); g.lineTo(-12, -48); g.lineTo(12, -48); g.lineTo(30, -10); g.lineTo(60, 40);
-            g.lineTo(26, 14); g.lineTo(-26, 14); g.close();
-            g.fill(); g.stroke();
-            g.fillColor = new Color(110, 210, 255, 255);
-            g.circle(-17, -6, 9); g.circle(17, -6, 9);
-            g.fill();
-        } else {
-            g.fillColor = new Color(190, 184, 186, 255);
-            for (let k = -2; k <= 2; k++) {
-                const x = k * 18;
-                g.moveTo(x - 10, 30); g.lineTo(x, 60 - Math.abs(k) * 8); g.lineTo(x + 10, 30); g.close();
-            }
-            g.fill(); g.stroke();
-            g.circle(0, 0, 40);
-            g.fill(); g.stroke();
-            g.fillColor = new Color(60, 20, 30, 255);
-            g.circle(-15, 2, 10); g.circle(15, 2, 10);
-            g.fill();
-            g.rect(-14, -28, 28, 10);
-            g.fill();
-        }
+        g.fillColor = new Color(190, 184, 186, 255);
+        g.circle(0, 0, r);
+        g.fill();
+        g.stroke();
+        g.fillColor = new Color(60, 20, 30, 255);
+        g.circle(-r * 0.38, r * 0.05, r * 0.25);
+        g.circle(r * 0.38, r * 0.05, r * 0.25);
+        g.fill();
     }
 
     /** Dải ngang: đậm dần từ trái sang (mép trái tan vào nền), viền sáng trên dưới khi đang chọn. */

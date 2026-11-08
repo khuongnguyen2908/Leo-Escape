@@ -22,6 +22,8 @@ const TEXT = {
     'boot.tap': ['CHẠM ĐỂ BẮT ĐẦU', 'TAP TO START'],
     'boot.wait': ['ĐANG TẢI...', 'LOADING...'],
     'load.text': ['Đang tải...', 'Loading...'],
+    'save.saving': ['Đang lưu...', 'Saving...'],
+    'save.saved': ['Đã lưu', 'Saved'],
     // Ô lưu
     'slots.title': ['CHỌN Ô LƯU', 'SELECT A SAVE'],
     'slots.slot': ['Ô {0}', 'SLOT {0}'],

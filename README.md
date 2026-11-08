@@ -116,8 +116,8 @@ Lưu ý khi sắp xếp:
 > **Game không còn Angelo.** Nút ⚙ Cập nhật xoá node `Angelo` và `HUD_Angelo` khỏi scene. NEW GAME vào thẳng với Leo,
 > trang phím chỉ có cột Người 1. Phần nói về Angelo, chơi 2 người, đổi mèo bên dưới là mô tả bản cũ, để tham khảo.
 
-**Mở game** (lần đầu trong một lần mở): **Logo 1** → **Logo 2** (màn đen, mỗi logo hiện 1s · giữ 1s · mờ 1s; bấm phím / chạm để bỏ qua) →
-**thông báo tự lưu** (chân mèo phát sáng giữa màn + "game tự lưu ở một số điểm, đừng tắt khi biểu tượng này hiện"; ~4 giây, bấm để qua) →
+**Mở game** (lần đầu trong một lần mở): **Logo 1** → **Logo 2** (màn đen, mỗi logo hiện 1s · giữ 1s · mờ 1s; không bấm bỏ qua được) →
+**thông báo tự lưu** (nền giống màn tải; chân mèo `Icon_paw` tô trắng viền nâu, quầng sáng phồng xẹp giữa màn + "game tự lưu ở một số điểm, đừng tắt khi biểu tượng này hiện"; ~4 giây, không bấm qua nhanh được) →
 **banner** (nền + logo game) kèm **thanh tải** (tải trước ảnh hiệu ứng `art/fx`) → thanh tải đổi thành **nút START** phập phồng
 (nhân bản node `Landing/Start` trong scene: ảnh nút + chữ START 90, viền 7 `#3b7113`; sửa nút trong scene là màn này đổi theo) →
 bấm nút, hoặc Enter / Space / Nhảy / Đánh (phím khác không tính) thì **các dòng menu hiện dần** tại chỗ trong 0.25 giây (`BootScreen.ts`).
@@ -130,7 +130,8 @@ ngôi sao nhỏ trên chữ O nhấp nháy ~2.2 giây một lần (*Star X/Y* l�
 Ảnh logo: `boot_logo1`, `boot_logo2` trong `assets/resources/art` (chưa có thì hiện khung chữ LOGO 1 / LOGO 2).
 
 Màn mở đầu là **menu chính**: logo, NEW GAME, OPTIONS, ACHIEVEMENTS, CREDITS, QUIT, dòng bản quyền ở đáy. Bấm chọn một dòng thì **vệt sáng ngang chữ** loé rất nhẹ một lần (chỉ khi bấm, không hiện lúc rê / dời chọn).
-**Biểu tượng đang lưu** (`SaveIcon.ts`): mỗi lần ghi ô lưu (chạm checkpoint, qua màn) chân mèo nhỏ nhấp nháy góc dưới phải ~1.6 giây.
+**Dấu tự lưu** (`SaveIcon.ts`): mỗi lần ghi ô lưu (đi ngang checkpoint, qua màn) góc phải trên (cùng hàng tim / ô cá, phía trên nút bánh răng) hiện chân mèo `Icon_paw` (trắng viền nâu, `PawIcon.ts`) + chữ:
+"Đang lưu..." (chân mèo nhún, chữ nhấp nháy) → "Đã lưu" (chân mèo nảy lên, loé sáng) → mờ đi, tổng ~2.5 giây. Chân mèo tô một màu bằng shader `resources/effects/sprite-silhouette.effect`.
 W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter, Nhảy, Đánh hoặc chạm để chọn.
 - **NEW GAME** → **chọn 1 trong 3 ô lưu** (`SaveSlotPage.ts`, dữ liệu `game/SaveSlots.ts`, lưu trên máy). 3 thẻ kiểu menu mới: nền tối trong mờ viền kem,
   tên ô + đường hoa văn; thẻ đang chọn sáng hơn, có hoa văn `selection_left` / `selection_right` hai bên. Ô trống ghi **NEW**; ô có tiến độ ghi
@@ -139,7 +140,7 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
   Dàn phím gợi ý ở **góc phải dưới**: ENTER Xác nhận · DEL Xoá · ESC Quay lại. Trang này giấu dòng bản quyền.
   Chạm checkpoint xa hơn chỗ đã lưu, hoặc qua màn, là ghi đè ô đang chơi.
 - **Ô mới → chọn độ khó** (`DifficultyPage.ts`, số liệu `core/Difficulty.ts`): 3 dải ngang kiểu CASUAL / NORMAL / MANIAC (tiếng Việt THƯ GIÃN /
-  BÌNH THƯỜNG / ĐỊA NGỤC), mỗi dải có **biểu tượng trôi nhấp nhô** (ảnh `diff_1`, `diff_2`, `diff_3` trong `art`, chưa có thì vẽ tạm), tên và mô tả.
+  BÌNH THƯỜNG / ĐỊA NGỤC), mỗi dải có **biểu tượng trôi nhấp nhô** (ảnh `art/MG_icon_boss` phóng ×1.4: mức 1 một cái, mức 2 hai cái, mức 3 ba cái, xếp ngang sát bên trái tên; chưa có ảnh thì vẽ tạm), tên và mô tả.
   ↑/↓ hoặc rê chuột để chọn, Enter / Nhảy / Đánh / chạm để vào, Esc về trang ô lưu. Ô đã lưu giữ độ khó cũ, không hỏi lại (ô lưu cũ chưa có = CASUAL).
   Số tim và sát thương mèo nhận giữ nguyên ở mọi mức; CASUAL là game như cũ:
 
@@ -150,8 +151,8 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
   | Nghỉ giữa các đòn (địch, boss) | ×1 | ×0.8 | ×0.65 |
   | Boss báo trước (cột lửa, phun axit) | ×1 | ×0.85 | ×0.7 |
 
-  Chọn xong → màn đen **zoom vào** (lỗ tròn thu lại, `IrisWipe.ts`) + **màn tải** (`LoadingScreen.ts`, đứng 2 giây: nền ảnh `BG_loading`, hoạ tiết trong `art/Loading_pattern/`
-  (Type = sprite-frame) rải ngẫu nhiên trôi chéo chậm, trộn kiểu **Screen** (shader `resources/effects/sprite-screen.effect`, độ đậm `PATTERN_SCREEN`); mèo giữa màn — khung hình `loading_cat_1`, `_2`... chạy flip-book 12 hình/giây,
+  Chọn xong → màn đen **zoom vào** (lỗ tròn thu lại, `IrisWipe.ts`) + **màn tải** (`LoadingScreen.ts`, đứng 2 giây: nền `PatternBackdrop.ts` (dùng chung với màn thông báo tự lưu) gồm ảnh `BG_loading`, hoạ tiết trong `art/Loading_pattern/`
+  (Type = sprite-frame) rải ngẫu nhiên trôi chéo chậm, trộn kiểu **Screen** (shader `resources/effects/sprite-screen.effect`, độ đậm `PATTERN_SCREEN`), trên cùng lớp hạt nhiễu `art/Loading_filter`; mèo giữa màn — khung hình `loading_cat_1`, `_2`... chạy flip-book 12 hình/giây,
   chưa có thì đầu mèo tạm; chữ Loading... nhún từng chữ) →
   - **ô mới**: **3 trang truyện** (`StoryPages.ts`; ảnh `story_1..3` trong `art`, chưa có thì khung PAGE 1...; chữ `story.1..3` trong `Lang.ts`),
     **lật như sách**: trang gập quanh gáy trái, tối dần, đổ bóng lên trang dưới. → / Enter / phím khác / chạm: lật tới; ← (hoặc chạm phía trái): lật lại;
