@@ -2064,6 +2064,7 @@ export class DemoLevelBuilder extends Component {
         sign(6350, 420, 'sweep', ArrowDir.Down, 120);
         sign(6750, 420, 'launch', ArrowDir.Down, 120);
         dummy(7050);
+        sign(7050, 540, 'special', ArrowDir.Down, 170);
         sign(7450, 440, 'fish');
         for (const x of [7350, 7450, 7550]) this.coin(play, X0 + x, 160);
         sign(7900, 520, 'exit', ArrowDir.Right, 100);

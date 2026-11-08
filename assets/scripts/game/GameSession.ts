@@ -24,7 +24,7 @@ export const GameSession = {
      * Để ở đây cho LandingScreen gọi mà không phải import TutorialRoom (import thẳng tạo vòng: LandingScreen → TutorialRoom →
      * TutorialExit → PlayerTrigger → GameManager → LandingScreen, lớp PlayerTrigger chưa có đã bị kế thừa → "Missing class").
      */
-    tutorial: null as { enter(): void } | null,
+    tutorial: null as { enter(): void; readonly active: boolean } | null,
 
     reset() {
         this.mode = 1;

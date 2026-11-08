@@ -5,6 +5,9 @@ import { GameManager } from '../game/GameManager';
 const { ccclass, property } = _decorator;
 
 const TEXT = new Color(255, 240, 215, 255);
+/** Viền chữ máu (nâu đậm như viền thanh) */
+const TEXT_LINE = new Color(52, 32, 29, 255);
+const TEXT_LINE_WIDTH = 3;
 
 /**
  * Thanh máu boss ở đáy màn hình: khung MG_boss_hpgauge, thanh đỏ MG_boss_hp co lại theo máu,
@@ -88,6 +91,9 @@ export class BossHealthBar extends Component {
         this.label.lineHeight = 32;
         this.label.isBold = true;
         this.label.color = TEXT;
+        this.label.enableOutline = true;
+        this.label.outlineWidth = TEXT_LINE_WIDTH;
+        this.label.outlineColor = TEXT_LINE;
         useGameFont(this.label);
     }
 

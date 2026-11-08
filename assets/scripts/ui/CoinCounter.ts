@@ -14,7 +14,10 @@ export class CoinCounter extends Component {
     scale = 1;
 
     @property({ tooltip: 'Tâm chữ số lệch sang phải so với tâm ảnh nền (phần thanh nằm bên phải con cá)' })
-    textOffsetX = 44;
+    textOffsetX = 39;
+
+    @property({ tooltip: 'Tâm chữ số lệch lên trên so với tâm ảnh nền (thanh nâu nằm cao hơn tâm ảnh, chữ số của font hơi thấp)' })
+    textOffsetY = 7;
 
     @property
     fontSize = 34;
@@ -46,7 +49,7 @@ export class CoinCounter extends Component {
             bg.setScale(this.scale, this.scale, 1);
         }
         const t = this.child('Value');
-        t.setPosition(this.textOffsetX * this.scale, 0, 0);
+        t.setPosition(this.textOffsetX * this.scale, this.textOffsetY * this.scale, 0);
         this.label = t.addComponent(Label);
         this.label.fontSize = this.fontSize;
         this.label.lineHeight = this.fontSize + 6;

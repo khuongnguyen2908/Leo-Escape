@@ -6,6 +6,7 @@ import { HitStop } from '../core/HitStop';
 import { PlatformerBody } from '../core/PlatformerBody';
 import { Solid } from '../core/Solid';
 import { Sound } from '../core/Sound';
+import { GameSession } from '../game/GameSession';
 import { DustPuff } from './DustPuff';
 import { HitSpark } from './HitSpark';
 import { CatSkills } from './CatSkills';
@@ -175,6 +176,9 @@ export class PlayerController extends Component {
 
     @property({ group: 'Thanh nộ, special (L)', tooltip: 'Mỗi nhát chém / sóng kiếm / chiêu trúng địch được thêm chừng này nộ (đang bật special thì không thêm)' })
     rageOnHit = 5;
+
+    @property({ group: 'Thanh nộ, special (L)', tooltip: 'Trong màn hướng dẫn mỗi nhát trúng được chừng này nộ (tích nhanh để tập special)' })
+    tutorialRageOnHit = 25;
 
     @property({ group: 'Thanh nộ, special (L)', tooltip: 'Special (phím L, cần đầy nộ) kéo dài bao lâu (giây); thanh nộ tụt dần về 0 trong lúc này' })
     specialTime = 8;
@@ -617,6 +621,8 @@ export class PlayerController extends Component {
     /** Đánh trúng địch: thêm nộ (đang bật special thì không thêm). Vừa đầy thì kêu một tiếng báo. */
     addRage(amount: number) {
         if (this.specialLeft > 0 || amount <= 0) return;
+        // Màn hướng dẫn: tích nhanh (mặc định 4 nhát là đầy) để tập phím special
+        if (GameSession.tutorial?.active && this.rageOnHit > 0) amount *= this.tutorialRageOnHit / this.rageOnHit;
         const was = this.energy;
         this.energy = Math.min(this.maxEnergy, this.energy + amount);
         if (was < this.maxEnergy - 0.01 && this.energy >= this.maxEnergy - 0.01) Sound.play('checkpoint', 0.6);

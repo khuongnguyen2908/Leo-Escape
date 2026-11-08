@@ -265,6 +265,30 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 - Bẫy khi sửa file: trong GNU sed, gạch chéo ngược + dấu huyền là "đầu dòng", nên lệnh sed thay chuỗi đó đã chèn dấu huyền vào đầu mọi dòng
   (phải xoá lại). Sửa chữ có dấu huyền thì dùng Edit, đừng dùng sed.
 
+### Số cá lệch khỏi giữa thanh nâu
+- Ngày: 08/11/2026 · Nhóm: code
+- Triệu chứng: chữ "1,600" trên bộ đếm cá thấp hơn và hơi lệch phải so với thanh nâu.
+- Nguyên nhân: chữ đặt theo tâm cả ảnh `MG_coin_backing`, nhưng thanh nâu nằm cao hơn tâm ảnh 3,5px (con cá thò xuống dưới),
+  và chữ số của font ngồi thấp trong khung chữ. Đo ảnh: thanh nâu x 88–258, y 20–65 (tính từ trên).
+- Cách sửa: CoinCounter thêm ô *Text Offset Y* (7), *Text Offset X* 44 → 39.
+- Cách tránh lần sau: chữ đặt lên ảnh nền không cân (có hình thò ra) thì đo phần nền thật bằng điểm ảnh, đừng lấy tâm ảnh.
+  Đổi giá trị mặc định trong code không đổi được ô đã lưu trong scene: phải sửa cả scene.
+
+### Đặt biển hướng dẫn mới mà không xem khung hình
+- Ngày: 08/11/2026 · Nhóm: scene
+- Triệu chứng: biển BÙNG NỔ đặt ở y 760 thì phím L ra ngoài màn hình, dòng chữ đè lên bộ đếm cá trên HUD.
+- Nguyên nhân: chọn độ cao theo ý "biển cao, trên hình nộm" mà không tính camera trong màn hướng dẫn chỉ thấy tới khoảng y 660 dưới HUD.
+- Cách sửa: hạ xuống y 540, mũi tên 170, rút câu cho ngắn để không đụng biển Chém hất bên trái.
+- Cách tránh lần sau: trước khi chốt chỗ đặt vật mới, dời thử bằng code trên bản xem trước và chụp màn hình, rồi mới ghi vào scene.
+
+### Cung tròn Graphics chạy ngược chiều
+- Ngày: 08/11/2026 · Nhóm: code
+- Triệu chứng: cung nộ quanh nút L muốn chạy từ đỉnh theo chiều kim đồng hồ (sang phải), nhưng lại chạy sang trái.
+- Nguyên nhân: trục y của Cocos hướng lên, góc giảm dần là đi theo chiều kim đồng hồ; truyền `counterclockwise = true` cho `g.arc`
+  với góc cuối nhỏ hơn góc đầu thì nó đi vòng ngược lại.
+- Cách sửa: `g.arc(0, 0, r, PI/2, PI/2 - k*2PI, false)`.
+- Cách tránh lần sau: vẽ cung thử với một giá trị như 40% rồi chụp xem trước khi làm tiếp. Nút trên màn nhỏ: tạm phóng to node cha (scale 3) để soi.
+
 ### Đoán phím "đang trống" mà không xem bộ phím mặc định
 - Ngày: 08/11/2026 · Nhóm: làm việc
 - Triệu chứng: đề xuất và làm special ở "phím K (Kỹ năng, đang bỏ trống)"; thử thì bấm K chỉ ra nhảy, special không bật.

@@ -29,19 +29,20 @@ const TOPIC_KEYS: Record<string, string> = {
     wave: 'attack~',
     sweep: 'down+attack',
     launch: 'up+attack',
+    special: 'skill',
     fish: '',
     exit: 'up',
 };
 
 /**
  * Biển chỉ dẫn trong màn hướng dẫn (giấy kem, nét bút nâu): hàng ô phím, tên động tác to, một dòng giải thích, mũi tên vẽ tay.
- * Ô Topic: run / duck / jump / doubleJump / up / descend / dash / attack / wave / sweep / launch / fish / exit / title.
+ * Ô Topic: run / duck / jump / doubleJump / up / descend / dash / attack / wave / sweep / launch / special / fish / exit / title.
  * Chữ nằm trong ui/Lang.ts (tsign.<topic>.t và .d). Kéo node để dời biển; ô Arrow chọn hướng mũi tên.
  */
 @ccclass('TutorialSign')
 @executeInEditMode
 export class TutorialSign extends Component {
-    @property({ type: CCString, tooltip: 'Chủ đề: run, duck, jump, doubleJump, up, descend, dash, attack, wave, sweep, launch, fish, exit, title' })
+    @property({ type: CCString, tooltip: 'Chủ đề: run, duck, jump, doubleJump, up, descend, dash, attack, wave, sweep, launch, special, fish, exit, title' })
     get topic() { return this._topic; }
     set topic(v: string) { this._topic = v; this.redraw(); }
 

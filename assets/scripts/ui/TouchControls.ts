@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, EventTouch, Graphics, Label, Node, resources, Sprite, SpriteFrame, sys, UITransform, Vec2, Vec3, view } from 'cc';
+import { _decorator, Color, Component, EventTouch, Graphics, Label, Node, resources, Sprite, SpriteFrame, sys, UIOpacity, UITransform, Vec2, Vec3, view } from 'cc';
 import { PlayerInput, TouchButton } from '../player/PlayerInput';
 import { GameManager } from '../game/GameManager';
 import { GameSession } from '../game/GameSession';
@@ -15,6 +15,25 @@ const KEY_BG = new Color(250, 240, 222, 240);
 const KEY_EDGE = new Color(78, 60, 56, 255);
 const KEY_TEXT = new Color(70, 52, 48, 255);
 const _p = new Vec3();
+
+// Nút special (L) lúc chưa đầy nộ: xám mờ
+const BTN_OFF = new Color(92, 86, 84, 210);
+const RING_OFF = new Color(150, 144, 140, 200);
+const ICON_OFF = new Color(165, 158, 152, 210);
+/** Cung nộ / cung thời gian quanh vành nút L */
+const GAUGE = new Color(255, 206, 84, 255);
+const GAUGE_TRACK = new Color(40, 30, 28, 150);
+/** Lửa quanh nút L: lớp ngoài cam đỏ, lớp trong vàng, quầng sáng */
+const FLAME_OUT = new Color(255, 104, 34, 215);
+const FLAME_IN = new Color(255, 214, 90, 235);
+const FIRE_GLOW = new Color(255, 170, 60, 255);
+/** Bộ ảnh lửa (không bắt buộc): có ảnh trong thư mục này thì nút L dùng ảnh thay cho lửa vẽ bằng code */
+const FIRE_DIR = 'art/fx/UI/SkillFire';
+const FIRE_FPS = 14;
+/** Số lưỡi lửa quanh nút */
+const FLAMES = 14;
+
+type SkillState = 'off' | 'ready' | 'on';
 /** Ảnh joystick tách sẵn: đế (giữa là lỗ tối) và nút chân mèo, trong assets/resources/art */
 const JOY_BASE = 'art/MG_joystick_base/spriteFrame';
 const JOY_KNOB = 'art/MG_joystick_knob/spriteFrame';
@@ -111,7 +130,9 @@ export class TouchControls extends Component {
         this.makeButton('attack', right - this.attackPos.x, bottom + this.attackPos.y, this.attackRadius, this.attackFrame);
         this.makeButton('jump', right - this.jumpPos.x, bottom + this.jumpPos.y, this.radius, this.jumpFrame);
         // Nút special (ngôi sao cạnh nút đánh): đầy thanh nộ thì phồng nhấp nháy, chạm để bật
-        this.makeButton('skill', right - this.skillPos.x, bottom + this.skillPos.y, this.attackRadius * 0.85, this.skillFrame);
+        // Cùng cỡ nút đánh. Chưa đầy nộ: xám mờ + cung nộ; đầy: lửa cháy quanh vành; đang bật: lửa nhỏ + cung thời gian
+        this.makeButton('skill', right - this.skillPos.x, bottom + this.skillPos.y, this.attackRadius, this.skillFrame);
+        this.setupSkill(this.attackRadius);
         // Nút L (tương tác) chỉ khi có Angelo; chưa có thì lướt bằng đẩy đúp joystick
         if (GameSession.angelo) this.makeButton('interact', right - this.interactPos.x, bottom + this.interactPos.y, this.attackRadius * 0.8, this.interactFrame);
         // Nút đổi mèo: chỉ khi có Angelo và chơi 1 người (điện thoại luôn chơi 1 người)
@@ -203,11 +224,17 @@ export class TouchControls extends Component {
             paint = (down) => this.paint(g, button, r, down);
         }
         paint(false);
+        if (button === 'skill') this.skillPaint = paint;
         if (this.hints) {
             this.keyHint(n, button, 0, -r * 0.82);
         }
 
-        const press = () => { PlayerInput.setTouch(button, true); paint(true); };
+        const press = () => {
+            // Nút L chưa đầy nộ / đang bật special: chạm không ra gì
+            if (button === 'skill' && this.skillState !== 'ready') return;
+            PlayerInput.setTouch(button, true);
+            paint(true);
+        };
         const release = () => { PlayerInput.setTouch(button, false); paint(false); };
         n.on(Node.EventType.TOUCH_START, press);
         n.on(Node.EventType.TOUCH_END, release);
@@ -215,31 +242,159 @@ export class TouchControls extends Component {
     }
 
     private time = 0;
+    private skillState: SkillState = 'off';
+    private skillPaint: ((down: boolean) => void) | null = null;
+    private skillR = 0;
+    private fire: Graphics | null = null;
+    private fireOpacity: UIOpacity | null = null;
+    private fireSprite: Sprite | null = null;
+    private fireFrames: SpriteFrame[] = [];
+    private gauge: Graphics | null = null;
+    /** Độ cao lửa hiện tại 0..1 (lớn dần / nhỏ dần cho mượt khi đổi trạng thái) */
+    private fireK = 0;
+
+    /** Lửa (sau nút, cùng chỗ) và cung nộ (trên nút, dưới ô chữ phím) cho nút L. */
+    private setupSkill(r: number) {
+        const btn = this.node.getChildByName('Btn_skill');
+        if (!btn) return;
+        this.skillR = r;
+        const fire = this.child('SkillFire', this.node);
+        fire.setPosition(btn.position);
+        fire.setSiblingIndex(btn.getSiblingIndex()); // nằm ngay trước nút trong danh sách: lửa vẽ sau lưng thân nút
+        this.fire = fire.addComponent(Graphics);
+        this.fireOpacity = fire.addComponent(UIOpacity);
+        this.fireOpacity.opacity = 0;
+        const gauge = this.child('Gauge', btn);
+        gauge.setSiblingIndex(0);
+        this.gauge = gauge.addComponent(Graphics);
+        // Có bộ ảnh lửa thì dùng ảnh (xếp theo tên file), không thì vẽ lửa bằng code
+        const paths = resources.getDirWithPath(FIRE_DIR, SpriteFrame).map((i) => i.path).filter((p) => /spriteFrame$/.test(p)).sort();
+        if (paths.length > 0) {
+            resources.load(paths, SpriteFrame, (err, list) => {
+                if (err || !list || list.length === 0 || !fire.isValid) return;
+                this.fireFrames = list;
+                const pic = this.child('Pic', fire);
+                this.fireSprite = pic.addComponent(Sprite);
+                const f0 = list[0];
+                const k = (r * 3) / Math.max(f0.rect.width, f0.rect.height);
+                pic.setScale(k, k, 1);
+            });
+        }
+    }
 
     update(dt: number) {
-        // Nút special: đầy nộ thì phồng nhấp nháy, đang bật thì to hơn một chút
         this.time += dt;
         const btn = this.node.getChildByName('Btn_skill');
         const cat = GameManager.instance?.player;
         if (!btn || !cat) return;
-        const k = cat.specialOn ? 1.08 : cat.specialReady ? 1 + 0.12 * (0.5 + 0.5 * Math.sin(this.time * 8)) : 1;
+        const state: SkillState = cat.specialOn ? 'on' : cat.specialReady ? 'ready' : 'off';
+        if (state !== this.skillState) {
+            this.skillState = state;
+            this.skillPaint?.(false);
+            if (state !== 'ready') PlayerInput.setTouch('skill', false);
+        }
+        // Đầy nộ: phồng nhấp nháy; đang bật: to hơn một chút
+        const k = state === 'on' ? 1.05 : state === 'ready' ? 1 + 0.08 * (0.5 + 0.5 * Math.sin(this.time * 8)) : 1;
         btn.setScale(k, k, 1);
+
+        // Lửa: đầy nộ cháy to, đang bật cháy nhỏ, tắt thì tàn dần
+        const want = state === 'ready' ? 1 : state === 'on' ? 0.55 : 0;
+        this.fireK += (want - this.fireK) * Math.min(1, dt * 6);
+        this.drawFire(k);
+        this.drawGauge(state, cat.energy / Math.max(1, cat.maxEnergy));
+    }
+
+    private drawFire(scale: number) {
+        const g = this.fire;
+        if (!g || !g.isValid) return;
+        const fk = this.fireK;
+        if (this.fireOpacity) this.fireOpacity.opacity = Math.round(255 * Math.min(1, fk * 1.6));
+        g.node.setScale(scale, scale, 1);
+        g.clear();
+        if (fk < 0.02) return;
+        // Có ảnh lửa: chạy ảnh, không vẽ
+        if (this.fireSprite && this.fireFrames.length > 0) {
+            this.fireSprite.spriteFrame = this.fireFrames[Math.floor(this.time * FIRE_FPS) % this.fireFrames.length];
+            const sx = this.fireSprite.node.scale.x;
+            this.fireSprite.node.setScale(sx, sx * (0.6 + 0.4 * fk), 1);
+            return;
+        }
+        const r = this.skillR;
+        const t = this.time;
+        // Quầng sáng vàng
+        for (let i = 3; i >= 1; i--) {
+            g.fillColor = new Color(FIRE_GLOW.r, FIRE_GLOW.g, FIRE_GLOW.b, Math.round((26 + 10 * Math.sin(t * 6 + i)) * fk));
+            g.circle(0, 0, r * (1 + 0.13 * i * fk));
+            g.fill();
+        }
+        // Lưỡi lửa: chân trên vành (sau thân nút), bốc lên trên và hơi toả ra ngoài, bập bùng theo thời gian
+        this.flames(g, r, fk, t, FLAME_OUT, 1);
+        this.flames(g, r, fk, t, FLAME_IN, 0.6);
+    }
+
+    private flames(g: Graphics, r: number, fk: number, t: number, color: Color, size: number) {
+        g.fillColor = color;
+        for (let i = 0; i < FLAMES; i++) {
+            const ang = (i / FLAMES) * Math.PI * 2 + 0.2;
+            const ox = Math.cos(ang), oy = Math.sin(ang);
+            // Hướng bốc: nửa ra ngoài, nửa lên trên
+            let dx = ox * 0.55, dy = oy * 0.55 + 0.85;
+            const dl = Math.hypot(dx, dy) || 1;
+            dx /= dl;
+            dy /= dl;
+            const flick = 0.75 + 0.25 * Math.sin(t * (9 + (i % 4) * 1.7) + i * 2.1) + 0.12 * Math.sin(t * 23 + i * 5.3);
+            const up = 0.6 + 0.4 * Math.max(0, oy); // phía trên cháy cao hơn
+            const len = r * 0.62 * size * fk * flick * up;
+            const w = r * 0.2 * size;
+            const bx = ox * r * 0.8, by = oy * r * 0.8;
+            const tx = bx + dx * (r * 0.2 + len) + Math.sin(t * 7 + i) * r * 0.05, ty = by + dy * (r * 0.2 + len);
+            const px = -dy * w, py = dx * w;
+            g.moveTo(bx + px, by + py);
+            g.quadraticCurveTo(bx + px * 0.9 + dx * len * 0.55, by + py * 0.9 + dy * len * 0.55, tx, ty);
+            g.quadraticCurveTo(bx - px * 0.9 + dx * len * 0.55, by - py * 0.9 + dy * len * 0.55, bx - px, by - py);
+            g.close();
+            g.fill();
+        }
+    }
+
+    /** Cung quanh vành: chưa đầy = nộ đang có, đang bật = thời gian còn lại, đầy = vòng vàng kín. */
+    private drawGauge(state: SkillState, k: number) {
+        const g = this.gauge;
+        if (!g || !g.isValid) return;
+        const r = this.skillR * 0.92;
+        g.clear();
+        g.lineWidth = this.skillR * 0.1;
+        g.lineCap = Graphics.LineCap.ROUND;
+        g.strokeColor = GAUGE_TRACK;
+        g.circle(0, 0, r);
+        g.stroke();
+        const frac = state === 'ready' ? 1 : Math.max(0, Math.min(1, k));
+        if (frac <= 0.001) return;
+        g.strokeColor = GAUGE;
+        if (frac >= 0.999) {
+            g.circle(0, 0, r);
+        } else {
+            // Từ đỉnh, chạy theo chiều kim đồng hồ
+            g.arc(0, 0, r, Math.PI / 2, Math.PI / 2 - frac * Math.PI * 2, false);
+        }
+        g.stroke();
     }
 
     /** Nút tạm: tròn nâu, viền kem, biểu tượng kem ở giữa. */
     private paint(g: Graphics, button: TouchButton, r: number, down: boolean) {
+        const off = button === 'skill' && this.skillState === 'off';
         g.clear();
-        g.fillColor = down ? BTN_DOWN : BTN;
+        g.fillColor = off ? BTN_OFF : down ? BTN_DOWN : BTN;
         g.circle(0, 0, r);
         g.fill();
-        g.strokeColor = RING;
+        g.strokeColor = off ? RING_OFF : RING;
         g.lineWidth = Math.max(4, r * 0.06);
         g.circle(0, 0, r * 0.84);
         g.stroke();
 
         const a = r * 0.36;
-        g.fillColor = ICON;
-        g.strokeColor = ICON;
+        g.fillColor = off ? ICON_OFF : ICON;
+        g.strokeColor = off ? ICON_OFF : ICON;
         if (button === 'left' || button === 'right') {
             const d = button === 'left' ? -1 : 1;
             g.moveTo(d * a, 0); g.lineTo(-d * a * 0.6, a); g.lineTo(-d * a * 0.6, -a);
