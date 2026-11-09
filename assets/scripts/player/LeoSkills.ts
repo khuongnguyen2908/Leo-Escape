@@ -174,11 +174,12 @@ export class LeoSkills extends Component implements CatSkills {
         if (ctl.consumeInteract()) {
             if (this.carrying) this.throwPartner();
             else if (!this.partner()) {
-                // Chưa có Angelo: phím Tương tác không làm gì (lướt chỉ bằng bấm đúp trái / phải).
-                // Mèo Nổ đang khoá; khi mở trong cửa hàng sẽ gán phím riêng.
+                // Chưa có Angelo: phím Tương tác là phím Lướt (Space / Shift phải, nút Lướt trên điện thoại).
+                // Mèo Nổ đang khoá; khi mở trong cửa hàng (Xuống + Lướt trên nền cứng)
                 if (this.burstUnlocked && ctl.down && b.grounded && !b.groundSolid?.oneWay) {
                     if (this.startBurst()) return true;
                 }
+                c.tryDash();
             } else this.tryPickUp();
         }
         return false;

@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, Node, Rect, resources, Sprite, SpriteFrame, Tween, tween, UIOpacity, UITransform, Vec3 } from 'cc';
+import { _decorator, Color, Component, Graphics, Node, Rect, resources, Sprite, SpriteFrame, Tween, tween, UIOpacity, UITransform, Vec3 } from 'cc';
 import { CameraRig } from '../camera/CameraRig';
 import { overlaps } from '../core/Box';
 import type { DifficultyStats } from '../core/Difficulty';
@@ -58,7 +58,7 @@ const FLOWS: Record<number, Attack[]> = {
 
 /** Đòn có boss tự chạy (chạy tới cào vồ, lao ngang, nhảy đè): BossBrain lo từng khung */
 interface Motion {
-    kind: 'claw' | 'shove' | 'jump' | 'pups';
+    kind: 'claw' | 'shove' | 'jump' | 'pups' | 'spikes';
     t: number;
     stage: number;
     dir: number;
@@ -67,6 +67,18 @@ interface Motion {
     hit: boolean;
     /** Đoạn lao này đi xa tối đa bao nhiêu */
     legMax: number;
+}
+
+/** Trạng thái một cây gai: rise = bay lên trên đầu boss, aim = lơ lửng ngắm, fly = bay thẳng, chase = đuổi chậm */
+interface SpikeState {
+    mode: 'rise' | 'aim' | 'fly' | 'chase';
+    vx: number;
+    vy: number;
+    ang: number;
+    chase: number;
+    broken: boolean;
+    tx?: number;
+    ty?: number;
 }
 
 const _r = new Rect();
@@ -79,7 +91,7 @@ const _cat = new Rect();
  * Đòn nào cũng báo trước bằng dáng riêng của đòn (không nháy đỏ); đòn nhắm vào chỗ mèo thì thêm vệt đỏ dưới đất (hàm răng, sấm: thêm dấu ! Warn).
  * Chạm thân boss không mất tim; chỉ trúng đòn mới mất (cào vồ, lao ngang, nhảy đè, gai, răng, sấm, chó con...).
  *  - Phase 1: Cào vồ (chạy tới sát mèo) → Sủa sóng âm (đẩy lùi, không mất máu) → Phun độc → Nhảy đè → lặp lại.
- *  - Phase 2: Cào vồ → Lao ngang trái rồi phải (cúi thấp, nhảy qua được) → Bắn gai vòng cổ → Hàm răng bẫy → Bom đầu lâu → lặp.
+ *  - Phase 2: Cào vồ → Lướt húc tường tới tường (cúi thấp, nhảy qua được) → Bắn gai vòng cổ → Hàm răng bẫy → Bom đầu lâu → lặp.
  *  - Phase 3: Cào vồ → Gọi bầy chó con (chém 1 nhát là chết) → Sấm sét (3 tia cùng lúc) → 6 cột lửa xanh → Đòn đôi → lặp.
  *  - Máu xuống mốc: nhảy múa (bất tử) rồi sang phase mới. Phase nào chưa ra đủ Min Attacks Per Phase đòn thì máu dừng trên mốc.
  *  - Mèo gục hết, hồi sinh ở checkpoint: boss đầy máu về phase 1, về chỗ cũ, mọi đòn đang dở biến mất.
@@ -147,20 +159,14 @@ export class BossBrain extends Component {
     @property({ group: 'Nhảy đè', tooltip: 'Bay trên không bao lâu (giây)' })
     jumpTime = 0.8;
 
-    @property({ group: 'Lao ngang', tooltip: 'Cúi người cào đất lấy đà bao lâu (giây)' })
-    shoveWindup = 0.6;
+    @property({ group: 'Lao ngang', tooltip: 'Đứng ở tường cào đất 3 nhịp (vệt đỏ dọc hết khu) bao lâu rồi mới lao (giây)' })
+    shoveWindup = 1;
 
-    @property({ group: 'Lao ngang', tooltip: 'Tốc độ lao' })
+    @property({ group: 'Lao ngang', tooltip: 'Tốc độ lao (phase 3 nhanh hơn: nhân Shove Phase 3)' })
     shoveSpeed = 1300;
 
-    @property({ group: 'Lao ngang', tooltip: 'Mỗi lượt lao xa tối đa chừng này rồi dừng, quay về phía mèo lao tiếp' })
-    shoveLeg = 700;
-
-    @property({ group: 'Lao ngang', tooltip: 'Lao tối đa mấy lượt (qua trái qua phải theo mèo)' })
-    shoveLegs = 4;
-
-    @property({ group: 'Lao ngang', tooltip: 'Hết một lượt thì khựng chừng này giây rồi mới quay đầu lao tiếp' })
-    shoveTurn = 0.4;
+    @property({ group: 'Lao ngang', tooltip: 'Phase 3 lao nhanh gấp mấy lần' })
+    shovePhase3 = 1.25;
 
     @property({ group: 'Lao ngang', tooltip: 'Lao tông tường thì choáng chừng này giây (sao xoay, đứng yên, chém thoải mái)' })
     shoveStun = 2;
@@ -168,17 +174,29 @@ export class BossBrain extends Component {
     @property({ group: 'Lao ngang', tooltip: 'Lúc lao boss cao còn chừng này (mèo nhảy cao khoảng 300)' })
     shoveHeight = 200;
 
-    @property({ group: 'Bắn gai', tooltip: 'Vòng cổ loé sáng bao lâu rồi mới bắn (giây)' })
-    spikeWindup = 0.6;
-
     @property({ group: 'Bắn gai', tooltip: 'Số cây gai mỗi lần bắn' })
-    spikeCount = 8;
+    spikeNum = 5;
+
+    @property({ group: 'Bắn gai', tooltip: 'Vòng cổ nhấp nháy bao lâu (giây), sau khi boss nhảy về sát tường phải' })
+    collarBlink = 1;
+
+    @property({ group: 'Bắn gai', tooltip: 'Gai lơ lửng trên đầu boss, mũi ngắm mèo, rung bao lâu rồi mới bắn (giây)' })
+    spikeAim = 1;
 
     @property({ group: 'Bắn gai', tooltip: 'Mỗi cây gai bắn ra cách cây trước bao lâu (giây)' })
-    spikeGap = 0.12;
+    spikeInterval = 0.5;
 
-    @property({ group: 'Bắn gai', tooltip: 'Gai cắm đất bao lâu rồi biến (giây)' })
-    spikeStay = 0.9;
+    @property({ group: 'Bắn gai', tooltip: 'Gai bắn thẳng về chỗ mèo nhanh bao nhiêu' })
+    spikeSpeed = 650;
+
+    @property({ group: 'Bắn gai', tooltip: 'Bắn hụt (mèo né) thì gai quay lại đuổi mèo chậm với tốc độ này' })
+    spikeChaseSpeed = 220;
+
+    @property({ group: 'Bắn gai', tooltip: 'Gai đuổi bao lâu rồi rơi vỡ (giây)' })
+    spikeChaseTime = 3;
+
+    @property({ group: 'Bắn gai', tooltip: 'Lúc đuổi, gai quay đầu nhanh bao nhiêu (độ / giây). Nhỏ = lượn rộng, dễ né' })
+    spikeTurn = 120;
 
     @property({ group: 'Hàm răng', tooltip: 'Dấu đỏ dưới chân mèo hiện bao lâu rồi hàm răng mới sập (giây)' })
     jawWarn = 0.75;
@@ -205,7 +223,19 @@ export class BossBrain extends Component {
     pupWindup = 0.35;
 
     @property({ group: 'Chó con', tooltip: 'Đứng ở góc sủa liên tục, mỗi tiếng sủa cách nhau chừng này giây (mỗi tiếng ra 1 chó con)' })
-    pupBarkGap = 0.55;
+    pupBarkGap = 0.9;
+
+    @property({ group: 'Chó con', tooltip: 'Chó bay: nhảy vọt lên sau ít nhất chừng này giây (ngẫu nhiên giữa Min và Max)' })
+    pupHopMin = 0.4;
+
+    @property({ group: 'Chó con', tooltip: 'Chó bay: nhảy vọt lên sau nhiều nhất chừng này giây' })
+    pupHopMax = 1.1;
+
+    @property({ group: 'Chó con', tooltip: 'Chó bay: nhảy cao ít nhất' })
+    pupHopLow = 150;
+
+    @property({ group: 'Chó con', tooltip: 'Chó bay: nhảy cao nhiều nhất' })
+    pupHopHigh = 280;
 
     @property({ group: 'Axit 2', tooltip: 'Phase 3: quả bom thứ hai cách mèo bao xa (về phía mèo đang quay mặt)' })
     bombGap = 300;
@@ -231,6 +261,8 @@ export class BossBrain extends Component {
     private left = 0;
     private right = 0;
     private groundY = 0;
+    /** Mép trên ô đá của khối nền khu boss cao hơn mặt đứng bao nhiêu (Sink của GroundBlock) */
+    private groundSink = 60;
     private attacks = 0;
     private startX = 0;
     private startY = 0;
@@ -240,6 +272,11 @@ export class BossBrain extends Component {
     /** Vệt móng đang hiện: bám theo mặt boss suốt lúc vồ tới */
     private clawMark: Node | null = null;
     private impactFx: DustPuff | null = null;
+    /** Ảnh chó con: thường (ve_dog) và bay (ve_dog_fly) */
+    private dog: SpriteFrame | null = null;
+    private dogFly: SpriteFrame | null = null;
+    /** Lượt gọi chó đang chạy: con thứ i có bay không (ngẫu nhiên, mỗi loại ít nhất 1 con) */
+    private pupKinds: boolean[] = [];
 
     /** Độ khó (GameManager gọi một lần lúc vào chơi): nghỉ giữa các đòn ngắn lại, báo trước ngắn lại. */
     applyDifficulty(d: DifficultyStats) {
@@ -252,8 +289,8 @@ export class BossBrain extends Component {
         this.sonicWindup *= d.warn;
         this.jumpWarn *= d.warn;
         this.shoveWindup *= d.warn;
-        this.shoveTurn *= d.warn;
-        this.spikeWindup *= d.warn;
+        this.collarBlink *= d.warn;
+        this.spikeAim *= d.warn;
         this.jawWarn *= d.warn;
         this.thunderWarn *= d.warn;
         this.bombWindup *= d.warn;
@@ -271,6 +308,8 @@ export class BossBrain extends Component {
         if (resources.getDirWithPath('art/fx/Boss/Thunder', SpriteFrame).length > 0) THUNDER = 'Boss/Thunder/frame';
         for (const p of [DANCE, ACID_BOMB, ACID_PILLAR, DUST, THUNDER, IMPACT, SLAM, WARN_FX, CLAW_FX]) DustPuff.preload(p);
         AcidGlob.preload();
+        resources.load('art/ve_dog/spriteFrame', SpriteFrame, (err, sf) => { if (!err) this.dog = sf; });
+        resources.load('art/ve_dog_fly/spriteFrame', SpriteFrame, (err, sf) => { if (!err) this.dogFly = sf; });
     }
 
     start() {
@@ -353,6 +392,7 @@ export class BossBrain extends Component {
                 this.left = gx + 60;
                 this.right = gx + g.width - 60;
                 this.groundY = gy;
+                this.groundSink = g.sink;
                 return;
             }
         }
@@ -624,6 +664,10 @@ export class BossBrain extends Component {
                     m.t = 0;
                     e.drive = 0;
                     Sound.play('boss_growl', 0.7);
+                    // Báo trước: vệt đỏ đúng vùng móng sắp quét (lao tới ~150 + móng dài ~240 trước mặt) + dấu ! đỏ
+                    const rr = e.getHitRect(_r);
+                    const front = m.dir > 0 ? rr.xMax : rr.xMin;
+                    this.warnMark(front + m.dir * 200, 420, this.clawWindup, true);
                 }
                 return;
             }
@@ -696,13 +740,55 @@ export class BossBrain extends Component {
             this.updatePups(m);
             return;
         }
-        // Lao ngang: cúi cào đất → lao từng đoạn ngắn về phía mèo (qua trái qua phải) → tông tường thì choáng
+        if (m.kind === 'spikes') {
+            this.updateSpikes(m);
+            return;
+        }
+        // Lướt húc tường tới tường: nhảy về sát tường xa mèo → vệt đỏ dọc hết khu + cào đất 3 nhịp → lao một mạch → tông tường choáng
         if (m.stage === 0) {
-            const k = Math.min(1, m.t / Math.max(0.05, this.shoveWindup * 0.5));
-            Object.assign(e.pose, { sx: 1 + 0.12 * k, sy: 1 - (1 - this.shoveHeight / e.targetHeight) * k, angle: -4 * k });
-            if (Math.floor((m.t - dt) / 0.12) !== Math.floor(m.t / 0.12)) this.scrape(m.dir);
-            if (m.t >= this.shoveWindup) this.startLeg(m);
+            if (m.t < 0.25) return;
+            m.stage = 1;
+            m.t = 0;
+            if (Math.abs(m.tx - e.node.position.x) < 120) {
+                m.stage = 2; // đã ở sát tường đó
+                return;
+            }
+            const T = 0.6;
+            b.velocity.y = (b.gravity * T) / 2;
+            e.drive = (m.tx - e.node.position.x) / T;
+            Object.assign(e.pose, { sx: 0.94, sy: 1.1, angle: 8 });
+            Sound.play('jump', 0.9);
         } else if (m.stage === 1) {
+            if (m.t > 0.15 && b.grounded) {
+                e.drive = 0;
+                m.stage = 2;
+                m.t = 0;
+                CameraRig.instance?.shake(10, 0.2);
+                Sound.play('land', 0.8);
+                Object.assign(e.pose, { sx: 1.12, sy: 0.88, angle: 0 });
+            }
+        } else if (m.stage === 2) {
+            // Quay mặt về tường bên kia, vệt đỏ dọc đường lao, cúi thấp, cào đất đúng 3 nhịp
+            e.face(e.node.position.x + m.dir * 100);
+            if (!m.hit) {
+                m.hit = true;
+                const from = e.node.position.x;
+                const to = m.dir > 0 ? this.right : this.left;
+                this.laneMark(from, to, this.shoveWindup);
+                Sound.play('boss_growl', 0.8);
+            }
+            const k = Math.min(1, m.t / Math.max(0.05, this.shoveWindup * 0.4));
+            Object.assign(e.pose, { sx: 1 + 0.12 * k, sy: 1 - (1 - this.shoveHeight / e.targetHeight) * k, angle: -4 * k });
+            // Cào đất đúng 3 nhịp đều nhau: nhịp 1 lúc bắt đầu, nhịp 2 ở 1/3, nhịp 3 ở 2/3 thời gian
+            const beat = this.shoveWindup / 3;
+            const want = Math.min(3, Math.floor(m.t / Math.max(0.01, beat)) + 1);
+            while (m.legs < want) {
+                m.legs++;
+                this.scrape(m.dir);
+                Sound.play('boss_charge', 0.4);
+            }
+            if (m.t >= this.shoveWindup) this.startCharge(m);
+        } else if (m.stage === 3) {
             this.shoveLines(m.dir);
             this.bodyHit(this.shoveHeight);
             const r = e.getHitRect(_r);
@@ -717,51 +803,67 @@ export class BossBrain extends Component {
                 Sound.play('boss_charge_stun', 1);
                 e.daze(this.shoveStun / 0.6); // boss to xác: choáng bị nhân 0.6
                 this.poseTo(1, 1, 0, 0.25);
-            } else if (Math.abs(e.node.position.x - m.tx) >= m.legMax || m.t > 3) {
-                // Hết đoạn lao: khựng lại, chuẩn bị lượt sau
-                this.stopImpact();
-                e.drive = 0;
-                m.legs++;
-                m.stage = 2;
-                m.t = 0;
+            } else if (m.t > 4) {
+                this.endMotion(0.3); // phòng hờ: kẹt không tới tường
             }
-        } else if (m.stage === 2) {
-            if (m.t >= this.shoveTurn) {
-                if (m.legs < this.shoveLegs) {
-                    const t = this.target();
-                    if (t) e.face(t.node.position.x);
-                    m.dir = e.facingDir;
-                    this.startLeg(m);
-                } else {
-                    m.stage = 3;
-                    m.t = 0;
-                    this.poseTo(1, 1, 0, 0.3);
-                }
-            }
-        } else if (m.stage === 3) {
-            if (m.t >= 0.35) this.endMotion(0.3);
         } else if (m.t >= this.shoveStun) {
             // Hết choáng
             this.endMotion(0.2);
         }
     }
 
-    /** Bắt đầu một đoạn lao: chạy về phía m.dir, vệt va chạm (Impact) lặp ở mặt boss. */
-    private startLeg(m: Motion) {
+    /** Lao một mạch về phía m.dir tới tận tường (không dừng, không đổi hướng); vệt va chạm (Impact) ở mặt boss. */
+    private startCharge(m: Motion) {
         const e = this.boss!;
-        m.stage = 1;
+        m.stage = 3;
         m.t = 0;
-        m.tx = e.node.position.x;
-        // Tường ở gần (trong tầm Shove Leg + 350) thì lao luôn tới tường: mèo đứng sát tường là dụ được boss tông
-        const r0 = e.getHitRect(_r);
-        const toWall = m.dir < 0 ? r0.xMin - this.left : this.right - r0.xMax;
-        m.legMax = toWall < this.shoveLeg + 350 ? Infinity : this.shoveLeg;
-        e.drive = m.dir * this.shoveSpeed;
+        e.drive = m.dir * this.shoveSpeed * (this.phase === 3 ? this.shovePhase3 : 1);
         Sound.play('boss_charge', 1);
         this.stopImpact();
         const r = e.getHitRect(_r);
         const front = (m.dir > 0 ? r.xMax : r.xMin) - e.node.position.x + m.dir * 10;
         this.impactFx = DustPuff.spawn(IMPACT, e.node, front, this.shoveHeight * 0.55, { dir: m.dir, scale: 4.5, fps: 18, center: true, loopFor: 10 });
+    }
+
+    /** Vệt đỏ nhấp nháy dọc mặt đất từ x0 tới x1 (đường boss sắp lao), có mũi tên ở đầu; hiện life giây. */
+    private laneMark(x0: number, x1: number, life: number) {
+        const dir = x1 > x0 ? 1 : -1;
+        const len = Math.abs(x1 - x0);
+        // Dải đỏ phủ lớp đá sáng của mặt đường: từ mép trên ô đá (Sink, nhô trên mặt đứng) xuống dày ~100
+        const top = this.groundSink;
+        const bottom = top - 100;
+        const mid = (top + bottom) / 2;
+        const spread = 0.35; // trải từ chân boss tới tường trong 0.35 giây
+        const gap = 110; // khoảng cách giữa các mũi tên »
+        this.spawn('BossLane', x0, this.groundY, (h) => {
+            const g = h.g;
+            g.clear();
+            const L = len * Math.min(1, h.time / spread);
+            const blink = h.time < spread ? 1 : 0.5 + 0.5 * Math.abs(Math.sin((h.time - spread) * Math.PI * 4));
+            // Dải đỏ bán trong suốt, đầu dải hơi đậm hơn lúc đang trải ra
+            g.fillColor = new Color(WARN.r, WARN.g, WARN.b, Math.round(110 + 70 * blink));
+            g.rect(dir > 0 ? 0 : -L, bottom, L, top - bottom);
+            g.fill();
+            g.strokeColor = new Color(255, 225, 215, Math.round(150 + 80 * blink));
+            g.lineWidth = 4;
+            g.moveTo(0, top);
+            g.lineTo(dir * L, top);
+            g.moveTo(0, bottom);
+            g.lineTo(dir * L, bottom);
+            g.stroke();
+            // Mũi tên » trắng trôi theo hướng lao (chỉ trong phần dải đã trải)
+            g.strokeColor = new Color(255, 245, 240, 230);
+            g.lineWidth = 9;
+            const shift = (h.time * 320) % gap;
+            for (let d = shift; d < L - 20; d += gap) {
+                const cx = dir * d;
+                g.moveTo(cx - dir * 22, mid + 30);
+                g.lineTo(cx + dir * 18, mid);
+                g.lineTo(cx - dir * 22, mid - 30);
+            }
+            g.stroke();
+            return h.time < life + 0.2 && this.alive();
+        });
     }
 
     private stopImpact() {
@@ -817,11 +919,24 @@ export class BossBrain extends Component {
         this.startMotion('jump', tx);
     }
 
-    /** Lao ngang: cúi thấp (nhảy qua được) lao từng đoạn ngắn về phía mèo, qua trái qua phải; tông tường thì choáng 2 giây. */
+    /**
+     * Lướt húc (dễ đoán): nhảy về sát một tường (ngẫu nhiên trái / phải, không phải tường mèo đang đứng sát) → vệt đỏ dọc hết khu + cào đất 3 nhịp (Shove Windup)
+     * → cúi thấp (nhảy qua được) lao một mạch tới tường bên kia → tông tường choáng Shove Stun giây.
+     */
     private shove(t: PlayerController) {
         const e = this.boss!;
-        e.face(t.node.position.x);
+        this.poseTo(1.08, 0.86, 0, 0.25);
         this.startMotion('shove');
+        const m = this.motion!;
+        const r = e.getHitRect(_r);
+        // Tường ngẫu nhiên trái / phải; mèo đứng sát tường đó (trong 350) thì đổi tường kia để boss không đáp lên người mèo
+        const cx = t.node.position.x;
+        let toRight = Math.random() < 0.5;
+        if (toRight && this.right - cx < 350) toRight = false;
+        else if (!toRight && cx - this.left < 350) toRight = true;
+        m.tx = toRight ? this.right - r.width / 2 + 40 : this.left + r.width / 2 - 40;
+        m.dir = toRight ? -1 : 1; // hướng lao: về tường bên kia
+        m.legs = 0;
     }
 
     /** Bụi cào đất sau gót lúc lấy đà lao. */
@@ -927,90 +1042,264 @@ export class BossBrain extends Component {
 
     // ---------- Bắn gai vòng cổ ----------
 
-    /** Vòng cổ loé sáng, rung, rồi bắn gai bay vòng cung rơi rải khắp khu; gai cắm đất một lúc rồi biến. */
+    /** Các cây gai của lượt bắn đang chạy (để biết còn bao nhiêu cây, cây nào tới lượt bắn). */
+    private spikeList: { h: BossHazard; state: SpikeState; slot: number; fire: () => void }[] = [];
+
+    /**
+     * Bắn gai: nhảy về sát tường phải → vòng cổ nhấp nháy (Collar Blink) → gai bay lên xếp hình quạt trên đầu boss,
+     * mũi ngắm mèo, rung (Spike Aim) → bắn từng cây cách nhau Spike Interval, bay thẳng tới chỗ mèo lúc bắn.
+     * Hụt thì gai quay lại đuổi chậm (Spike Chase Speed) trong Spike Chase Time rồi rơi vỡ. Chém trúng gai thì gai bể.
+     */
     private spikes() {
         const e = this.boss!;
-        const cx = () => e.node.position.x - e.facingDir * e.targetHeight * 0.05;
-        const cy = this.groundY + e.targetHeight * 0.45;
-        this.spawn('BossCollar', cx(), cy, (h) => {
-            h.node.setPosition(cx(), cy, 0);
-            e.pose.x = Math.sin(h.time * 60) * 4;
-            const k = Math.min(1, h.time / Math.max(0.05, this.spikeWindup));
-            const g = h.g;
-            g.clear();
-            g.fillColor = new Color(COLLAR.r, COLLAR.g, COLLAR.b, Math.round(150 * k * (0.6 + 0.4 * Math.sin(h.time * 30))));
-            g.circle(0, 0, 90 + 30 * k);
-            g.fill();
-            if (h.time >= this.spikeWindup) e.pose.x = 0;
-            return h.time < this.spikeWindup && this.alive();
-        });
-        const n = Math.max(3, Math.round(this.spikeCount));
-        const flight = 0.75;
-        const gap = Math.max(0, this.spikeGap);
-        this.busy = this.spikeWindup + gap * (n - 1) + flight + 0.3;
-        // Bắn từng cây một, cách nhau Spike Gap giây, mỗi cây một tiếng boss_spike; chỗ rơi xáo trộn để không đoán trước được
-        const span = this.right - this.left - 120;
-        const spots: number[] = [];
-        for (let i = 0; i < n; i++) spots.push(this.left + 60 + (span * i) / (n - 1) + (Math.random() - 0.5) * 60);
-        for (let i = n - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [spots[i], spots[j]] = [spots[j], spots[i]];
-        }
-        spots.forEach((tx, i) => this.scheduleOnce(() => {
-            if (!this.alive()) return;
-            Sound.play('boss_spike', 0.9);
-            if (i === 0) CameraRig.instance?.shake(6, 0.2);
-            this.spike(cx(), cy, tx, flight);
-        }, this.spikeWindup + gap * i));
+        this.poseTo(1.08, 0.86, 0, 0.3);
+        this.startMotion('spikes');
+        const r = e.getHitRect(_r);
+        this.motion!.tx = this.right - r.width / 2 + 40; // chỗ đáp: sát tường phải
+        this.spikeList = [];
     }
 
-    private spike(x0: number, y0: number, x1: number, flight: number) {
-        const arc = 320;
-        const stay = this.spikeStay;
-        const y1 = this.groundY + 10;
-        this.spawn('BossSpike', x0, y0, (h) => {
+    /** Chỗ vòng cổ (theo boss). */
+    private collar(): [number, number] {
+        const e = this.boss!;
+        return [e.node.position.x - e.facingDir * e.targetHeight * 0.05, this.groundY + e.targetHeight * 0.45];
+    }
+
+    private updateSpikes(m: Motion) {
+        const e = this.boss!;
+        const b = e.physics;
+        const n = Math.max(1, Math.round(this.spikeNum));
+        const t = this.target();
+        if (m.stage === 0) {
+            // Thụp người lấy đà rồi nhảy lùi về sát tường phải (đã ở đó thì thôi)
+            if (m.t < 0.3) return;
+            m.stage = 1;
+            m.t = 0;
+            if (Math.abs(m.tx - e.node.position.x) < 120) {
+                m.stage = 2;
+                return;
+            }
+            const T = 0.6;
+            b.velocity.y = (b.gravity * T) / 2;
+            e.drive = (m.tx - e.node.position.x) / T;
+            Object.assign(e.pose, { sx: 0.94, sy: 1.1, angle: 8 });
+            Sound.play('jump', 0.9);
+        } else if (m.stage === 1) {
+            if (m.t > 0.15 && b.grounded) {
+                e.drive = 0;
+                m.stage = 2;
+                m.t = 0;
+                CameraRig.instance?.shake(10, 0.2);
+                Sound.play('land', 0.8);
+                Object.assign(e.pose, { sx: 1.12, sy: 0.88, angle: 0 });
+                this.poseTo(1, 1, 0, 0.25);
+            }
+        } else if (m.stage === 2) {
+            // Vòng cổ nhấp nháy Collar Blink giây (boss quay mặt về mèo)
+            if (t) e.face(t.node.position.x);
+            if (!m.hit) {
+                m.hit = true;
+                this.collarFlash();
+                Sound.play('boss_growl', 0.7);
+            }
+            if (m.t >= this.collarBlink) {
+                m.stage = 3;
+                m.t = 0;
+                m.hit = false;
+                const [cx, cy] = this.collar();
+                for (let i = 0; i < n; i++) this.makeSpike(i, n, cx, cy);
+                Sound.play('boss_spike', 0.7);
+            }
+        } else if (m.stage === 3) {
+            // Gai lơ lửng trên đầu, ngắm mèo, rung
+            if (t) e.face(t.node.position.x);
+            if (m.t >= this.spikeAim + 0.35) {
+                m.stage = 4;
+                m.t = 0;
+                m.legs = 0;
+            }
+        } else if (m.stage === 4) {
+            // Bắn từng cây một, cách nhau Spike Interval
+            if (t) e.face(t.node.position.x);
+            if (m.legs < this.spikeList.length && m.t >= m.legs * this.spikeInterval) {
+                const sp = this.spikeList[m.legs];
+                m.legs++;
+                if (sp.h.isValid && sp.state.mode === 'aim') {
+                    sp.fire();
+                    Sound.play('boss_spike', 0.9);
+                    Object.assign(e.pose, { sx: 1.05, sy: 0.95, angle: -4 });
+                    this.poseTo(1, 1, 0, 0.2);
+                }
+            }
+            // Bắn hết rồi: chờ các cây gai bể / rơi hết rồi mới sang đòn kế (tối đa thêm Spike Chase Time + 1 giây)
+            const left = this.spikeList.filter((x) => x.h.isValid).length;
+            const fired = m.legs >= this.spikeList.length;
+            if (fired && (left === 0 || m.t > this.spikeInterval * n + this.spikeChaseTime + 1.5)) this.endMotion(0.3);
+        }
+    }
+
+    /** Vòng cổ nhấp nháy (loé, tắt, loé...) trong Collar Blink giây, boss rung nhẹ. */
+    private collarFlash() {
+        const e = this.boss!;
+        const [x0, y0] = this.collar();
+        this.spawn('BossCollar', x0, y0, (h) => {
+            const [cx, cy] = this.collar();
+            h.node.setPosition(cx, cy, 0);
+            e.pose.x = Math.sin(h.time * 60) * 3;
+            const on = Math.floor(h.time * 8) % 2 === 0; // nháy 4 lần mỗi giây
             const g = h.g;
             g.clear();
-            let ang: number;
-            let a = 1;
-            if (h.time < flight) {
-                const s = h.time / flight;
-                const x = x0 + (x1 - x0) * s;
-                const y = y0 + (y1 - y0) * s + arc * 4 * s * (1 - s);
-                h.node.setPosition(x, y, 0);
-                const dx = (x1 - x0), dy = (y1 - y0) + arc * 4 * (1 - 2 * s);
-                ang = Math.atan2(dy, dx);
-                _r.set(x - 25, y - 25, 50, 50);
-                this.hurtIn(_r, x0);
-            } else {
-                h.node.setPosition(x1, y1, 0);
-                ang = -Math.PI / 2;
-                if (h.data.landed !== 1) {
-                    h.data.landed = 1;
-                    Sound.play('spike_land', 0.55);
-                }
-                const t = h.time - flight;
-                if (t < stay) {
-                    _r.set(x1 - 20, this.groundY, 40, 70);
-                    this.hurtIn(_r, x1);
-                } else a = 1 - (t - stay) / 0.25;
-                if (a <= 0) return false;
+            if (on) {
+                g.fillColor = new Color(COLLAR.r, COLLAR.g, COLLAR.b, 190);
+                g.circle(0, 0, 70);
+                g.fill();
+                g.strokeColor = new Color(255, 240, 150, 230);
+                g.lineWidth = 6;
+                g.circle(0, 0, 96);
+                g.stroke();
             }
-            // Gai thép: mũi nhọn về hướng bay, chuôi đỏ (vòng cổ)
-            const c = Math.cos(ang), s2 = Math.sin(ang);
-            const pt = (fx: number, fy: number): [number, number] => [fx * c - fy * s2, fx * s2 + fy * c];
-            g.fillColor = new Color(STEEL.r, STEEL.g, STEEL.b, Math.round(255 * a));
-            g.strokeColor = new Color(STEEL_EDGE.r, STEEL_EDGE.g, STEEL_EDGE.b, Math.round(255 * a));
-            g.lineWidth = 4;
-            const p1 = pt(40, 0), p2 = pt(-26, -16), p3 = pt(-26, 16);
-            g.moveTo(p1[0], p1[1]);
-            g.lineTo(p2[0], p2[1]);
-            g.lineTo(p3[0], p3[1]);
-            g.close();
-            g.fill();
-            g.stroke();
+            const live = h.time < this.collarBlink && this.alive();
+            if (!live) e.pose.x = 0;
+            return live;
+        }, undefined, true);
+    }
+
+    /** Một cây gai: bay từ vòng cổ lên chỗ của nó trên đầu boss (hình quạt), ngắm mèo, rung; bắn thì bay thẳng; hụt thì đuổi chậm. */
+    private makeSpike(i: number, n: number, x0: number, y0: number) {
+        const e = this.boss!;
+        const PAD = 16; // vùng chém trúng nới rộng hơn hình gai mỗi bên chừng này, chém dễ trúng
+        const state: SpikeState = { mode: 'rise', vx: 0, vy: 0, ang: Math.PI, chase: 0, broken: false };
+        // Chỗ trên đầu boss: hình quạt, cách đỉnh đầu 110, xoè 100 độ
+        const spread = (100 * Math.PI) / 180;
+        const a = n > 1 ? -spread / 2 + (spread * i) / (n - 1) : 0;
+        const homeX = () => e.node.position.x + Math.sin(a) * 210;
+        const homeY = () => this.groundY + e.targetHeight + 90 + Math.cos(a) * 70;
+        let h: BossHazard | null = null;
+        const aimAt = (): [number, number] | null => {
+            const c = this.target();
+            if (!c) return null;
+            const p = c.node.position;
+            return [p.x, p.y + 70];
+        };
+        const shatter = () => {
+            if (state.broken) return;
+            state.broken = true;
+            const p = h?.node.position;
+            const parent = e.node.parent;
+            if (p && parent) DustPuff.spawn(DUST, parent, p.x, p.y - 30, { scale: 3.5, fps: 24 });
+            Sound.play('spike_land', 0.7);
+        };
+        const hit: Hittable = {
+            get canBeHit() { return !state.broken; },
+            getHitRect: (out: Rect) => {
+                // Hộp ôm trọn hình gai (mũi 44 phía trước, đuôi 28 phía sau, rộng 34) theo hướng đang quay, nới thêm PAD mỗi bên
+                const p = h?.node.position ?? Vec3.ZERO;
+                const c = Math.cos(state.ang), sn = Math.sin(state.ang);
+                const pts: [number, number][] = [[44, 0], [-28, -17], [-28, 17]];
+                let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+                for (const [fx, fy] of pts) {
+                    const x = p.x + fx * c - fy * sn, y = p.y + fx * sn + fy * c;
+                    x0 = Math.min(x0, x); x1 = Math.max(x1, x);
+                    y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+                }
+                return out.set(x0 - PAD, y0 - PAD, x1 - x0 + PAD * 2, y1 - y0 + PAD * 2);
+            },
+            takeHit: () => shatter(),
+        };
+        const fire = () => {
+            const tgt = aimAt();
+            const p = h!.node.position;
+            const ang = tgt ? Math.atan2(tgt[1] - p.y, tgt[0] - p.x) : state.ang;
+            state.ang = ang;
+            state.vx = Math.cos(ang) * this.spikeSpeed;
+            state.vy = Math.sin(ang) * this.spikeSpeed;
+            state.mode = 'fly';
+            state.tx = tgt ? tgt[0] : p.x;
+            state.ty = tgt ? tgt[1] : p.y;
+        };
+        h = this.spawn('BossSpike', x0, y0, (hz, dt) => {
+            if (state.broken) return false;
+            const p = hz.node.position;
+            let x = p.x, y = p.y;
+            const tgt = aimAt();
+            if (state.mode === 'rise' || state.mode === 'aim') {
+                // Bay lên chỗ trên đầu (0.35 giây), rồi lơ lửng: mũi quay theo mèo, rung
+                const k = Math.min(1, hz.time / 0.35);
+                const ease = 1 - (1 - k) * (1 - k);
+                x = x0 + (homeX() - x0) * ease;
+                y = y0 + (homeY() - y0) * ease;
+                if (k >= 1) state.mode = 'aim';
+                if (tgt) state.ang = Math.atan2(tgt[1] - y, tgt[0] - x);
+                if (state.mode === 'aim') {
+                    x += Math.sin(hz.time * 70 + i) * 4;
+                    y += Math.cos(hz.time * 55 + i * 2) * 3;
+                }
+            } else if (state.mode === 'fly') {
+                // Bay thẳng; vượt qua chỗ ngắm (hoặc chạm đất) mà chưa trúng thì chuyển sang đuổi chậm
+                x += state.vx * dt;
+                y += state.vy * dt;
+                const passed = ((state.tx ?? x) - x) * state.vx + ((state.ty ?? y) - y) * state.vy < 0;
+                if (passed || y < this.groundY + 25 || x < this.left - 150 || x > this.right + 150) {
+                    state.mode = 'chase';
+                    state.chase = 0;
+                    y = Math.max(y, this.groundY + 25);
+                }
+            } else {
+                // Đuổi chậm: quay đầu dần về phía mèo (Spike Turn độ/giây), tốc độ giảm về Spike Chase Speed
+                state.chase += dt;
+                if (tgt) {
+                    const want = Math.atan2(tgt[1] - y, tgt[0] - x);
+                    let d = want - state.ang;
+                    while (d > Math.PI) d -= Math.PI * 2;
+                    while (d < -Math.PI) d += Math.PI * 2;
+                    const maxTurn = (this.spikeTurn * Math.PI / 180) * dt;
+                    state.ang += Math.max(-maxTurn, Math.min(maxTurn, d));
+                }
+                const speed = Math.hypot(state.vx, state.vy);
+                const sp2 = speed + (this.spikeChaseSpeed - speed) * Math.min(1, dt * 3);
+                state.vx = Math.cos(state.ang) * sp2;
+                state.vy = Math.sin(state.ang) * sp2;
+                x += state.vx * dt;
+                y = Math.max(this.groundY + 25, y + state.vy * dt);
+                if (state.chase >= this.spikeChaseTime) {
+                    shatter();
+                    return false;
+                }
+            }
+            hz.node.setPosition(x, y, 0);
+            // Trúng mèo: mất tim, gai bể
+            if (state.mode === 'fly' || state.mode === 'chase') {
+                // Mèo đang lướt thì gai bay xuyên qua (né được), không bể
+                _r.set(x - 24, y - 24, 48, 48);
+                const gm = GameManager.instance;
+                const victim = gm?.cats.find((c) => !c.downed && !c.idle && !c.evading && overlaps(c.body.getRect(_cat), _r));
+                if (gm && victim) {
+                    gm.hurtCat(victim, x);
+                    shatter();
+                    return false;
+                }
+            }
+            this.drawSpike(hz.g, state.ang, 1);
             return this.alive();
-        });
+        }, hit, true);
+        if (h) this.spikeList.push({ h, state, slot: i, fire });
+    }
+
+    /** Gai thép: mũi nhọn về hướng ang, viền nâu. */
+    private drawSpike(g: Graphics, ang: number, a: number) {
+        g.clear();
+        const c = Math.cos(ang), s2 = Math.sin(ang);
+        const pt = (fx: number, fy: number): [number, number] => [fx * c - fy * s2, fx * s2 + fy * c];
+        g.fillColor = new Color(STEEL.r, STEEL.g, STEEL.b, Math.round(255 * a));
+        g.strokeColor = new Color(STEEL_EDGE.r, STEEL_EDGE.g, STEEL_EDGE.b, Math.round(255 * a));
+        g.lineWidth = 4;
+        const p1 = pt(44, 0), p2 = pt(-28, -17), p3 = pt(-28, 17);
+        g.moveTo(p1[0], p1[1]);
+        g.lineTo(p2[0], p2[1]);
+        g.lineTo(p3[0], p3[1]);
+        g.close();
+        g.fill();
+        g.stroke();
     }
 
     // ---------- Hàm răng bẫy ----------
@@ -1082,6 +1371,14 @@ export class BossBrain extends Component {
         this.startMotion('pups');
         const r = e.getHitRect(_r);
         this.motion!.tx = this.right - r.width / 2 + 40; // chỗ đáp: sát góc phải
+        // Loại từng con: ngẫu nhiên thường / bay, có ít nhất 1 con mỗi loại (khi gọi từ 2 con trở lên)
+        const n = Math.max(1, Math.round(this.pupCount));
+        const kinds = Array.from({ length: n }, () => Math.random() < 0.5);
+        if (n >= 2) {
+            if (!kinds.some((k) => k)) kinds[Math.floor(Math.random() * n)] = true;
+            if (!kinds.some((k) => !k)) kinds[Math.floor(Math.random() * n)] = false;
+        }
+        this.pupKinds = kinds;
     }
 
     private updatePups(m: Motion) {
@@ -1125,26 +1422,33 @@ export class BossBrain extends Component {
                 this.barkSound();
                 const [mx] = this.mouth();
                 this.shout(T('boss.bark'), mx + dir * 60, e.node.position.y + e.targetHeight + 30, 72);
-                this.pup(dir);
+                this.pup(dir, this.pupKinds[m.legs - 1] ?? false);
             } else if (m.legs >= n && m.t >= 0.6) {
                 this.endMotion(0.3);
             }
         }
     }
 
-    private pup(dir: number) {
+    /**
+     * Một con chó con: loại thường (ve_dog) chạy thẳng trên đất; loại bay (ve_dog_fly) vừa chạy vừa nhảy vọt lên
+     * theo nhịp ngẫu nhiên (Pup Hop Min → Max giây, cao Pup Hop Low → High). Chém 1 nhát là chết.
+     */
+    private pup(dir: number, fly: boolean) {
         const e = this.boss;
         if (!e || !this.alive()) return;
-        const frame = e.visual?.getComponent(Sprite)?.spriteFrame;
-        const height = 130;
-        const w = 120;
+        const frame = (fly ? this.dogFly : this.dog) ?? e.visual?.getComponent(Sprite)?.spriteFrame ?? null;
+        const height = 150;
+        const w = 140;
         let dead = false;
         let h: BossHazard | null = null;
+        // Bay: độ cao trên mặt đất, vận tốc dọc, hẹn giờ nhảy lần tới
+        const air = { y: 0, vy: 0, next: this.rand(this.pupHopMin, this.pupHopMax) };
+        const G = 2200;
         const hit: Hittable = {
             get canBeHit() { return !dead; },
             getHitRect: (out: Rect) => {
                 const p = h?.node.position ?? Vec3.ZERO;
-                return out.set(p.x - w / 2, p.y, w, height * 0.85);
+                return out.set(p.x - w / 2, p.y, w, height * 0.8);
             },
             takeHit: () => {
                 if (dead) return;
@@ -1158,10 +1462,26 @@ export class BossBrain extends Component {
         h = this.spawn('BossPup', e.node.position.x - dir * 40, this.groundY, (hz, dt) => {
             if (dead) return false;
             const x = hz.node.position.x + dir * this.pupSpeed * dt;
-            hz.node.setPosition(x, this.groundY, 0);
+            if (fly) {
+                if (air.y <= 0 && air.vy <= 0) {
+                    air.y = 0;
+                    air.vy = 0;
+                    air.next -= dt;
+                    if (air.next <= 0) {
+                        air.vy = Math.sqrt(2 * G * this.rand(this.pupHopLow, this.pupHopHigh));
+                        air.next = this.rand(this.pupHopMin, this.pupHopMax);
+                    }
+                } else {
+                    air.vy -= G * dt;
+                    air.y = Math.max(0, air.y + air.vy * dt);
+                }
+            }
+            const y = this.groundY + air.y;
+            hz.node.setPosition(x, y, 0);
             const pic = hz.node.getChildByName('Pic');
-            if (pic) pic.setPosition(0, Math.abs(Math.sin(hz.time * 18)) * 10, 0);
-            _r.set(x - w / 2, this.groundY, w, height * 0.8);
+            // Thường: nhún nhẹ khi chạy; bay: đập cánh (rung nhẹ) cả lúc trên không
+            if (pic) pic.setPosition(0, fly ? Math.sin(hz.time * 40) * 4 : Math.abs(Math.sin(hz.time * 18)) * 10, 0);
+            _r.set(x - w / 2, y, w, height * 0.75);
             this.hurtIn(_r, x - dir * 100);
             return this.alive() && x > this.left - 160 && x < this.right + 160;
         }, hit);
@@ -1175,12 +1495,18 @@ export class BossBrain extends Component {
             ui.spriteFrame = frame;
             pic.getComponent(UITransform)?.setAnchorPoint(0.5, 0);
             const k = height / frame.rect.height;
-            pic.setScale(k * dir * (e.artFacesRight ? 1 : -1), k, 1);
+            // Ảnh chó-gián quay đầu sang trái: chạy sang phải thì lật
+            const facesRight = frame === this.dog || frame === this.dogFly ? false : e.artFacesRight;
+            pic.setScale(k * dir * (facesRight ? 1 : -1), k, 1);
         } else {
             h.g.fillColor = new Color(120, 80, 60, 255);
             h.g.ellipse(0, 50, 60, 45);
             h.g.fill();
         }
+    }
+
+    private rand(a: number, b: number) {
+        return a + Math.random() * Math.max(0, b - a);
     }
 
     // ---------- Sấm sét ----------

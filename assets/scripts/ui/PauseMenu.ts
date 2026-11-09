@@ -56,8 +56,8 @@ export class PauseMenu extends Component {
     @property({ tooltip: 'Nút bánh răng cách mép phải và mép trên khung hình (x, y)' })
     gearRight = 70;
 
-    @property
-    gearTop = 230;
+    @property({ tooltip: 'Nút bánh răng cách mép trên khung hình. Góc phải trên cùng; dấu tự lưu hiện thì đè lên nút' })
+    gearTop = 70;
 
     private overlay: Node | null = null;
     private pages = new Map<Page, Node>();
@@ -315,8 +315,8 @@ export class PauseMenu extends Component {
     private buildControls() {
         const two = GameSession.angelo;
         const players = two ? 2 : 1;
-        // Không có Angelo: chỉ phím của Người 1; bỏ dòng Đổi mèo, Tương tác (lướt chỉ bằng bấm đúp). Giữ dòng K (special)
-        const actions = two ? ACTIONS : ACTIONS.filter((a) => a !== 'swap' && a !== 'interact');
+        // Không có Angelo: chỉ phím của Người 1; bỏ dòng Đổi mèo. Dòng Lướt dùng ô hành động Tương tác. Giữ dòng special
+        const actions = two ? ACTIONS : ACTIONS.filter((a) => a !== 'swap');
         const cellX = two ? CELL_X2 : [VALUE_X];
         const step = two ? 46 : 62;
         const { root, nav, focus } = this.makePage('controls', () => this.show('options', true), 'opt.controlsTitle');

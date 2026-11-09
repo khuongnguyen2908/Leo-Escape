@@ -323,17 +323,7 @@ export class PlayerController extends Component {
         }
         if (dir !== 0) this.facing = dir;
 
-        // Bấm đúp trái/phải: lướt né
-        this.lastTapAge += dt;
-        if (dir !== 0 && dir !== this.prevDir) {
-            if (this.doubleTapTime > 0 && dir === this.lastTapDir && this.lastTapAge <= this.doubleTapTime) {
-                this.lastTapDir = 0;
-                this.tryDash();
-            } else {
-                this.lastTapDir = dir;
-                this.lastTapAge = 0;
-            }
-        }
+        // Lướt giờ có phím / nút riêng (phím Tương tác = Lướt, xem LeoSkills); không còn lướt bằng bấm đúp trái / phải
         this.prevDir = dir;
 
         // Bấm Xuống 2 lần nhanh khi đang đứng trên bục một chiều (bàn, thùng, ghế...) thì rơi xuyên xuống

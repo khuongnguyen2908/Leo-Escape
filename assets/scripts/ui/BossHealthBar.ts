@@ -103,7 +103,8 @@ export class BossHealthBar extends Component {
         if (!this.opacity) return;
 
         const alive = !!boss && boss.isValid && !boss.defeated;
-        const near = this.driven ? this.shown : cats.some((c) => Math.abs(c.node.position.x - boss!.node.position.x) < this.showDistance);
+        // Chỉ hiện khi khu boss gọi reveal() (sau phần giới thiệu tên boss), không tự hiện khi mèo tới gần
+        const near = this.driven && this.shown;
         const target = alive && near ? 255 : 0;
         this.opacity.opacity += (target - this.opacity.opacity) * Math.min(1, dt * 6);
         // Trượt lên từ dưới đáy lúc mới hiện

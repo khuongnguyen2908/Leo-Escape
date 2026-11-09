@@ -77,6 +77,9 @@ export class TouchControls extends Component {
     @property({ tooltip: 'Tâm nút tương tác cách mép phải và đáy màn hình (x, y)' })
     interactPos = new Vec2(130, 400);
 
+    @property({ tooltip: 'Tâm nút Lướt cách mép phải và đáy màn hình (x, y). Mặc định ngay trên nút nhảy' })
+    dashPos = new Vec2(165, 381);
+
     @property({ tooltip: 'Tâm joystick cách mép trái và đáy màn hình (x, y)' })
     joystickPos = new Vec2(217, 195);
 
@@ -133,8 +136,9 @@ export class TouchControls extends Component {
         // Cùng cỡ nút đánh. Chưa đầy nộ: xám mờ + cung nộ; đầy: lửa cháy quanh vành; đang bật: lửa nhỏ + cung thời gian
         this.makeButton('skill', right - this.skillPos.x, bottom + this.skillPos.y, this.attackRadius, this.skillFrame);
         this.setupSkill(this.attackRadius);
-        // Nút L (tương tác) chỉ khi có Angelo; chưa có thì lướt bằng đẩy đúp joystick
+        // Nút Lướt (hành động Tương tác): cùng cỡ nút đánh, ngay trên nút nhảy. Có Angelo thì vẫn là nút tương tác (bê / ném)
         if (GameSession.angelo) this.makeButton('interact', right - this.interactPos.x, bottom + this.interactPos.y, this.attackRadius * 0.8, this.interactFrame);
+        else this.makeButton('interact', right - this.dashPos.x, bottom + this.dashPos.y, this.attackRadius, this.interactFrame);
         // Nút đổi mèo: chỉ khi có Angelo và chơi 1 người (điện thoại luôn chơi 1 người)
         if (GameManager.instance?.partner && GameSession.mode === 1) {
             this.makeButton('swap', right - this.swapPos.x, bottom + this.swapPos.y, this.attackRadius * 0.8, this.swapFrame);
@@ -419,6 +423,17 @@ export class TouchControls extends Component {
             }
             g.close();
             g.fill();
+        } else if (button === 'interact' && !GameSession.angelo) {
+            // Lướt: hai mũi tên đôi chỉ sang phải (»)
+            g.lineWidth = r * 0.13;
+            g.lineCap = Graphics.LineCap.ROUND;
+            g.lineJoin = Graphics.LineJoin.ROUND;
+            for (const ox of [-a * 0.42, a * 0.18]) {
+                g.moveTo(ox - a * 0.25, a * 0.55);
+                g.lineTo(ox + a * 0.3, 0);
+                g.lineTo(ox - a * 0.25, -a * 0.55);
+            }
+            g.stroke();
         } else if (button === 'interact') {
             // Bàn tay: lòng bàn tay tròn + 3 ngón
             g.circle(0, -a * 0.2, a * 0.5);

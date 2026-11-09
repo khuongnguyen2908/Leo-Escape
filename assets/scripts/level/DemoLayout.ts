@@ -79,7 +79,8 @@ export const DEMO_NODES: { id: string; name: string; x?: number; y?: number; sx?
     { id: "30eBQ3JnNPH5X2fNjOlPFP", x: 6506.5, y: -37, sx: 1, sy: 1, name: "mg_up" },
     { id: "8aa0k5j45BEbQhezmYz4gG", x: 6557.5, y: 222.5, sx: 1, sy: 1, name: "mg_coin" },
     { id: "e2RIWEx35IGaPoboc6oMh9", x: 6744.5, y: 389.5, sx: 1, sy: 1, name: "mg_cone" },
-    { id: "a6SODgd9lAa4kvalihzd2n", x: 7044.5, name: "Boss" },
+    // Boss đứng giữa khu boss (đã rút khu boss còn vừa một khung hình, bước ⚙ 31)
+    { id: "a6SODgd9lAa4kvalihzd2n", x: 9745.2, name: "Boss" },
     { id: "98uu/kzTpISIUSvHDmagOW", x: 0, y: 0, name: "Visual" },
     { id: "afXPTUGPJPcLabqFuQm6jI", x: 9411.5, y: -434.9, sx: -1, sy: 1, name: "fr_cotduong" },
     { id: "a0KNTkkvlHCK6j6hyiPx0y", x: 9031.6, y: -671.5, sx: 0.9, sy: 0.9, name: "fr_tudien" },

@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, EventKeyboard, Graphics, HorizontalTextAlignment, Input, input, KeyCode, Label, Node, Sprite, SpriteFrame, tween, UIOpacity, UITransform, Vec3, VerticalTextAlignment, view } from 'cc';
+import { _decorator, Color, Component, EventKeyboard, Graphics, HorizontalTextAlignment, Input, input, KeyCode, Label, Node, resources, Sprite, SpriteFrame, tween, UIOpacity, UITransform, Vec3, VerticalTextAlignment, view } from 'cc';
 import { Sound } from '../core/Sound';
 import { T, TextKey } from './Lang';
 import { setText, UI, uiLabel, uiNode } from './UiKit';
@@ -12,6 +12,10 @@ const TEXT = new Color(250, 244, 232, 255);
 const CPS = 38;
 const BOX_W = 1680;
 const BOX_H = 230;
+/** Avatar tròn (MG_avatar) cao bao nhiêu */
+const AVATAR = 200;
+/** Bảng tên dời sang phải chừng này để chừa chỗ cho avatar */
+const NAME_SHIFT = 150;
 
 /**
  * Hội thoại kiểu visual novel ở đáy màn hình (giống mẫu Danganronpa): chân dung mèo phía trên hộp,
@@ -48,21 +52,24 @@ export class DialogueBox extends Component {
         const hit = uiNode('Hit', this.node, d.width, d.height);
         hit.on(Node.EventType.TOUCH_END, this.advance, this);
 
-        // Chân dung đứng trên hộp thoại, lệch trái
-        if (portrait) {
-            const pic = uiNode('Portrait', this.node);
-            const sp = pic.addComponent(Sprite);
-            sp.spriteFrame = portrait;
+        // Avatar tròn (ảnh MG_avatar) đè góc trên bên trái hộp thoại, bảng tên ngay bên phải; chưa có ảnh thì dùng chân dung truyền vào
+        const pic = uiNode('Avatar', this.node);
+        const showAvatar = (sf: SpriteFrame | null) => {
+            if (!sf || !pic.isValid) return;
+            const sp = pic.getComponent(Sprite) ?? pic.addComponent(Sprite);
+            sp.spriteFrame = sf;
             sp.sizeMode = Sprite.SizeMode.RAW;
-            pic.getComponent(UITransform)!.setAnchorPoint(0.5, 0);
-            const k = 560 / portrait.rect.height;
+            const k = AVATAR / Math.max(sf.rect.width, sf.rect.height);
             pic.setScale(k, k, 1);
-            pic.setPosition(-BOX_W / 2 + 330, by + BOX_H / 2 - 60, 0);
-            pic.addComponent(UIOpacity).opacity = 0;
-            tween(pic.getComponent(UIOpacity)!).to(0.3, { opacity: 255 }).start();
-            pic.setPosition(pic.position.x - 60, pic.position.y, 0);
-            tween(pic).by(0.3, { position: new Vec3(60, 0, 0) }, { easing: 'quadOut' }).start();
-        }
+            // Vẽ trên hộp thoại (đè lên mép hộp), không bị hộp che
+            if (pic.parent) pic.setSiblingIndex(pic.parent.children.length - 1);
+            const op = pic.getComponent(UIOpacity) ?? pic.addComponent(UIOpacity);
+            op.opacity = 0;
+            tween(op).to(0.3, { opacity: 255 }).start();
+        };
+        // Tâm cao hơn mép trên hộp 75: avatar chỉ chồm xuống mép hộp 25, không đè chữ thoại (chữ bắt đầu dưới mép 50)
+        pic.setPosition(-BOX_W / 2 + AVATAR / 2 + 10, by + BOX_H / 2 + 75, 0);
+        resources.load('art/MG_avatar/spriteFrame', SpriteFrame, (err, sf) => showAvatar(err ? portrait : sf));
 
         // Hộp thoại
         const box = uiNode('Box', this.node, BOX_W, BOX_H);
@@ -73,12 +80,12 @@ export class DialogueBox extends Component {
         g.fill();
         g.strokeColor = SPEAK;
         g.lineWidth = 6;
-        g.moveTo(-BOX_W / 2 + 420, BOX_H / 2);
+        g.moveTo(-BOX_W / 2 + 420 + NAME_SHIFT, BOX_H / 2);
         g.lineTo(BOX_W / 2 - 30, BOX_H / 2);
         g.stroke();
         // Bảng tên bên trái, chồng lên mép trên hộp
         const plate = uiNode('Name', box, 420, 70);
-        plate.setPosition(-BOX_W / 2 + 230, BOX_H / 2, 0);
+        plate.setPosition(-BOX_W / 2 + 230 + NAME_SHIFT, BOX_H / 2, 0);
         const pg = plate.addComponent(Graphics);
         pg.fillColor = NAME_BG;
         pg.moveTo(-200, -35);
@@ -90,10 +97,6 @@ export class DialogueBox extends Component {
         const name = uiLabel(plate, '', 42, UI.text);
         setText(name, T(nameKey));
         name.node.setPosition(-20, 0, 0);
-        const speak = uiLabel(box, '', 30, SPEAK, { name: 'Speaking' });
-        setText(speak, T('dialog.speaking'));
-        speak.node.getComponent(UITransform)!.setAnchorPoint(1, 0.5);
-        speak.node.setPosition(BOX_W / 2 - 40, BOX_H / 2 + 26, 0);
         // Câu thoại: canh trái trên, tự xuống dòng
         const tn = uiNode('Text', box, BOX_W - 220, BOX_H - 70);
         tn.getComponent(UITransform)!.setAnchorPoint(0, 1);

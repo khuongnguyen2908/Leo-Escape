@@ -33,11 +33,11 @@ export type LangCode = 'vi' | 'en';
 const LAYOUT_KEYS: Record<'wasd' | 'arrows', KeyMap> = {
     wasd: {
         left: KeyCode.KEY_A, right: KeyCode.KEY_D, up: KeyCode.KEY_W, down: KeyCode.KEY_S,
-        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.KEY_L, interact: KeyCode.NONE, swap: KeyCode.NONE,
+        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.KEY_L, interact: KeyCode.SPACE, swap: KeyCode.NONE,
     },
     arrows: {
         left: KeyCode.ARROW_LEFT, right: KeyCode.ARROW_RIGHT, up: KeyCode.ARROW_UP, down: KeyCode.ARROW_DOWN,
-        jump: KeyCode.KEY_Z, attack: KeyCode.KEY_X, skill: KeyCode.KEY_C, interact: KeyCode.NONE, swap: KeyCode.NONE,
+        jump: KeyCode.KEY_Z, attack: KeyCode.KEY_X, skill: KeyCode.KEY_C, interact: KeyCode.SHIFT_RIGHT, swap: KeyCode.NONE,
     },
 };
 
@@ -50,7 +50,7 @@ const OLD_LAYOUTS: Partial<KeyMap>[] = [
 const DEFAULT_KEYS: KeyMap[] = [
     {
         left: KeyCode.KEY_A, right: KeyCode.KEY_D, up: KeyCode.KEY_W, down: KeyCode.KEY_S,
-        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.KEY_L, interact: KeyCode.NONE, swap: KeyCode.NONE,
+        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.KEY_L, interact: KeyCode.SPACE, swap: KeyCode.NONE,
     },
     {
         left: KeyCode.ARROW_LEFT, right: KeyCode.ARROW_RIGHT, up: KeyCode.ARROW_UP, down: KeyCode.ARROW_DOWN,
@@ -104,6 +104,12 @@ function load(): Data {
         if (p0.skill === KeyCode.NONE) {
             if (p0.jump === KeyCode.KEY_K && p0.attack === KeyCode.KEY_J) p0.skill = KeyCode.KEY_L;
             else if (p0.jump === KeyCode.KEY_Z && p0.attack === KeyCode.KEY_X) p0.skill = KeyCode.KEY_C;
+        }
+        // Bản trước chưa có phím Lướt (ô Tương tác để trống, lướt bằng bấm đúp): WASD gán Space, mũi tên gán Shift phải,
+        // nếu phím đó chưa bị hành động khác dùng
+        if (p0.interact === KeyCode.NONE) {
+            const want = p0.jump === KeyCode.KEY_Z && p0.attack === KeyCode.KEY_X ? KeyCode.SHIFT_RIGHT : KeyCode.SPACE;
+            if (!ACTIONS.some((a) => p0[a] === want)) p0.interact = want;
         }
     } catch (e) {
         console.warn('[Settings] Không đọc được cài đặt đã lưu, dùng mặc định.', e);

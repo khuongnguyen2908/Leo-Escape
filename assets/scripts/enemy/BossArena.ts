@@ -178,7 +178,7 @@ export class BossArena extends Component {
         this.scheduleOnce(() => this.turn(), this.turnAt);
         this.scheduleOnce(() => this.bark(), this.barkAt);
         this.scheduleOnce(() => this.showName(), this.nameAt);
-        this.scheduleOnce(() => BossHealthBar.instance?.reveal(), this.barAt);
+        // Thanh máu: hiện khi băng giới thiệu tên boss chạy xong (xem showName), không theo Bar At nữa
         this.scheduleOnce(() => GameManager.instance?.followCats(), this.fightAt);
         this.scheduleOnce(() => this.startFight(), this.fightAt + 0.5);
     }
@@ -313,6 +313,8 @@ export class BossArena extends Component {
             .call(() => {
                 root.destroy();
                 if (this.banner === root) this.banner = null;
+                // Giới thiệu tên xong mới hiện thanh máu boss
+                BossHealthBar.instance?.reveal();
             })
             .start();
     }
@@ -434,34 +436,13 @@ export class BossArena extends Component {
         const parent = this.boss?.node.parent;
         if (!parent) return;
         this.hideWalls(true);
-        // Dấu X đứng trên mặt đá của khu boss, ở hai đầu lối đi (không đặt ngoài mép khối đá: bên ngoài có thể là bậc cao / vực)
+        // Tường chặn vô hình ở hai đầu lối đi của khu boss (đã bỏ dấu X đỏ; chỉ còn khung va chạm)
         for (const x of [this.left - this.wallInset, this.right + this.wallInset]) {
             const n = uiNode('BossWall', parent, 160, 1400);
             n.setPosition(x, this.groundY, 0);
             const solid = n.addComponent(Solid);
             solid.size = new Size(80, 1400);
             solid.offset.set(0, 700);
-            // Dấu X đỏ to, mờ, cao ngang người boss
-            const g = n.addComponent(Graphics);
-            const h = 300, w = 120, y0 = 60, t = 34;
-            g.strokeColor = WALL_RED;
-            g.lineWidth = t;
-            g.lineCap = Graphics.LineCap.ROUND;
-            g.moveTo(-w / 2, y0);
-            g.lineTo(w / 2, y0 + h);
-            g.moveTo(w / 2, y0);
-            g.lineTo(-w / 2, y0 + h);
-            g.stroke();
-            // Vệt sáng mờ dọc theo cột chặn
-            g.fillColor = new Color(235, 50, 50, 50);
-            g.rect(-18, 0, 36, 1400);
-            g.fill();
-            const op = n.addComponent(UIOpacity);
-            op.opacity = 0;
-            tween(op).to(0.4, { opacity: 170 }).call(() => {
-                // Nhấp nháy nhẹ mãi tới khi mở
-                tween(op).repeatForever(tween(op).to(0.7, { opacity: 110 }).to(0.7, { opacity: 170 })).start();
-            }).start();
             this.walls.push(n);
         }
     }

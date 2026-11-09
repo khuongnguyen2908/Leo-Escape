@@ -599,6 +599,10 @@ export class DemoLevelBuilder extends Component {
         }
         if (baked) done.push(`${baked} khối nền đá chuyển sang xếp tay: ${bakedTiles} ô đá thành node con Tile_... (ảnh nguyên, cỡ gốc), kéo / đổi ảnh / xoá / Ctrl+D thoải mái`);
 
+        // 31. Khu boss vừa một khung hình (camera giữ nguyên): rút khu boss bên trái 782.5 (khối Ground-001 còn 1640),
+        //     bậc đá cao trước khu boss dài thêm chừng đó, boss về giữa khu mới. Chỉ làm khi hai khối còn đúng số cũ
+        done.push(...this.fitBossArena(play));
+
         // 24. Tán lá tối (fr_bush) bị bước 9 ghim mép trên như dây cờ (Overlap mặc định 4) nên tán lá lớn tụt xuống che màn hình:
         //     đặt Overlap để mép trên nhô ra ngoài khung đúng như đo trên ảnh demo (chỉ khi Overlap còn đúng 4)
         const frTopLayer = this.node.getChildByName('FR_Top');
@@ -1803,6 +1807,90 @@ export class DemoLevelBuilder extends Component {
             n.setScale(i % 2 ? -1 : 1, 1, 1);
         }
         return [`thêm lớp River (trôi 0.9, sau lớp chơi): 8 ảnh BG_river nối liền sát đáy màn hình, nước trôi + nhún nhẹ (RiverFlow trên node RiverStrip)`];
+    }
+
+    /**
+     * Khu boss vừa một khung hình mà không đụng camera: camera khoá trong khu boss ± 200 (BossArena.lockCamera),
+     * khung hình 1920 → khối nền khu boss phải dài 1640. Rút bên trái 782.5:
+     * - bậc đá cao trước khu boss (dài 1457.1) dài thêm 782.5, thêm 2 ô đá cao ở cuối (ảnh khác ô kề bên, cùng cỡ ô có sẵn);
+     * - khối khu boss (x 8142.7, dài 2422.5) dời phải 782.5, dài còn 1640; các ô đá của bạn giữ đúng chỗ trên màn hình,
+     *   ô nào nằm hẳn sau bậc đá (mép phải lùi vào bậc đá quá 40) thì bỏ;
+     * - boss về giữa khu mới. Không đụng gì phía sau khu boss.
+     */
+    private fitBossArena(play: Node): string[] {
+        const D = 782.5;
+        const blocks = play.getComponentsInChildren(GroundBlock);
+        const arena = blocks.find((g) => Math.abs(g.node.position.x - 8142.709) < 1 && Math.abs(g.width - 2422.5) < 1 && Math.abs(g.node.position.y) < 1);
+        const raised = blocks.find((g) => Math.abs(g.node.position.x - 6690) < 1 && Math.abs(g.width - 1457.1) < 1);
+        if (!arena || !raised) return [];
+        const out: string[] = [];
+        const tiles = (g: GroundBlock) => g.node.children.filter((c) => /^Tile_\d+$/.test(c.name) && c.getComponent(Sprite));
+        const edges = (t: Node): [number, number] => {
+            const sp = t.getComponent(Sprite)!;
+            const w = (sp.spriteFrame?.rect.width ?? 0) * Math.abs(t.scale.x);
+            const x = t.position.x;
+            return t.scale.x < 0 ? [x - w, x] : [x, x + w];
+        };
+
+        // Bậc đá cao: dài thêm D, thêm 2 ô ở cuối
+        const oldW = raised.width;
+        raised.width = oldW + D;
+        const hs = tiles(raised);
+        const last = hs.slice().sort((a, b) => edges(b)[1] - edges(a)[1])[0];
+        if (last) {
+            const sp0 = last.getComponent(Sprite)!;
+            const pool = ['mg_tile_high_1', 'mg_tile_high_2', 'mg_tile_high_3'].map((n) => this.art.get(n)).filter((f): f is SpriteFrame => !!f);
+            const s = Math.abs(last.scale.y);
+            let prev = sp0.spriteFrame;
+            let n = hs.reduce((m, t) => Math.max(m, parseInt(t.name.slice(5), 10) || 0), 0);
+            const startX = edges(last)[1] - 24 * s;
+            const pick = () => pool.find((f) => f !== prev) ?? prev;
+            // Ô 1: nối ngay sau ô cuối; ô 2: mép phải khớp mép phải mới của bậc đá
+            const f1 = pick();
+            const w1 = (f1?.rect.width ?? 490) * s;
+            prev = f1;
+            const f2 = pick();
+            const w2 = (f2?.rect.width ?? 490) * s;
+            const xs = [startX, Math.max(startX + w1 * 0.5, raised.width - w2)];
+            [f1, f2].forEach((f, i) => {
+                if (!f) return;
+                n++;
+                const t = new Node(`Tile_${n}`);
+                t.layer = raised.node.layer;
+                raised.node.addChild(t);
+                const sp = t.addComponent(Sprite);
+                sp.spriteFrame = f;
+                sp.sizeMode = Sprite.SizeMode.TRIMMED;
+                t.getComponent(UITransform)!.setAnchorPoint(0, 1);
+                t.setPosition(xs[i], last.position.y, 0);
+                t.setScale(s, s, 1);
+            });
+        }
+        out.push(`bậc đá cao trước khu boss: dài ${oldW} → ${raised.width}, thêm 2 ô đá cao ở cuối`);
+
+        // Khối khu boss: dời phải D, ngắn lại D; ô đá giữ đúng chỗ trên màn hình
+        arena.node.setPosition(arena.node.position.x + D, arena.node.position.y, arena.node.position.z);
+        arena.width = arena.width - D;
+        let removed = 0;
+        for (const t of tiles(arena)) {
+            t.setPosition(t.position.x - D, t.position.y, t.position.z);
+            if (edges(t)[1] <= 40) {
+                t.removeFromParent();
+                t.destroy();
+                removed++;
+            }
+        }
+        out.push(`khu boss (Ground-001): x ${(arena.node.position.x - D).toFixed(1)} → ${arena.node.position.x.toFixed(1)}, dài 2422.5 → ${arena.width}` +
+            (removed ? `, bỏ ${removed} ô đá nằm sau bậc đá` : ''));
+
+        // Boss về giữa khu mới
+        const boss = play.children.find((c) => c.name === 'Boss');
+        if (boss) {
+            const mid = arena.node.position.x + arena.width / 2;
+            boss.setPosition(mid, boss.position.y, boss.position.z);
+            out.push(`Boss về giữa khu mới: x ${mid.toFixed(1)}`);
+        }
+        return out;
     }
 
     /** Tìm node theo tên trên cả Canvas (node đầu tiên gặp). */

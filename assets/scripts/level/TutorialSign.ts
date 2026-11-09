@@ -24,7 +24,7 @@ const TOPIC_KEYS: Record<string, string> = {
     doubleJump: 'jump,jump',
     up: 'up',
     descend: 'down,down',
-    dash: 'right,right',
+    dash: 'interact',
     attack: 'attack',
     wave: 'attack~',
     sweep: 'down+attack',
