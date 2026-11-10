@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thử camera Map 1</title>
+<style>
+  html, body { margin: 0; background: #1d1714; color: #f1e7d8; font: 14px/1.5 system-ui, sans-serif; }
+  #wrap { max-width: 1280px; margin: 0 auto; padding: 10px 12px; }
+  canvas { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 6px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 8px 0; }
+  button { font: inherit; background: #3a2e29; color: #f1e7d8; border: 1px solid #6b5a50; border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+  button.on { background: #d85a30; border-color: #d85a30; color: #fff; }
+  .keys { color: #c9b8a6; font-size: 13px; }
+  kbd { background: #f1e7d8; color: #2a201c; border-radius: 4px; padding: 0 5px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="bar">
+    <span>Zoom ngoài trời:</span>
+    <button data-z="1">1.0</button><button data-z="0.9">0.9</button><button data-z="0.8">0.8</button><button data-z="0.7">0.7</button>
+    <span>Zoom trong phòng:</span>
+    <button data-rz="1">1.0</button><button data-rz="0.8">bằng ngoài trời</button>
+    <span>Bờ sông:</span><button id="bSong"></button>
+    <span>Sân boss:</span><button id="bSan"></button>
+    <button id="bMini">Bản đồ nhỏ</button>
+    <button id="bArt">Tô đất chưa có hình</button>
+    <span>Cống:</span><button id="bCong"></button>
+    <button id="bWall">Wall jump</button>
+  </div>
+  <canvas id="c" width="1920" height="1080" tabindex="0"></canvas>
+  <div class="bar keys">
+    <span><kbd>←</kbd><kbd>→</kbd> đi</span>
+    <span><kbd>Space</kbd>/<kbd>Z</kbd> nhảy (bay bấm lần nữa: nhảy 2 lần)</span>
+    <span><kbd>↑</kbd> vào cửa / giữ để nhìn lên</span>
+    <span><kbd>↓</kbd> giữ để nhìn xuống, <kbd>↓</kbd>+<kbd>Space</kbd> xuống bục / chui nắp cống</span>
+    <span>Wall jump (khi bật): đang rơi đẩy vào tường để bám, <kbd>Space</kbd> bật ra</span>
+    <span><kbd>1</kbd>–<kbd>4</kbd> đổi zoom</span>
+    <span><kbd>R</kbd> về nhà</span>
+  </div>
+</div>
+<script>
+// ===== Cài đặt =====
+const VIEW_W = 1920, VIEW_H = 1080;
+/** Trong game thật, hình khối đá chỉ vẽ tới khoảng y -200 (đo từ ảnh chụp), va chạm thì sâu tới -470 */
+const ART_BOTTOM = -200;
+const opt = { zoom: 0.8, roomZoom: 1, song: 'lien', san: 'lien', mini: true, artDepth: true, wall: false, cong: 'duoi' };
+
+// ===== Dựng thế giới =====
+// Khối: [x trái, y đỉnh, rộng, cao, kiểu]  kiểu: 'g' đất/tường, 'p' bục một chiều
+let zones, solids, doors, decos, pickups, hazards;
+
+function build() {
+  zones = []; solids = []; doors = []; decos = []; pickups = []; hazards = [];
+  const S = (x, y, w, h, k = 'g', zone = 'pho', real = false) => solids.push({ x, y, w, h, k, zone, real });
+  const D = (x, y, to, label, zone) => doors.push({ x, y, to, label, zone });
+
+  // ---------- Ngoài trời: con phố THẬT (Main.scene) + Mái nhà, Bờ sông theo Map 1 ----------
+  const songLien = opt.song === 'lien';
+  const rightWall = songLien ? 16500 : 12018;
+  zones.push({ id: 'pho', name: 'Phố Tạ Hiện', kind: 'out', x0: -300, x1: rightWall, minY: 0, sky: '#bfe3ef' });
+  // Khối va chạm thật: [x trái, y đỉnh, rộng, cao]
+  const REAL = [
+    [-300, 0, 1233, 470], [2850, 370, 1425, 840],
+    ...(opt.cong === 'duoi' ? [[998, 0, 382, 470], [1520, 0, 1331, 470], [4268, -12, 1262, 470], [5670, -12, 1021, 470]] : [[998, 0, 1853, 470], [4268, -12, 2423, 470]]),
+    [6690, 370, 2240, 840], [10561, 370, 1457, 840],
+    [2611, 167, 232, 204], [2517, 79, 119, 116], [2743, 206, 59, 39], [2751, 245, 68, 39], [2774, 285, 61, 39], [2793, 324, 56, 39], [2811, 363, 39, 39],
+    [6451, 167, 232, 204], [6357, 79, 119, 116], [6583, 206, 59, 39], [6591, 245, 68, 39], [6614, 285, 61, 39], [6633, 324, 56, 39], [6651, 363, 39, 39],
+    [4289, 189, 268, 220],
+  ];
+  for (const [x, y, w, h] of REAL) S(x, y, w, h, 'g', 'pho', true);
+  S(4004, 601, 172, 173, 'p', 'pho', true);                 // thùng xốp (bục một chiều)
+  S(-360, 2500, 60, 3000);                                  // tường trái thật
+  S(rightWall, 3200, 60, 4000);                             // tường phải
+  // Khu boss (thật: nền 8925..10565, mặt 0, BossArena 8985..10505)
+  if (opt.san === 'lien') {
+    S(8925, 0, 1640, 470, 'g', 'pho', true);
+    zones.push({ id: 'arena', name: 'Sân nhà lớn: khu boss thật (khoá camera)', kind: 'lock', x0: 8985, x1: 10505, y0: -200, y1: 340, groundY: 0 });
+    decos.push({ t: 'boss', x: 9745, y: 0 });
+    S(8850, 760, 50, 390, 'gate');                          // cổng 2 ổ khoá (hình)
+  } else {
+    S(8925, 370, 1640, 840, 'g', 'pho');                    // lấp khu boss, sân boss thành phòng riêng
+    D(8800, 370, 'san', 'cổng 2 ổ khoá', 'pho');
+  }
+  // Bờ sông
+  if (songLien) {
+    for (let i = 0; i < 7; i++) S(12018 + i * 160, 370 - (i + 1) * 180, 160, 900);   // bậc đi xuống
+    S(13140, -900, 1100, 600); S(15000, -900, 1500, 600);  // bờ kè
+    S(14240, -1250, 760, 300);                              // lòng sông
+    hazards.push({ x: 14240, y: -1150, w: 760, h: 100, water: true });
+    S(14520, -1000, 200, 26, 'p');
+    zones.push({ id: 'song', name: 'Bờ sông (liền mạch với phố)', kind: 'out', x0: 12100, x1: rightWall, minY: -900, sky: '#a9d3e0' });
+    decos.push({ t: 'label', x: 14300, y: -700, s: 'BỜ SÔNG' });
+    pickups.push({ x: 16200, y: -860, kind: 'bigfish' });
+  } else {
+    D(11800, 370, 'song', 'xuống bờ sông', 'pho');
+  }
+  // Đồ thật trên phố
+  decos.push({ t: 'house', x: -300, w: 560, h: 700, label: 'NHÀ LEO' });
+  decos.push({ t: 'npc', x: 3180, y: 370 }, { t: 'cp', x: 2880, y: 370 }, { t: 'cp', x: 7969, y: 420 }, { t: 'goal', x: 10644, y: 370 });
+  decos.push({ t: 'bird', x: 3407, y: 370 }, { t: 'bird', x: 5071, y: -12 });
+  for (const [x, y] of [[553, 28], [732, 215], [864, 30], [2716, 217], [2943, 427], [4896, 27], [6558, 231], [4747, 33]]) pickups.push({ x, y: y - 40, kind: 'fish' });
+  pickups.push({ x: 3030, y: 370, kind: 'bigfish' });
+  decos.push({ t: 'tea', x: 1700 }, { t: 'shop', x: 5200, w: 520, h: 420, label: 'tiệm Lợi Ký' });
+  // Giếng 1 (trên đoạn đất thấp x 998..2851) lên Mái nhà
+  for (let i = 1; i <= 5; i++) S(i % 2 ? 1900 : 2150, i * 210, 230, 26, 'p');
+  // Mái nhà
+  S(1650, 1160, 2650, 70, 'p'); S(4500, 1160, 2100, 70, 'p');
+  decos.push({ t: 'roof', x: 1650, w: 2650, y: 1160 }, { t: 'roof', x: 4500, w: 2100, y: 1160 }, { t: 'label', x: 3000, y: 1350, s: 'MÁI NHÀ' });
+  S(1750, 1560, 800, 40, 'p'); pickups.push({ x: 2150, y: 1600, kind: 'bigfish' });         // gác trái
+  S(3500, 1450, 300, 30, 'p'); S(5100, 1440, 380, 30, 'p');
+  // Giếng 2 (trên đoạn đất cao x 6690..8930) lên Tổ chim
+  for (let i = 1; i <= 5; i++) S(i % 2 ? 7150 : 7400, 370 + i * 230, 230, 26, 'p');
+  S(6800, 1660, 1900, 40, 'p'); S(7300, 2100, 1000, 40, 'p'); S(7800, 2530, 600, 40, 'p');
+  pickups.push({ x: 8200, y: 2570, kind: 'key' });
+  decos.push({ t: 'label', x: 7650, y: 2760, s: 'TỔ CHIM ĐẦU ĐÀN' });
+  // Cửa xuống phòng
+  D(650, 0, 'ham', 'hầm bí mật', 'pho');
+  if (opt.cong === 'duoi') {
+    // Nắp cống: bục một chiều đậy lỗ. ↓ + Space để chui xuống; leo lên phải wall jump qua lại giữa hai vách ống
+    for (const [hx, top] of [[1380, 0], [5530, -12]]) {
+      S(hx, top, 140, 24, 'p'); decos.push({ t: 'lid', x: hx, y: top });
+      S(hx - 60, -470, 60, 520); S(hx + 140, -470, 60, 520);   // vách ống: từ đáy đất phố xuống tới -990 (chừa 160 ở dưới để chui vào)
+      decos.push({ t: 'shaft', x: hx, y: top });
+    }
+    zones.push({ id: 'cong', name: 'Cống (ngay dưới phố, liền mạch)', kind: 'out', under: true, x0: 1000, x1: 6100, minY: -1150, sky: '#bfe3ef' });
+    S(1000, -1150, 5100, 700);                              // sàn cống
+    S(940, -470, 60, 1000); S(6100, -470, 60, 1000);        // hai đầu cống
+    S(2100, -880, 500, 26, 'p'); S(3000, -950, 600, 26, 'p'); S(4300, -820, 500, 26, 'p');
+    S(4900, -760, 380, 26, 'p'); pickups.push({ x: 5090, y: -720, kind: 'bigfish' });          // ngách cá bự
+    decos.push({ t: 'pipe2', x: 2700 }, { t: 'pipe2', x: 3900 }, { t: 'label', x: 2500, y: -620, s: 'CỐNG (dưới phố)' });
+    D(3600, -1150, 'hang', 'xuống hang', 'pho');
+  } else {
+    D(1450, 0, 'cong', 'nắp cống', 'pho');
+    D(5600, -12, 'cong@5900', 'nắp cống', 'pho');
+  }
+
+  // ---------- Phòng (đặt xa, toạ độ riêng) ----------
+  if (opt.cong === 'phong') room('cong', 'Cống (phòng riêng)', -8000, 0, 6200, 1400, '#3b3550', (R) => {
+    R.S(0, 0, 6200, 300); R.S(-300, 1700, 300, 2000); R.S(6200, 1700, 300, 2000); R.S(0, 1700, 6200, 300);
+    R.S(900, 380, 600, 30, 'p'); R.S(1900, 620, 500, 30, 'p'); R.S(3200, 420, 700, 30, 'p'); R.S(4500, 700, 500, 30, 'p');
+    R.pipe(600); R.pipe(2600); R.pipe(5200);
+    R.D(300, 0, 'pho@1450', 'lên phố'); R.D(5900, 0, 'pho@5600', 'lên phố'); R.D(3000, 0, 'hang', 'xuống hang');
+    R.P(5600, 900, 'bigfish'); R.S(5350, 860, 500, 30, 'p');
+  });
+  room('hang', 'Hang chó-gián', -14000, 0, 4200, 1300, '#40242c', (R) => {
+    R.S(0, 0, 4200, 300); R.S(-300, 1600, 300, 1900); R.S(4200, 1600, 300, 1900); R.S(0, 1600, 4200, 300);
+    R.S(1300, 350, 500, 30, 'p'); R.S(2500, 350, 500, 30, 'p');
+    R.D(300, 0, opt.cong === 'duoi' ? 'pho@3600' : 'cong@3000', 'lên cống'); R.P(3300, 60, 'key'); R.boss(2200);
+    R.D(3900, 0, 'pho@8450', 'cửa sắt lên phố');
+  });
+  room('ham', 'Hầm bí mật', -18000, 0, 1600, 900, '#2f3a44', (R) => {
+    R.S(0, 0, 1600, 300); R.S(-300, 1200, 300, 1500); R.S(1600, 1200, 300, 1500); R.S(0, 1200, 1600, 300);
+    R.S(700, 300, 400, 30, 'p'); R.P(900, 360, 'bigfish'); R.D(200, 0, 'pho@650', 'lên phố');
+  });
+  if (opt.song === 'phong') room('song', 'Bờ sông', -24000, 0, 4200, 1100, '#5a7f8f', (R) => {
+    R.S(0, 0, 4200, 300); R.S(-300, 1400, 300, 1700); R.S(4200, 1400, 300, 1700);
+    R.water(1500, 900); R.S(2400, 120, 400, 30, 'p'); R.P(3900, 60, 'bigfish'); R.D(200, 0, 'pho@11800', 'lên phố');
+  });
+  if (opt.san === 'phong') room('san', 'Sân nhà lớn', -28000, 0, 1920 / 1 - 280, 1000, '#5b3d33', (R) => {
+    R.S(0, 0, 1640, 300); R.S(-300, 1400, 300, 1700); R.S(1640, 1400, 300, 1700);
+    R.boss(1150); R.D(140, 0, 'pho@8800', 'ra phố');
+  });
+}
+
+function room(id, name, ox, oy, w, h, color, fn) {
+  const z = { id, name, kind: 'room', x0: ox, x1: ox + w, y0: oy - 300, y1: oy + h, sky: color, ox, oy };
+  zones.push(z);
+  const R = {
+    S: (x, y, ww, hh, k = 'g') => solids.push({ x: ox + x, y: oy + y, w: ww, h: hh, k, zone: id }),
+    D: (x, y, to, label) => doors.push({ x: ox + x, y: oy + y, to, label, zone: id }),
+    P: (x, y, kind) => pickups.push({ x: ox + x, y: oy + y, kind }),
+    pipe: (x) => decos.push({ t: 'pipe', x: ox + x, y: oy, zone: id }),
+    water: (x, ww) => hazards.push({ x: ox + x, y: oy - 20, w: ww, h: 80, water: true, cut: true }) && solids.splice(solids.length, 0),
+    boss: (x) => decos.push({ t: 'boss', x: ox + x, y: oy }),
+  };
+  fn(R);
+}
+
+// ===== Mèo =====
+const cat = { x: 300, y: 0, vx: 0, vy: 0, w: 80, h: 80, face: 1, ground: false, jumps: 0, safe: { x: 300, y: 0 }, groundY: 0 };
+const keys = {};
+const MOVE = 760, GRAV = 3600, JUMP = 1650;
+
+// ===== Camera (kiểu Hollow Knight) =====
+const cam = { x: 0, y: 0, zoom: 0.8, faceOff: 0, look: 0, holdT: 0, followY: 0 };
+// Số liệu lấy từ CameraRig trong scene (nhóm Kiểu Hollow Knight)
+const CAM = { faceShift: 220, center: 336, jumpZone: 120, look: 260, holdDelay: 0.6, ledgeLook: 250 };
+
+let fade = 0, fading = null, flash = '';
+
+function zoneOf(x, y) {
+  let best = null;
+  for (const z of zones) {
+    if (z.kind === 'lock') continue;
+    if (z.kind === 'room' ? (x >= z.x0 - 50 && x <= z.x1 + 50) : (x >= z.x0 - 60 && x <= z.x1 + 60 && y > -1600 && (z.id !== 'song' || y < 200) && (z.id !== 'cong' || y < -440))) {
+      if (!best || (z.x1 - z.x0) < (best.x1 - best.x0)) best = z;
+    }
+  }
+  return best || zones[0];
+}
+function lockZone(x, y) { return zones.find((z) => z.kind === 'lock' && x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1); }
+
+function overlap(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y > b.y - b.h && a.y - a.h < b.y; }
+
+function step(dt) {
+  if (fading) { fading.t += dt; return; }
+  const z = zoneOf(cat.x, cat.y);
+  const dir = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
+  cat.vx = dir * MOVE;
+  if (dir) cat.face = dir;
+  cat.vy -= GRAV * dt;
+  if (cat.vy < -2600) cat.vy = -2600;
+  // Bật tường: vài khung đầu bị đẩy ra khỏi tường, không theo phím
+  if (cat.kick > 0) { cat.kick -= dt; cat.vx = cat.kickDir * MOVE; }
+  // Ngang
+  cat.wall = 0;
+  cat.x += cat.vx * dt;
+  let box = { x: cat.x - cat.w / 2, y: cat.y + cat.h, w: cat.w, h: cat.h };
+  for (const s of solids) {
+    if (s.k !== 'g') continue;
+    if (overlap(box, s)) {
+      if (cat.vx > 0) { cat.x = s.x - cat.w / 2; cat.wall = 1; } else if (cat.vx < 0) { cat.x = s.x + s.w + cat.w / 2; cat.wall = -1; }
+      box.x = cat.x - cat.w / 2;
+    }
+  }
+  // Dọc
+  const prevBottom = cat.y;
+  cat.y += cat.vy * dt;
+  cat.ground = false;
+  box = { x: cat.x - cat.w / 2, y: cat.y + cat.h, w: cat.w, h: cat.h };
+  for (const s of solids) {
+    if (s.k === 'gate') continue;
+    if (!overlap(box, s)) continue;
+    if (s.k === 'p') {
+      if (cat.vy <= 0 && prevBottom >= s.y - 1 && !cat.dropping) { cat.y = s.y; cat.vy = 0; cat.ground = true; }
+      continue;
+    }
+    if (cat.vy <= 0) { cat.y = s.y; cat.vy = 0; cat.ground = true; }
+    else { cat.y = s.y - s.h - cat.h; cat.vy = 0; }
+    box.y = cat.y + cat.h;
+  }
+  // Bám tường: đang rơi mà đẩy vào tường thì trượt chậm, được nhảy lại
+  cat.sliding = (opt.wall || opt.cong === 'duoi') && !cat.ground && cat.wall !== 0 && cat.wall === dir && cat.vy < 0;
+  if (cat.sliding) { cat.vy = Math.max(cat.vy, -260); cat.jumps = 0; }
+  if (cat.dropping) cat.dropping -= dt;
+  if (cat.dropping < 0) cat.dropping = 0;
+  if (cat.ground) { cat.jumps = 0; cat.groundY = cat.y; if (!hazardUnder(cat.x)) cat.safe = { x: cat.x, y: cat.y }; }
+  // Rơi vào hố / nước: về chỗ đứng an toàn gần nhất
+  for (const h of hazards) if (cat.x > h.x && cat.x < h.x + h.w && cat.y < h.y + 10 && cat.y > h.y - h.h - 400) respawn('Rơi xuống: về chỗ an toàn');
+  if (cat.y < (z.kind === 'room' ? z.y0 : (z.minY - 1300))) respawn('Rơi xuống hố: về chỗ an toàn');
+
+  // Nhìn lên / xuống khi đứng yên
+  const holding = cat.ground && !dir && (keys.ArrowUp || keys.ArrowDown) && !nearDoor();
+  cam.holdT = holding ? cam.holdT + dt : 0;
+  const lookWant = cam.holdT > CAM.holdDelay ? (keys.ArrowUp ? CAM.look : -CAM.look) : 0;
+  cam.look += (lookWant - cam.look) * Math.min(1, dt * 4);
+
+  updateCamera(dt, z);
+}
+
+function hazardUnder(x) { return hazards.some((h) => x > h.x - 60 && x < h.x + h.w + 60); }
+function nearDoor() { return doors.find((d) => Math.abs(cat.x - d.x) < 90 && Math.abs(cat.y - d.y) < 60); }
+
+function respawn(msg) {
+  cat.x = cat.safe.x; cat.y = cat.safe.y + 5; cat.vx = cat.vy = 0; flash = msg; flashT = 1.6;
+}
+
+function updateCamera(dt, z) {
+  const lock = lockZone(cat.x, cat.y);
+  const wantZoom = z.kind === 'room' ? (opt.roomZoom === 1 ? 1 : opt.zoom) : opt.zoom;
+  cam.zoom += (wantZoom - cam.zoom) * (1 - Math.exp(-5 * dt));
+  const halfW = VIEW_W / 2 / cam.zoom, halfH = VIEW_H / 2 / cam.zoom;
+  let tx, ty;
+  // Ngang: lệch về hướng mặt (Face Shift 220, Face Time 0.8)
+  cam.faceOff += (cat.face * CAM.faceShift - cam.faceOff) * (1 - Math.exp(-dt * 3 / 0.8));
+  // Dọc: vùng chết khi nhảy (Jump Zone 120): bay cao hơn chỗ đứng quá 120 mới theo, rơi thấp hơn thì theo ngay
+  if (cat.ground || cat.y < cam.followY) cam.followY = cat.y;
+  const base = cat.y > cam.followY + CAM.jumpZone ? cat.y - CAM.jumpZone : cam.followY;
+  let ledge = 0;
+  if (cat.ground && !solidBelow(cat.x + cat.face * 150, cat.y)) ledge = -CAM.ledgeLook;
+  if (lock) {
+    tx = (lock.x0 + lock.x1) / 2;
+    ty = lock.groundY + CAM.center;
+  } else if (z.kind === 'room') {
+    tx = cat.x + cam.faceOff;
+    ty = base + cam.look + ledge + CAM.center;
+    const minX = z.x0 + halfW, maxX = z.x1 - halfW, minY = z.y0 + halfH, maxY = z.y1 - halfH;
+    tx = minX > maxX ? (z.x0 + z.x1) / 2 : Math.max(minX, Math.min(maxX, tx));
+    ty = minY > maxY ? (z.y0 + z.y1) / 2 : Math.max(minY, Math.min(maxY, ty));
+  } else {
+    // Như CameraRig thật: chặn ngang trong Min X..Max X của khu; dọc chỉ chặn chỗ bám >= Min Y (không chặn đáy khung)
+    tx = cat.x + cam.faceOff;
+    tx = z.x1 - z.x0 > halfW * 2 ? Math.max(z.x0 + halfW, Math.min(z.x1 - halfW, tx)) : (z.x0 + z.x1) / 2;
+    ty = Math.max(z.minY, Math.min(4000, base + cam.look + ledge)) + CAM.center;
+  }
+  if (cam.snap) { cam.x = tx; cam.y = ty; cam.snap = false; return; }
+  cam.x += (tx - cam.x) * (1 - Math.exp(-6 * dt));
+  const dampY = ty < cam.y ? 6 : 3;
+  cam.y += (ty - cam.y) * (1 - Math.exp(-dampY * dt));
+}
+function solidBelow(x, y) { return solids.some((s) => x > s.x && x < s.x + s.w && y <= s.y + 2 && y >= s.y - 260); }
+
+function useDoor() {
+  const d = nearDoor();
+  if (!d || fading) return false;
+  const [zid, at] = d.to.split('@');
+  let target;
+  if (at) { const tx = (zones.find((z) => z.id === zid).ox ?? 0) + Number(at); const td = doors.find((q) => q.zone === zid && Math.abs(q.x - tx) < 2); target = { x: tx, y: td ? td.y : 0 }; }
+  else { const z = zones.find((q) => q.id === zid); const back = doors.find((q) => q.zone === zid && q.to.split('@')[0] === d.zone); target = back ? { x: back.x, y: back.y } : { x: z.x0 + 300, y: z.oy }; }
+  fading = { t: 0, dur: 0.22, target, label: d.label };
+  return true;
+}
+
+// ===== Vẽ =====
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+let flashT = 0;
+function W2S(x, y) { const s = cam.zoom; return [(x - cam.x) * s + VIEW_W / 2, VIEW_H / 2 - (y - cam.y) * s]; }
+function rectW(x, yTop, w, h, fill, stroke) {
+  const [a, b] = W2S(x, yTop); const s = cam.zoom;
+  g.fillStyle = fill; g.fillRect(a, b, w * s, h * s);
+  if (stroke) { g.strokeStyle = stroke; g.lineWidth = 3; g.strokeRect(a, b, w * s, h * s); }
+}
+function hatch(x, yTop, w, h) {
+  const [a, b] = W2S(x, yTop); const s = cam.zoom;
+  g.save(); g.beginPath(); g.rect(a, b, w * s, h * s); g.clip();
+  g.strokeStyle = 'rgba(120,100,90,.35)'; g.lineWidth = 2;
+  for (let i = -h * s; i < w * s; i += 28) { g.beginPath(); g.moveTo(a + i, b + h * s); g.lineTo(a + i + h * s, b); g.stroke(); }
+  g.restore();
+}
+function textW(x, y, s, size = 34, color = '#2a201c', align = 'center') {
+  const [a, b] = W2S(x, y); g.fillStyle = color; g.font = `600 ${Math.round(size * cam.zoom)}px system-ui`; g.textAlign = align; g.fillText(s, a, b);
+}
+// Lớp nền parallax: vẽ hình ở toạ độ "lớp", dời theo camera * hệ số
+function para(f, fy, draw) { const ox = cam.x * (1 - f), oy = cam.y * (1 - fy); g.save(); const s = cam.zoom; g.translate(ox * s * 0 + 0, 0); draw(ox, oy); g.restore(); }
+
+function render() {
+  const z = zoneOf(cat.x, cat.y);
+  g.fillStyle = z.sky; g.fillRect(0, 0, VIEW_W, VIEW_H);
+  if (z.kind !== 'room') { drawOutdoorBg(); drawSewerBg(); } else drawRoomBg(z);
+  // Trang trí sau
+  for (const d of decos) drawDeco(d);
+  // Khối
+  for (const s of solids) {
+    if (s.k === 'gate') { rectW(s.x, s.y, s.w, s.h, '#a32d2d'); continue; }
+    if (s.k === 'p') rectW(s.x, s.y, s.w, s.h, '#d9a45a', '#5c3b1a');
+    else if (s.real && opt.artDepth && s.y - s.h < ART_BOTTOM) {
+      const top = s.y, artH = Math.max(0, top - ART_BOTTOM);
+      rectW(s.x, top, s.w, artH, '#8d8379', '#3e3631');
+      rectW(s.x, Math.min(top, ART_BOTTOM), s.w, s.h - artH, '#d9d2c8');
+      hatch(s.x, Math.min(top, ART_BOTTOM), s.w, s.h - artH);
+    } else rectW(s.x, s.y, s.w, s.h, z.kind === 'room' ? '#57506a' : '#8d8379', '#3e3631');
+  }
+  for (const h of hazards) rectW(h.x, h.y, h.w, h.h, h.water ? 'rgba(60,140,200,.75)' : 'rgba(0,0,0,.25)');
+  for (const p of pickups) drawPickup(p);
+  for (const d of doors) drawDoor(d);
+  drawCat();
+  if (z.kind !== 'room') drawFront();
+  drawHud(z);
+  if (fading) {
+    const k = fading.t < fading.dur ? fading.t / fading.dur : fading.t < fading.dur * 2 ? 1 : Math.max(0, 1 - (fading.t - fading.dur * 2) / fading.dur);
+    g.fillStyle = `rgba(0,0,0,${k})`; g.fillRect(0, 0, VIEW_W, VIEW_H);
+    if (fading.t >= fading.dur && !fading.done) { fading.done = true; cat.x = fading.target.x; cat.y = fading.target.y + 5; cat.vx = cat.vy = 0; cam.followY = cat.y; cam.snap = true; cam.zoom = zoneOf(cat.x, cat.y).kind === 'room' ? (opt.roomZoom === 1 ? 1 : opt.zoom) : opt.zoom; updateCamera(0.016, zoneOf(cat.x, cat.y)); }
+    if (fading.t > fading.dur * 3) fading = null;
+  }
+}
+
+function drawOutdoorBg() {
+  const s = cam.zoom;
+  // Núi / dãy nhà xa (hệ số 0.25 ngang, 0.1 dọc)
+  const far = (wx, wy, w, h, col, f, fy) => {
+    const x = (wx - cam.x * f) * s + VIEW_W / 2, y = VIEW_H / 2 - (wy - cam.y * fy) * s;
+    g.fillStyle = col; g.fillRect(x, y, w * s, h * s);
+  };
+  for (let i = -3; i < 30; i++) far(i * 900, 1500 + (i % 3) * 200, 700, 3000, '#a9cbd6', 0.25, 0.1);
+  for (let i = -3; i < 40; i++) far(i * 620 + 200, 900 + (i % 4) * 160, 420, 3000, '#93b7a3', 0.55, 0.35);
+  // Tán cây giữa (hệ số 0.8)
+  for (let i = -2; i < 40; i++) {
+    const x = (i * 780 - cam.x * 0.8) * s + VIEW_W / 2, y = VIEW_H / 2 - (720 - cam.y * 0.8) * s;
+    g.fillStyle = '#6f9c72'; g.beginPath(); g.arc(x, y, 260 * s, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#6b5547'; g.fillRect(x - 30 * s, y, 60 * s, 900 * s);
+  }
+}
+function drawSewerBg() {
+  const z = zones.find((q) => q.id === 'cong'); if (!z) return;
+  rectW(z.x0 - 60, -470, z.x1 - z.x0 + 120, 1500, '#3b3550');
+  const s = cam.zoom; g.fillStyle = 'rgba(255,255,255,.05)';
+  for (let x = z.x0; x < z.x1; x += 300) for (let y = -520; y > -1150; y -= 200) { const [a, b] = W2S(x + ((y / 200) % 2 ? 150 : 0), y); g.fillRect(a, b, 280 * s, 180 * s); }
+}
+function drawRoomBg(z) {
+  const s = cam.zoom;
+  g.fillStyle = 'rgba(255,255,255,.04)';
+  for (let x = z.x0; x < z.x1; x += 300) for (let y = z.y0 + 300; y < z.y1 + 300; y += 200) { const [a, b] = W2S(x + ((y / 200) % 2) * 150, y); g.fillRect(a, b, 280 * s, 180 * s); }
+}
+function drawFront() {
+  // Tiền cảnh (hệ số 1.3): cột điện, bụi ở đáy
+  const s = cam.zoom;
+  for (let i = -2; i < 30; i++) {
+    const x = (i * 1500 + 700 - cam.x * 1.3) * s + VIEW_W / 2, y = VIEW_H / 2 - (-120 - cam.y * 1.3) * s;
+    g.fillStyle = '#3d4b3c'; g.beginPath(); g.ellipse(x, y, 260 * s, 160 * s, 0, 0, Math.PI * 2); g.fill();
+  }
+}
+function drawDeco(d) {
+  if (d.t === 'house') { rectW(d.x, d.h, d.w, d.h, '#e3c59b', '#5c3b1a'); rectW(d.x + 380, 300, 160, 300, '#7a4d2b'); textW(d.x + d.w / 2, d.h - 70, d.label, 42); return; }
+  if (d.t === 'shop') { rectW(d.x, d.h, d.w, d.h, '#f2d3a0', '#5c3b1a'); textW(d.x + d.w / 2, d.h - 70, d.label, 38, '#7a2b14'); return; }
+  if (d.t === 'npc') { const [a, b] = W2S(d.x, d.y + 50); g.fillStyle = '#9a9aa8'; g.beginPath(); g.arc(a, b, 50 * cam.zoom, 0, Math.PI * 2); g.fill(); textW(d.x, d.y + 150, 'NPC cửa hàng', 28); return; }
+  if (d.t === 'cp') { rectW(d.x - 6, d.y + 260, 12, 260, '#5c3b1a'); rectW(d.x + 6, d.y + 260, 90, 60, '#3b6d11'); return; }
+  if (d.t === 'goal') { rectW(d.x - 6, d.y + 320, 12, 320, '#5c3b1a'); rectW(d.x + 6, d.y + 320, 110, 70, '#e24b4a'); textW(d.x, d.y + 360, 'ĐÍCH → Map 2', 30); return; }
+  if (d.t === 'bird') { const [a, b] = W2S(d.x, d.y + 60); const s = cam.zoom; g.fillStyle = '#534ab7'; g.beginPath(); g.moveTo(a - 50 * s, b); g.lineTo(a + 50 * s, b - 20 * s); g.lineTo(a + 10 * s, b + 30 * s); g.fill(); return; }
+  if (d.t === 'tea') { rectW(d.x, 110, 160, 110, '#e24b4a'); rectW(d.x + 40, 170, 30, 60, '#c58b2c'); textW(d.x + 80, 230, 'trà đá', 28); return; }
+  if (d.t === 'roof') { rectW(d.x, d.y + 160, d.w, 160, 'rgba(180,90,60,.35)'); return; }
+  if (d.t === 'label') { textW(d.x, d.y, d.s, 46, '#3a2b25'); return; }
+  if (d.t === 'lid') { rectW(d.x - 10, d.y + 14, 160, 14, '#4a4a4a'); textW(d.x + 70, d.y + 70, 'nắp cống', 26); return; }
+  if (d.t === 'shaft') { rectW(d.x, d.y, 140, d.y + 990, '#2b2638'); return; }
+  if (d.t === 'pipe2') { rectW(d.x, -470, 120, 680, '#6b6386'); return; }
+  if (d.t === 'pipe') { rectW(d.x, 1400, 140, 1400, '#6b6386'); return; }
+  if (d.t === 'boss') { const [a, b] = W2S(d.x, d.y + 230); g.fillStyle = '#7a3b2a'; g.beginPath(); g.ellipse(a, b, 300 * cam.zoom, 230 * cam.zoom, 0, 0, Math.PI * 2); g.fill(); textW(d.x, d.y + 250, 'BOSS', 50, '#fff'); }
+}
+function drawPickup(p) {
+  const [a, b] = W2S(p.x, p.y + 40); const s = cam.zoom;
+  if (p.kind === 'key') { g.fillStyle = '#ef9f27'; g.beginPath(); g.moveTo(a, b - 40 * s); g.lineTo(a + 40 * s, b); g.lineTo(a, b + 40 * s); g.lineTo(a - 40 * s, b); g.fill(); }
+  else { g.fillStyle = p.kind === 'bigfish' ? '#f5c242' : '#ffd96a'; g.beginPath(); g.ellipse(a, b, (p.kind === 'bigfish' ? 60 : 36) * s, (p.kind === 'bigfish' ? 34 : 20) * s, 0, 0, Math.PI * 2); g.fill(); }
+}
+function drawDoor(d) {
+  const near = nearDoor() === d;
+  rectW(d.x - 70, d.y + 170, 140, 170, near ? '#7f77dd' : 'rgba(83,74,183,.55)', '#26215c');
+  if (near) textW(d.x, d.y + 230, '↑ ' + d.label, 32, '#26215c');
+}
+function drawCat() {
+  if (cat.sliding) { const [a, b] = W2S(cat.x + cat.wall * 34, cat.y + cat.h / 2); g.fillStyle = 'rgba(255,255,255,.6)'; g.fillRect(a - 3, b - 30, 6, 60); }
+  const [a, b] = W2S(cat.x, cat.y + cat.h / 2); const s = cam.zoom, r = cat.w / 2 * s;
+  g.fillStyle = '#f0a04b'; g.beginPath(); g.arc(a, b, r, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#2a201c'; g.beginPath(); g.arc(a + cat.face * r * 0.45, b - r * 0.2, r * 0.14, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.moveTo(a - r * 0.7, b - r * 0.6); g.lineTo(a - r * 0.35, b - r * 1.25); g.lineTo(a - r * 0.05, b - r * 0.8); g.fill();
+  g.beginPath(); g.moveTo(a + r * 0.7, b - r * 0.6); g.lineTo(a + r * 0.35, b - r * 1.25); g.lineTo(a + r * 0.05, b - r * 0.8); g.fill();
+}
+function drawHud(z) {
+  g.textAlign = 'left'; g.font = '600 34px system-ui';
+  const lock = lockZone(cat.x, cat.y);
+  const line = `${lock ? lock.name : z.name} · zoom ${cam.zoom.toFixed(2)} · thấy ${Math.round(VIEW_W / cam.zoom)}×${Math.round(VIEW_H / cam.zoom)}`;
+  g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(20, 20, g.measureText(line).width + 40, 58);
+  g.fillStyle = '#fff'; g.fillText(line, 40, 62);
+  if (flashT > 0) { g.font = '600 40px system-ui'; g.textAlign = 'center'; g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(VIEW_W / 2 - 360, 110, 720, 64); g.fillStyle = '#ffd96a'; g.fillText(flash, VIEW_W / 2, 156); }
+  if (opt.mini) drawMini();
+}
+function drawMini() {
+  const X0 = -400, X1 = opt.song === 'lien' ? 16600 : 12100, Y0 = -1400, Y1 = 2900;
+  const W = 460, x0 = VIEW_W - W - 24, y0 = 24; const sc = W / (X1 - X0); const H = (Y1 - Y0) * sc;
+  g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(x0 - 8, y0 - 8, W + 16, H + 40);
+  const mx = (x) => x0 + (x - X0) * sc, my = (y) => y0 + (Y1 - y) * sc;
+  for (const s of solids) {
+    if (s.zone !== 'pho' || s.x + s.w < X0 || s.x > X1) continue;
+    g.fillStyle = s.k === 'p' ? '#f5c242' : 'rgba(255,255,255,.7)';
+    const top = Math.min(s.y, Y1), bot = Math.max(s.y - s.h, Y0);
+    g.fillRect(mx(Math.max(s.x, X0)), my(top), Math.max(2, (Math.min(s.x + s.w, X1) - Math.max(s.x, X0)) * sc), Math.max(2, (top - bot) * sc));
+  }
+  for (const d of doors) if (d.zone === 'pho') { g.fillStyle = '#7f77dd'; g.fillRect(mx(d.x) - 3, my(d.y + 120), 6, 120 * sc + 3); }
+  const z = zoneOf(cat.x, cat.y);
+  if (z.kind !== 'room') {
+    const hw = VIEW_W / 2 / cam.zoom, hh = VIEW_H / 2 / cam.zoom;
+    g.strokeStyle = '#ff7a45'; g.lineWidth = 3; g.strokeRect(mx(cam.x - hw), my(cam.y + hh), hw * 2 * sc, hh * 2 * sc);
+    g.fillStyle = '#ffd96a'; g.beginPath(); g.arc(mx(cat.x), my(cat.y), 6, 0, Math.PI * 2); g.fill();
+  }
+  g.fillStyle = '#fff'; g.font = '600 22px system-ui'; g.textAlign = 'left';
+  g.fillText(z.kind !== 'room' ? 'Bản đồ ngoài trời · khung cam = camera · tím = cửa' : `Đang trong phòng: ${z.name}`, x0, y0 + H + 24);
+}
+
+// ===== Vòng lặp + phím =====
+let last = performance.now();
+function loop(t) {
+  const dt = Math.min(0.033, (t - last) / 1000); last = t;
+  if (flashT > 0) flashT -= dt;
+  step(dt); render(); requestAnimationFrame(loop);
+}
+addEventListener('keydown', (e) => {
+  if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(e.key)) e.preventDefault();
+  if (e.repeat) return;
+  keys[e.key] = true;
+  if (e.key === 'ArrowUp' && useDoor()) return;
+  if (e.key === ' ' || e.key === 'z' || e.key === 'Z' || e.key === 'k' || e.key === 'K') {
+    if (keys.ArrowDown && cat.ground) { cat.dropping = 0.25; cat.y -= 2; return; }
+    if (cat.sliding) { cat.vy = JUMP * 0.95; cat.kick = 0.16; cat.kickDir = -cat.wall; cat.face = -cat.wall; cat.jumps = 1; }
+    else if (cat.ground) { cat.vy = JUMP; cat.ground = false; cat.jumps = 1; }
+    else if (cat.jumps < 2) { cat.vy = JUMP * 0.85; cat.jumps = 2; }
+  }
+  if ('1234'.includes(e.key)) setZoom([1, 0.9, 0.8, 0.7]['1234'.indexOf(e.key)]);
+  if (e.key === 'r' || e.key === 'R') { cat.x = 300; cat.y = 5; cat.vx = cat.vy = 0; cam.snap = true; }
+});
+addEventListener('keyup', (e) => {
+  keys[e.key] = false;
+  if ((e.key === ' ' || e.key === 'z' || e.key === 'Z' || e.key === 'k' || e.key === 'K') && cat.vy > 0) cat.vy *= 0.5;
+});
+
+function setZoom(z) { opt.zoom = z; syncButtons(); }
+function syncButtons() {
+  document.querySelectorAll('[data-z]').forEach((b) => b.classList.toggle('on', Number(b.dataset.z) === opt.zoom));
+  document.querySelectorAll('[data-rz]').forEach((b) => b.classList.toggle('on', Number(b.dataset.rz) === opt.roomZoom));
+  document.getElementById('bSong').textContent = opt.song === 'lien' ? 'liền mạch (đổi)' : 'phòng riêng (đổi)';
+  document.getElementById('bSan').textContent = opt.san === 'lien' ? 'liền mạch + khoá camera (đổi)' : 'phòng riêng (đổi)';
+  document.getElementById('bMini').classList.toggle('on', opt.mini);
+  document.getElementById('bArt').classList.toggle('on', opt.artDepth);
+  document.getElementById('bCong').textContent = opt.cong === 'duoi' ? 'ngay dưới phố, ống phải wall jump (đổi)' : 'phòng riêng, màn tối nhanh (đổi)';
+  const wallOn = opt.wall || opt.cong === 'duoi';
+  document.getElementById('bWall').classList.toggle('on', wallOn);
+  document.getElementById('bWall').textContent = opt.cong === 'duoi' ? 'Wall jump: luôn bật ở bản cống dưới phố' : (opt.wall ? 'Wall jump: bật' : 'Wall jump: tắt (như game)');
+}
+document.querySelectorAll('[data-z]').forEach((b) => b.onclick = () => { setZoom(Number(b.dataset.z)); cv.focus(); });
+document.querySelectorAll('[data-rz]').forEach((b) => b.onclick = () => { opt.roomZoom = Number(b.dataset.rz); syncButtons(); cv.focus(); });
+document.getElementById('bSong').onclick = () => { opt.song = opt.song === 'lien' ? 'phong' : 'lien'; rebuild(); };
+document.getElementById('bSan').onclick = () => { opt.san = opt.san === 'lien' ? 'phong' : 'lien'; rebuild(); };
+document.getElementById('bMini').onclick = () => { opt.mini = !opt.mini; syncButtons(); cv.focus(); };
+document.getElementById('bArt').onclick = () => { opt.artDepth = !opt.artDepth; syncButtons(); cv.focus(); };
+document.getElementById('bWall').onclick = () => { opt.wall = !opt.wall; syncButtons(); cv.focus(); };
+document.getElementById('bCong').onclick = () => { opt.cong = opt.cong === 'duoi' ? 'phong' : 'duoi'; rebuild(); };
+function rebuild() { build(); cat.x = 300; cat.y = 5; cat.vx = cat.vy = 0; cat.safe = { x: 300, y: 0 }; cam.snap = true; syncButtons(); cv.focus(); }
+
+build(); syncButtons(); cam.zoom = opt.zoom; cam.snap = true; cv.focus();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
