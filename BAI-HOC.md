@@ -540,6 +540,9 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
   Đoạn sửa dài thì ghi ra file `.js` trong scratchpad (Write) rồi `node file.js đường-dẫn`.
 - Bẫy: đếm số lần bấm ↓ để tới một nút rất dễ sai (ô ẩn bị bỏ qua). Viết hàm "bấm ↓ tới khi ô đang chọn tên X" rồi mới bấm.
 - Phím ảo: `KeyboardEvent` phải có cả `code` lẫn `keyCode` (ghi đè bằng `Object.defineProperty`) thì Enter / Esc mới tới được engine.
+- Mẹo (10/11/2026): phím giả lập (`KeyboardEvent` tự tạo) có lúc không tới được game (đo camera quay mặt ra sai). Muốn thử
+  "giữ phím" thì thay `cat.controls` bằng `new Proxy(controls, { get: (t, p) => p in held ? held[p] : Reflect.get(t, p, t) })`
+  (`held = { down, upHeld, ... }`), đặt hướng mặt bằng `cat.facing = -1`; xong nhớ trả `cat.controls` về như cũ. Phím thật thì dùng công cụ bấm phím của trình duyệt.
 - Bẫy (06/11/2026): khung trình duyệt của app bị **ẩn** thì game không chạy khung nào (`cc.director.getTotalFrames()` đứng yên),
   dù `document.visibilityState` vẫn là `visible`. Đo bằng `cc.director.tick(1/60)` trong vòng lặp (tween, update chạy theo);
   phần chạy theo giờ thật (`setTimeout`, như màn logo / thanh tải) thì không qua được, gọi thẳng hàm của nó (ví dụ `dropMenu()`).

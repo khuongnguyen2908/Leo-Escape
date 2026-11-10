@@ -54,6 +54,23 @@ Hướng dẫn dùng game và các nút trong editor nằm ở [README.md](READM
 - Trước khi build: tắt *Debug Colliders*, *Touch On Desktop*, node `image 1465` (ảnh tham khảo cũ).
 - Font Super Bouncer: kiểm tra giấy phép trước khi phát hành công khai.
 
+## Map 1 ngoài phố và cây kỹ năng (đã chốt 10/11/2026)
+
+Thiết kế đầy đủ (bản đồ, các khu, giá từng ô): `docs/thiet-ke-game.html` mục 10 và 11.
+- Mọi kỹ năng có từ đầu, riêng **Sóng kiếm** mua ở **tiệm Lợi Ký**. Đường bị khoá bằng **chìa khoá**, không bằng kỹ năng.
+- Boss Chihuahua sau **cổng nhà lớn** cuối Phố (2 ổ khoá): chìa 1 trên Mái nhà (tổ Chim đầu đàn), chìa 2 dưới Hang chó-gián (Chó-gián chúa).
+  Hạ boss → cửa nhà mở sang **Map 2 (trong nhà)**.
+- **Cá bự** (nguyên liệu mở kỹ năng, Map 1 có 4 con trong phòng bí mật) + **cá vàng** (tiền). Cây kỹ năng 3 nhánh: Kiếm, Thân, Chiêu.
+
+Các đợt làm:
+1. ~~Camera kiểu Hollow Knight~~ (đã làm 10/11: CameraRig nhóm *Kiểu Hollow Knight*; khu boss khoá camera).
+2. ~~Cá bự + cá vàng (lưu ô)~~ (đã làm 10/11: `BigFishPickup`, không hiện trên HUD, chỉ thấy trong cửa hàng; hiện có 1 con để thử).
+3. ~~Cửa hàng + cây kỹ năng~~ (đã làm 10/11: NPC tạm `ShopNPC` mèo xám sau checkpoint 1, chưa dùng tiệm Lợi Ký; `ShopPage`, `game/Upgrades.ts`.
+   Ô "năng lượng" = nộ đầy nhanh 40%. Mọi ô lưu khoá hết, mua lại). Còn: thay hình NPC, đặt 4 cá bự vào phòng bí mật.
+4. Cổng nhà lớn 2 ổ khoá + 2 chìa.
+5. Dựng từng khu: Mái nhà, Cống, Hang, Bờ sông (cần vẽ thêm asset: mái ngói, dây điện, bể nước, tường cống, ống, nước bẩn, kè đá, thuyền, Chim đầu đàn, Chó-gián chúa).
+6. Map 2 trong nhà.
+
 ## Build và gửi cho bạn bè
 
 1. Creator: **Project → Build**, nền tảng **Web Mobile**, bật *MD5 Cache*, *Orientation* Landscape, tắt *Debug* → Build.

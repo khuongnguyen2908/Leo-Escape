@@ -22,6 +22,7 @@ import { ResultsScreen } from '../ui/ResultsScreen';
 import { ScreenFade } from '../ui/ScreenFade';
 import { GameSession, reloadScene } from './GameSession';
 import { SaveSlots, SlotData } from './SaveSlots';
+import { Unlocks, UpgradeId, upgradeById, upgradeState } from './Upgrades';
 import { Achievements, FAST_TIME } from './Achievements';
 // Nạp để đăng ký thông báo nhỏ khi đạt thành tích
 import '../ui/AchievementToast';
@@ -109,6 +110,12 @@ export class GameManager extends Component {
     readonly startPoint = new Vec3();
     /** uuid các con cá đã ăn (ghi vào ô lưu, vào lại thì bỏ những con này) */
     readonly collected: string[] = [];
+    /** Cá bự đang có: nguyên liệu mở kỹ năng, không hiện trên HUD, chỉ thấy trong cửa hàng */
+    bigFish = 0;
+    /** Các ô cây kỹ năng đã mua ở cửa hàng (id trong game/Upgrades.ts) */
+    readonly unlocks: string[] = [];
+    /** Số tim gốc (ô Max Hp lúc vào màn); mua "Thêm 1 tim" thì Max Hp = gốc + số tim đã mua */
+    private baseHp = -1;
     /** Checkpoint xa nhất đã lưu vào ô (đếm từ 1) */
     private savedCheckpoint = 0;
     readonly respawnPoint = new Vec3();
@@ -158,6 +165,8 @@ export class GameManager extends Component {
     }
 
     start() {
+        if (this.baseHp < 0) this.baseHp = this.maxHp;
+        Unlocks.set(this.unlocks);
         Sound.sfxVolume = Settings.master * Settings.sfx;
         Sound.musicVolume = Settings.master * Settings.music;
         Sound.preload();
@@ -179,6 +188,7 @@ export class GameManager extends Component {
             }
             this.hudFor(c)?.setHp(c.hp, this.maxHp);
         }
+        this.applyUnlocks();
         if (this.player) {
             this.respawnPoint.set(this.player.node.position);
             this.startPoint.set(this.player.node.position);
@@ -409,6 +419,52 @@ export class GameManager extends Component {
         this.coinCounter?.setValue(this.coins);
     }
 
+    /** Nhặt cá bự (BigFishPickup): cộng 1, không hiện trên HUD (vào cửa hàng mới thấy). */
+    addBigFish(id?: string) {
+        Sound.play('checkpoint', 0.8);
+        this.bigFish++;
+        if (id) this.collected.push(id);
+    }
+
+    /**
+     * Mua một ô cây kỹ năng: đủ cá bự, cá vàng và đã có ô trước thì trừ cá, mở kỹ năng, ghi ngay vào ô lưu.
+     * Mua thêm tim thì hồi đầy tim luôn. Trả về true nếu mua được.
+     */
+    buy(id: UpgradeId): boolean {
+        const u = upgradeById(id);
+        if (!u || upgradeState(u, this.bigFish, this.coins) !== 'ready') return false;
+        this.bigFish -= u.bigFish;
+        this.coins -= u.gold;
+        this.coinCounter?.setValue(this.coins);
+        this.unlocks.push(id);
+        this.applyUnlocks();
+        if (id === 'heart1' || id === 'heart2') {
+            for (const c of this.cats) {
+                if (c.downed) continue;
+                c.hp = this.maxHp;
+                this.hudFor(c)?.setHp(c.hp, this.maxHp);
+            }
+        }
+        this.saveSlot(this.savedCheckpoint, this.respawnPoint.x, this.respawnPoint.y, false);
+        return true;
+    }
+
+    /** Áp các ô đã mua lên mèo: số tim tối đa, Đập bụng / Mèo Nổ của Leo. Sóng kiếm, nộ nhanh do PlayerController đọc Unlocks. */
+    private applyUnlocks() {
+        Unlocks.set(this.unlocks);
+        if (this.baseHp < 0) this.baseHp = this.maxHp;
+        this.maxHp = this.baseHp + (Unlocks.has('heart1') ? 1 : 0) + (Unlocks.has('heart2') ? 1 : 0);
+        for (const c of this.cats) {
+            const leo = c.getComponent(LeoSkills);
+            if (leo) {
+                leo.poundUnlocked = Unlocks.has('pound');
+                leo.burstUnlocked = Unlocks.has('burst');
+            }
+            c.hp = Math.min(c.hp, this.maxHp);
+            this.hudFor(c)?.setHp(c.hp, this.maxHp);
+        }
+    }
+
     setRespawn(pos: Readonly<Vec3>) {
         this.respawnPoint.set(pos);
     }
@@ -434,6 +490,7 @@ export class GameManager extends Component {
             chapter: 1, level: this.levelId, checkpoint, x, y,
             time: this.playTime, fish: this.fish, coins: this.coins, downs: this.downs,
             collected: this.collected.slice(), cleared: cleared || !!old?.cleared, savedAt: Date.now(),
+            bigFish: this.bigFish, unlocks: this.unlocks.slice(),
             difficulty: GameSession.difficulty,
         });
         SaveIcon.show();
@@ -451,10 +508,20 @@ export class GameManager extends Component {
         this.downs = data.downs;
         this.savedCheckpoint = data.checkpoint;
         this.coinCounter?.setValue(this.coins);
+        // Cá bự, kỹ năng đã mua: vào ô lưu là có lại, tim đầy theo số tim mới
+        this.bigFish = data.bigFish ?? 0;
+        this.unlocks.length = 0;
+        this.unlocks.push(...(data.unlocks ?? []));
+        this.applyUnlocks();
+        for (const c of this.cats) {
+            c.hp = this.maxHp;
+            this.hudFor(c)?.setHp(c.hp, this.maxHp);
+        }
         const parent = this.player?.node.parent;
         if (parent) {
             const gone = new Set(data.collected ?? []);
-            for (const c of parent.getComponentsInChildren('CoinPickup')) {
+            const picks = [...parent.getComponentsInChildren('CoinPickup'), ...parent.getComponentsInChildren('BigFishPickup')];
+            for (const c of picks) {
                 if (gone.has(c.node.uuid)) {
                     this.collected.push(c.node.uuid);
                     c.node.destroy();

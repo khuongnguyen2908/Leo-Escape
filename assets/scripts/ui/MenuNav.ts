@@ -14,6 +14,9 @@ export interface NavItem {
     right?: () => void;
     /** Hiện / tắt viền đang chọn */
     focus?: (on: boolean) => void;
+    /** W / ↑, S / ↓: có thì gọi thay cho chọn ô trước / sau (bảng dạng lưới như cửa hàng tự chọn ô hàng trên / dưới) */
+    up?: () => void;
+    down?: () => void;
 }
 
 const stack: MenuNav[] = [];
@@ -122,9 +125,11 @@ export class MenuNav {
             if (this.onBack) Sound.play('ui_back', 0.8);
             this.onBack?.();
         } else if (code === KeyCode.ARROW_UP || code === KeyCode.KEY_W || p1('up')) {
-            this.move(-1);
+            if (it?.up && this.visible(it)) it.up();
+            else this.move(-1);
         } else if (code === KeyCode.ARROW_DOWN || code === KeyCode.KEY_S || p1('down')) {
-            this.move(1);
+            if (it?.down && this.visible(it)) it.down();
+            else this.move(1);
         } else if (code === KeyCode.ARROW_LEFT || code === KeyCode.KEY_A || p1('left')) {
             if (it && this.visible(it)) it.left?.();
         } else if (code === KeyCode.ARROW_RIGHT || code === KeyCode.KEY_D || p1('right')) {

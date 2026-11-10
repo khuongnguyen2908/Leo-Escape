@@ -7,6 +7,7 @@ import { PlatformerBody } from '../core/PlatformerBody';
 import { Solid } from '../core/Solid';
 import { Sound } from '../core/Sound';
 import { GameSession } from '../game/GameSession';
+import { RAGE_BOOST, Unlocks } from '../game/Upgrades';
 import { DustPuff } from './DustPuff';
 import { HitSpark } from './HitSpark';
 import { CatSkills } from './CatSkills';
@@ -382,8 +383,8 @@ export class PlayerController extends Component {
             else this.slash();
         }
 
-        // Giữ J đủ Charge Time rồi thả: phóng sóng kiếm (thả sớm hơn thì thôi)
-        const canHold = canControl && (this.skills?.canDash ?? true);
+        // Giữ J đủ Charge Time rồi thả: phóng sóng kiếm (thả sớm hơn thì thôi). Chưa mua Sóng kiếm ở cửa hàng thì không gồng
+        const canHold = canControl && (this.skills?.canDash ?? true) && Unlocks.has('wave');
         if (this.controls.attackHeld && canHold) {
             this.holdTime += dt;
             // Hiệu ứng gồng ở giữa thân: khung 1 → 4 lớn dần theo thời gian giữ
@@ -568,7 +569,12 @@ export class PlayerController extends Component {
         Sound.play('slash3', 1);
         // Sóng phóng ra trước mặt (ảnh rộng ~300, mép sau vừa chạm thân mèo), ngang ngực
         SwordWave.fire(parent, p.x + this.facing * 220, p.y + 95, this.facing,
-            { speed: this.waveSpeed, distance: this.waveDistance, damage: this.waveDamage * this.damageMult, onHit: () => this.addRage(this.rageOnHit) });
+            {
+                speed: this.waveSpeed, distance: this.waveDistance, damage: this.waveDamage * this.damageMult,
+                onHit: () => this.addRage(this.rageOnHit),
+                // Đã mua Sóng kiếm xuyên: bay xuyên qua mọi kẻ địch; chưa thì trúng con đầu tiên là tan
+                pierce: Unlocks.has('wavePierce'),
+            });
         CameraRig.instance?.shake(6, 0.1);
     }
 
@@ -613,6 +619,8 @@ export class PlayerController extends Component {
         if (this.specialLeft > 0 || amount <= 0) return;
         // Màn hướng dẫn: tích nhanh (mặc định 4 nhát là đầy) để tập phím special
         if (GameSession.tutorial?.active && this.rageOnHit > 0) amount *= this.tutorialRageOnHit / this.rageOnHit;
+        // Đã mua "Nộ đầy nhanh" ở cửa hàng: mỗi lần cộng nộ thêm 40%
+        if (Unlocks.has('rage')) amount *= RAGE_BOOST;
         const was = this.energy;
         this.energy = Math.min(this.maxEnergy, this.energy + amount);
         if (was < this.maxEnergy - 0.01 && this.energy >= this.maxEnergy - 0.01) Sound.play('checkpoint', 0.6);

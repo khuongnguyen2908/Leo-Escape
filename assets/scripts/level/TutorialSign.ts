@@ -1,6 +1,7 @@
 import { _decorator, CCString, Color, Component, Enum, Graphics, Label, Node, UITransform } from 'cc';
 import { EDITOR } from 'cc/env';
 import { Action, keyShort, Settings } from '../core/Settings';
+import { Unlocks } from '../game/Upgrades';
 import { keyCap, keyCapWidth } from '../ui/KeyCap';
 import { Lang, T, TextKey } from '../ui/Lang';
 import { setText, UI, uiLabel, uiNode } from '../ui/UiKit';
@@ -70,12 +71,14 @@ export class TutorialSign extends Component {
         if (!EDITOR) {
             Settings.onChange(this.onChange);
             Lang.onChange(this.onChange);
+            Unlocks.onChange(this.onChange);
         }
     }
 
     onDestroy() {
         Settings.offChange(this.onChange);
         Lang.offChange(this.onChange);
+        Unlocks.offChange(this.onChange);
     }
 
     redraw() {
@@ -86,6 +89,8 @@ export class TutorialSign extends Component {
             old.destroy();
         }
         const root = uiNode('Sign', this.node);
+        // Biển Sóng kiếm: chưa mua ở cửa hàng thì ẩn (trong editor vẫn thấy để kéo)
+        if (!EDITOR && this._topic === 'wave' && !Unlocks.has('wave')) root.active = false;
         const big = this._topic === 'title';
         // Hàng ô phím
         const spec = TOPIC_KEYS[this._topic] ?? '';

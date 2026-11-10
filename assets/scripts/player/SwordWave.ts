@@ -26,10 +26,13 @@ export interface WaveOptions {
     scale?: number;
     /** Trúng kẻ địch thì gọi (mèo cộng nộ), mỗi con một lần */
     onHit?: () => void;
+    /** Bay xuyên qua kẻ địch (trúng mỗi con một lần). false = trúng con đầu tiên là tan. Mặc định false */
+    pierce?: boolean;
 }
 
 /**
- * Sóng kiếm (giữ J rồi thả): lưỡi liềm bay thẳng về phía trước, trúng mỗi kẻ địch trên đường một lần,
+ * Sóng kiếm (giữ J rồi thả): lưỡi liềm bay thẳng về phía trước, trúng kẻ địch đầu tiên là tan
+ * (bản xuyên mua ở cửa hàng: bay qua, trúng mỗi kẻ địch trên đường một lần),
  * đụng tường hay khối nền cứng (Solid không phải bục một chiều) thì tan.
  * Phóng bằng SwordWave.fire(...) với node cha là lớp Gameplay (chung hệ toạ độ với kẻ địch và Solid).
  */
@@ -40,6 +43,7 @@ export class SwordWave extends Component {
     private left = 1000;
     private damage = 2;
     private onHit: (() => void) | null = null;
+    private pierce = false;
     private readonly hits = new Set<Hittable>();
 
     static preload() {
@@ -58,6 +62,7 @@ export class SwordWave extends Component {
         w.left = opt.distance ?? 1000;
         w.damage = opt.damage ?? 2;
         w.onHit = opt.onHit ?? null;
+        w.pierce = !!opt.pierce;
         // Ảnh lặp suốt đường bay (chưa tải xong thì sóng vẫn đánh, chỉ không thấy hình)
         // Ô ảnh cắt lấy tâm ô gốc làm tâm, phần vẽ lệch sau và lên trên: dời lại cho lưỡi liềm nằm giữa node
         const k = (opt.scale ?? 5.1) / 5.1;
@@ -84,6 +89,10 @@ export class SwordWave extends Component {
             Sound.play('hit', 0.9);
             HitStop.trigger(40);
             CameraRig.instance?.shake(8, 0.12);
+            if (!this.pierce) {
+                this.node.destroy();
+                return;
+            }
         }
 
         // Đụng tường / khối nền cứng thì tan (hộp kiểm tra thấp hơn để không chạm mặt đất dưới chân)

@@ -473,6 +473,8 @@ export class BossArena extends Component {
         this.camMax = rig.maxX;
         rig.minX = Math.max(this.camMin, this.left - 200);
         rig.maxX = Math.min(this.camMax, this.right + 200);
+        // Trận boss: camera đứng yên cả chiều dọc (không nhảy theo, không nhìn xuống)
+        rig.lockY(this.groundY);
     }
 
     private unlockCamera() {
@@ -481,5 +483,6 @@ export class BossArena extends Component {
         this.camLocked = false;
         rig.minX = this.camMin;
         rig.maxX = this.camMax;
+        rig.lockY(null);
     }
 }

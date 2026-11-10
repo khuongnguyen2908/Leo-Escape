@@ -3,6 +3,7 @@ import { EDITOR } from 'cc/env';
 import { Action, keyShort, Settings } from '../core/Settings';
 import { GameManager } from '../game/GameManager';
 import { GameSession } from '../game/GameSession';
+import { Unlocks } from '../game/Upgrades';
 import { PlayerController } from '../player/PlayerController';
 import { Lang, T, TextKey } from '../ui/Lang';
 import { UI, uiLabel, uiNode } from '../ui/UiKit';
@@ -90,7 +91,8 @@ export class TutorialHint extends PlayerTrigger {
     private groundY = 0;
 
     private get topics(): Topic[] {
-        return (Object.keys(TOPICS) as Topic[]).filter((t) => this[t]);
+        // Sóng kiếm chưa mua ở cửa hàng thì không dạy
+        return (Object.keys(TOPICS) as Topic[]).filter((t) => this[t] && (t !== 'wave' || Unlocks.has('wave')));
     }
 
     start() {

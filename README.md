@@ -215,7 +215,7 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
 | | Leo (`LeoSkills.ts`) | Angelo (`AngeloSkills.ts`) |
 |---|---|---|
 | Nhảy | **Nhảy thêm 1 lần** trên không (miễn phí, cao 85%; LeoSkills nhóm *Nhảy 2 lần*) | **Nhảy thêm 1 lần** trên không. Đang bay đẩy vào tường thì **bám tường** trượt chậm, Nhảy để **bật tường** |
-| Đánh (J) | Bấm liên tục: **combo 5 nhát**, vệt `art/fx/Character/Normal Atk`: nhát 1–4 luân phiên vệt **A** (`Slash_color1` khung 1–5, quét ngang) / **B** (khung 6–9, hất lên), nhát 5 **kết liễu** vòng cung lớn `Slash3` ôm trên đầu mèo; đang bật special thì vệt **màu đỏ** (`Character/Special/…_color2`) (bảng số trong `SlashFx.ts`, `COMBO_SLASH`) (dưới đất **đứng yên tại chỗ một nhịp ngắn mỗi nhát**, không lao tới, giữ A/D cũng không đi; ô *Slash Stop* = 0.12 giây; trúng địch thì địch **loé trắng** và khựng hình ngắn) (không còn chém xoay; nhát 5 **kết liễu** trừ 2 máu, văng xa). Đang bay: combo **3 nhát đầu** như dưới đất, mỗi nhát khựng lại một nhịp. Giữ J đủ 0.8 giây (quả cầu năng lượng xanh gom ở giữa thân, đủ lực thì quả cầu chớp chờ phóng) rồi thả: **sóng kiếm** bay thẳng ~1000, trừ 2 máu mỗi địch, đụng tường thì tan (**không tốn gì**; PlayerController nhóm *Sóng kiếm*). Thả sớm thì quả cầu **xì hơi** tan mất, không tốn gì. **Giữ Xuống + J** trên nền cứng: **quét chân** về phía đang quay mặt, địch nhỏ (gà, chim...) **té nằm** 1.2 giây, không đánh mèo, vẫn chém tiếp được; **boss không bị quét** (không mất máu) (LeoSkills nhóm *Quét chân*, ô *Sweep Trip*). **Giữ Lên + J** dưới đất: **chém hất**, vệt `Slash2` vút từ sát đất trước mặt lên qua đầu (special: màu đỏ), hất địch bay lên; nhảy theo chém tiếp thì địch lơ lửng (chém trúng trên không thì Leo cũng nảy nhẹ lên, ô *Air Hit Lift*), đang bay thì địch không đánh mèo, rơi xuống choáng 0.4 giây. Boss không bị hất. Đứng ngay dưới bục một chiều thì bấm W sẽ nhảy lên bục trước | **Quất dây len**, tầm xa gấp đôi Leo |
+| Đánh (J) | Bấm liên tục: **combo 5 nhát**, vệt `art/fx/Character/Normal Atk`: nhát 1–4 luân phiên vệt **A** (`Slash_color1` khung 1–5, quét ngang) / **B** (khung 6–9, hất lên), nhát 5 **kết liễu** vòng cung lớn `Slash3` ôm trên đầu mèo; đang bật special thì vệt **màu đỏ** (`Character/Special/…_color2`) (bảng số trong `SlashFx.ts`, `COMBO_SLASH`) (dưới đất **đứng yên tại chỗ một nhịp ngắn mỗi nhát**, không lao tới, giữ A/D cũng không đi; ô *Slash Stop* = 0.12 giây; trúng địch thì địch **loé trắng** và khựng hình ngắn) (không còn chém xoay; nhát 5 **kết liễu** trừ 2 máu, văng xa). Đang bay: combo **3 nhát đầu** như dưới đất, mỗi nhát khựng lại một nhịp. Giữ J đủ 0.8 giây (quả cầu năng lượng xanh gom ở giữa thân, đủ lực thì quả cầu chớp chờ phóng) rồi thả: **sóng kiếm** (**phải mua ở cửa hàng trước**, chưa mua thì giữ J không gồng) bay thẳng ~1000, trừ 2 máu, trúng địch đầu tiên là tan (mua *Sóng kiếm xuyên* thì bay xuyên mọi địch), đụng tường thì tan (**không tốn gì**; PlayerController nhóm *Sóng kiếm*). Thả sớm thì quả cầu **xì hơi** tan mất, không tốn gì. **Giữ Xuống + J** trên nền cứng: **quét chân** về phía đang quay mặt, địch nhỏ (gà, chim...) **té nằm** 1.2 giây, không đánh mèo, vẫn chém tiếp được; **boss không bị quét** (không mất máu) (LeoSkills nhóm *Quét chân*, ô *Sweep Trip*). **Giữ Lên + J** dưới đất: **chém hất**, vệt `Slash2` vút từ sát đất trước mặt lên qua đầu (special: màu đỏ), hất địch bay lên; nhảy theo chém tiếp thì địch lơ lửng (chém trúng trên không thì Leo cũng nảy nhẹ lên, ô *Air Hit Lift*), đang bay thì địch không đánh mèo, rơi xuống choáng 0.4 giây. Boss không bị hất. Đứng ngay dưới bục một chiều thì bấm W sẽ nhảy lên bục trước | **Quất dây len**, tầm xa gấp đôi Leo |
 | Đập bụng (giữ Xuống + J khi đang bay) | **Tạm khoá** (ô *Pound Unlocked* của LeoSkills, để dành cho cửa hàng nâng cấp; khoá thì Xuống + J trên không là chém thường). Mở khoá: **Đập bụng** lao xuống, sóng chấn đánh địch xung quanh và làm chúng **choáng** 1.5 giây; rơi càng cao sóng càng rộng (tối đa ×1.6 khi rơi từ cao 600). Phím Kỹ năng giờ là **special** (xem dòng dưới) | Bấm: **trói chân** địch gần nhất 2 giây (boss ngắn hơn), địch đứng yên và không đánh ai. Giữ: **nằm lì** / đứng dậy |
 | Special (L; bộ phím mũi tên: C) | **Thanh nộ đầy** (thanh năng lượng nhấp nháy vàng) thì bấm **L**: hào quang nằm dưới đất quanh chân; trên đầu mèo hiện **kiếm +** (`Character/Atk_up`) chạy 1 lượt rồi tới **khiên +** (`Character/Def_up`); **8 giây** hào quang `art/fx/Character/Special` lặp quanh mèo, sát thương **×1.5**, đánh nhanh **×1.5**, trúng đòn chỉ mất **nửa tim**; thanh tụt dần về 0, hết thì tắt. Chưa đầy mà bấm thì thanh nháy đỏ. Điện thoại: nút ngôi sao cạnh nút đánh, **cùng cỡ nút đánh**: chưa đầy nộ thì xám mờ, chạm không ra gì, vành có cung vàng dài dần theo nộ; đầy nộ thì **lửa cháy quanh nút** (vẽ bằng code; thả bộ ảnh vào `art/fx/UI/SkillFire` thì dùng ảnh) và phồng nhấp nháy; đang bật thì lửa nhỏ lại, cung vàng rút dần theo thời gian còn lại (`TouchControls.ts`; số liệu ở PlayerController nhóm *Thanh nộ, special (L)*) | — |
 | Tuyệt chiêu (giữ Xuống + L) | **Tạm khoá** (ô *Burst Unlocked*; khoá thì Xuống + L là lướt). Mở khoá: **Mèo Nổ**: cần đầy thanh nộ, tốn hết. Gồng 0.6 giây (bất tử) rồi nổ: mọi kẻ địch đang thấy trên màn hình mất 3 máu, văng ra, choáng 1 giây. Chỉ dùng trên nền cứng (trên bàn, thùng... bấm Xuống là rơi xuống) | — |
@@ -237,6 +237,26 @@ Bị chém trúng lúc đang rướn / lao thì mất đòn. Số liệu: nhóm 
 **Cá vàng**: quầng sáng kiểu bokeh (`CoinGlow`: `MG_coin_glow_1` quầng to, `MG_coin_glow_2` quầng nhỏ, trôi vòng nhỏ lệch nhịp, vài đốm sáng nhỏ trôi lên rồi tắt),
 cá nhấp nhô và nghiêng nhẹ, đốm `MG_coin_sparkle` trên cá nhấp nháy, xoay chậm (`CoinPickup`). Bị ăn: cá phồng lên rồi teo mất, đốm bung ra, quầng nở thành vòng rồi tan (~0.45 giây).
 Ảnh chỉ dùng lúc chơi; trong editor vẫn thấy quầng tạm vẽ bằng code.
+
+## Cửa hàng và cá bự
+
+- **Cá bự** (node `CaBu`, `BigFishPickup.ts`): nguyên liệu mở kỹ năng. Nhặt thì chữ "+1 CÁ BỰ" bay lên; **không hiện trên HUD**, chỉ thấy số cá bự trong cửa hàng.
+  Hình tạm là ảnh cá vàng to, nhuộm cam (ô *Color* của Sprite); muốn đổi thì thay ảnh trong Sprite. Đã nhặt thì ghi vào ô lưu, vào lại không còn.
+- **NPC cửa hàng** (node `ShopNPC`): tạm là Leo nhuộm xám quay mặt trái, hình nằm ở node con `Hinh` (đổi ảnh, kéo, phóng to thoải mái; kéo `ShopNPC` để dời cả NPC).
+  Leo đứng gần (ô *Range* = 200) thì hiện bong bóng có phím **Lên** (W / ↑), bấm Lên hoặc chạm bong bóng để mở cửa hàng. Trong lúc mở, mèo đứng yên, không bị đánh.
+- **Bảng cửa hàng** (`ShopPage.ts`): trên cùng là số cá bự, cá vàng đang có; giữa là cây kỹ năng 3 hàng. Mũi tên / WASD chọn ô (hoặc rê chuột),
+  Enter / Nhảy / Đánh / chạm để mua, Esc (điện thoại: nút ←) để thoát. Ô xanh = đã có, kem = mua được, kem nhạt = chưa đủ cá, xám tối = phải mua ô bên trái trước.
+  Mua xong ghi ngay vào ô lưu; mua thêm tim thì hồi đầy tim.
+
+| Hàng | Ô 1 | Ô 2 | Ô 3 |
+|---|---|---|---|
+| Kiếm | Sóng kiếm: 1 cá bự + 1000 | Sóng kiếm xuyên: 2 + 3000 | |
+| Thân | Thêm 1 tim: 1 + 800 | Thêm 1 tim: 1 + 1500 | Nộ đầy nhanh (+40% nộ mỗi đòn): 1 + 1000 |
+| Chiêu | Đập bụng: 1 + 1200 | Mèo Nổ: 2 + 3000 | |
+
+Đổi giá, thứ tự: sửa bảng `UPGRADES` trong `game/Upgrades.ts`. Chữ tên / mô tả: `up.<tên>` trong `ui/Lang.ts`.
+Ô lưu cũ (trước khi có cửa hàng) vào lại thì chưa mua gì, 0 cá bự. Biển và bảng hướng dẫn **Sóng kiếm** tự ẩn tới khi mua.
+NPC và cá bự do bước ⚙ 32 tạo (chỉ khi cả màn chưa có); hiện chỉ có 1 cá bự để thử.
 
 ## Boss
 
@@ -476,14 +496,16 @@ assets/scripts/
 │  ├─ BossArena.ts        khu boss: tường chặn vô hình, cảnh mở màn, hạ boss
 │  └─ BossHazard.ts       vật của đòn boss vẽ bằng code (sóng âm, gai, hàm răng, sấm, khối đá, chó con)
 ├─ camera/
-│  ├─ CameraRig.ts        bám nhân vật, nhìn trước, giới hạn mép màn, rung màn hình
+│  ├─ CameraRig.ts        bám nhân vật (kiểu Hollow Knight: theo chiều dọc, lệch theo mặt, nhìn xuống mép vực), giới hạn mép màn, rung màn hình
 │  └─ ParallaxLayer.ts    lớp cảnh trôi theo hệ số
-├─ game/GameManager.ts    máu, hồi sinh, thắng/thua, chơi lại
+├─ game/GameManager.ts    máu, hồi sinh, thắng/thua, chơi lại, cá bự, mua kỹ năng
+├─ game/Upgrades.ts       cây kỹ năng ở cửa hàng: giá, thứ tự, đã mua gì
 ├─ ui/
 │  ├─ HeartsHUD.ts        trái tim (MG_heart, MG_heart_empty) và avatar (MG_avatar)
 │  ├─ GameFont.ts         font chung cho mọi chữ (assets/resources/fonts/SuperBouncer.ttf)
 │  ├─ CoinCounter.ts      bộ đếm cá vàng (MG_coin_backing; ô Text Offset X / Y canh chữ số vào giữa thanh nâu)
 │  ├─ BossHealthBar.ts    thanh máu boss (MG_boss_hpgauge, MG_boss_hp, MG_icon_boss)
+│  ├─ ShopPage.ts         bảng cửa hàng: số cá bự / cá vàng, cây kỹ năng, mua
 │  └─ TouchControls.ts    joystick (đế MG_joystick_base + nút MG_joystick_knob) + nút nhảy
 └─ level/
    ├─ GroundBlock.ts      khối nền đá (ô đá xếp ngẫu nhiên, cắt viền chỗ giáp nhau + va chạm)
@@ -492,6 +514,8 @@ assets/scripts/
    ├─ PlayerTrigger.ts    nền chung cho các vùng chạm bên dưới
    ├─ HealPickup.ts       vật phẩm hồi máu
    ├─ CoinPickup.ts       cá vàng để nhặt (MG_coin + đốm MG_coin_sparkle): nhấp nhô, nghiêng; bị ăn thì nổ biến mất
+   ├─ BigFishPickup.ts    cá bự (nguyên liệu mở kỹ năng), không hiện trên HUD
+   ├─ ShopNPC.ts          người bán hàng: đứng gần bấm Lên mở cửa hàng
    ├─ Hazard.ts           vật gây sát thương
    ├─ Checkpoint.ts       điểm hồi sinh
    ├─ Goal.ts             đích
@@ -558,6 +582,19 @@ và game cũng không dùng nó để bám nhân vật. Hãy chỉnh component *
 | Jump Dead Zone | mèo bay cao quá mức này so với chỗ đứng thì camera mới đi lên |
 | Min X / Max X | mép trái và phải của màn, camera không đi quá |
 | Min Y / Max Y | giới hạn camera lên xuống |
+
+**Kiểu Hollow Knight** (nhóm ô *Kiểu Hollow Knight*, bật sẵn; tắt ô *Hk Style* thì camera chạy như bảng trên):
+
+| Thông số | Ý nghĩa |
+|---|---|
+| Hk Style | bật: camera đi theo chiều dọc, lệch theo hướng quay mặt, chúi xuống ở mép vực, giữ phím để nhìn xuống / lên |
+| Hk Max Y | camera lên cao tối đa (thay cho Max Y). Không xuống thấp hơn Min Y (0 = mặt đường) |
+| Jump Zone | 120: nhảy thấp thì camera đứng yên, bay cao hơn chỗ đứng quá mức này mới trôi lên; đáp lên chỗ cao thì camera nâng lên, rơi xuống thì camera bám nhanh gấp đôi |
+| Face Shift / Face Time | 220 / 0.8 giây: camera lệch về hướng mèo quay mặt (thay cho Offset X và Look Ahead), quay đầu thì trôi dần sang hướng mới |
+| Ledge Look / Ledge Dist | 250 / 150: đứng gần mép vực (trước mặt 150 không có nền) và quay mặt ra vực thì camera chúi xuống 250 |
+| Hold Look / Hold Delay | 260 / 0.6 giây: giữ Xuống (ngồi) thì nhìn xuống, đứng yên giữ Lên thì nhìn lên |
+
+Trận boss: khu boss khoá camera cả ngang lẫn dọc (không nhảy theo, không nhìn xuống), mở lại khi hạ boss / gục.
 
 Muốn mặt đất nằm cao hay thấp trên màn hình thì có thể kéo cả 4 node lớp `BG`, `MG`, `Gameplay`, `FR` lên hoặc xuống,
 hoặc dùng `Offset.y`.

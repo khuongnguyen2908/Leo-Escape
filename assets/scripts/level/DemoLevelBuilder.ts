@@ -18,6 +18,7 @@ import { LandingScreen, MENU_ITEMS } from '../ui/LandingScreen';
 import { Letterbox } from '../ui/Letterbox';
 import { PauseMenu } from '../ui/PauseMenu';
 import { TouchControls } from '../ui/TouchControls';
+import { BigFishPickup } from './BigFishPickup';
 import { Checkpoint } from './Checkpoint';
 import { CoinGlow } from './CoinGlow';
 import { CoinPickup } from './CoinPickup';
@@ -34,6 +35,7 @@ import { LeafCanopy } from './LeafCanopy';
 import { LightRays } from './LightRays';
 import { PinToScreenTop } from './PinToScreenTop';
 import { PlaceholderBox } from './PlaceholderBox';
+import { ShopNPC } from './ShopNPC';
 import { SkyGradient } from './SkyGradient';
 import { SoftGlow } from './SoftGlow';
 import { TutorialHint } from './TutorialHint';
@@ -602,6 +604,10 @@ export class DemoLevelBuilder extends Component {
         // 31. Khu boss vừa một khung hình (camera giữ nguyên): rút khu boss bên trái 782.5 (khối Ground-001 còn 1640),
         //     bậc đá cao trước khu boss dài thêm chừng đó, boss về giữa khu mới. Chỉ làm khi hai khối còn đúng số cũ
         done.push(...this.fitBossArena(play));
+
+        // 32. Cửa hàng: NPC mèo xám (tạm) đứng sau checkpoint 1, và 1 con cá bự để thử mua kỹ năng.
+        //     Chỉ tạo khi cả màn chưa có ShopNPC / BigFishPickup nào (đã có thì để yên chỗ bạn kéo)
+        done.push(...this.ensureShop(play));
 
         // 24. Tán lá tối (fr_bush) bị bước 9 ghim mép trên như dây cờ (Overlap mặc định 4) nên tán lá lớn tụt xuống che màn hình:
         //     đặt Overlap để mép trên nhô ra ngoài khung đúng như đo trên ảnh demo (chỉ khi Overlap còn đúng 4)
@@ -1817,6 +1823,52 @@ export class DemoLevelBuilder extends Component {
      *   ô nào nằm hẳn sau bậc đá (mép phải lùi vào bậc đá quá 40) thì bỏ;
      * - boss về giữa khu mới. Không đụng gì phía sau khu boss.
      */
+    /** Bước 32: NPC cửa hàng + 1 cá bự gần checkpoint 1 (thiếu thì tạo, có rồi thì thôi). */
+    private ensureShop(play: Node): string[] {
+        const out: string[] = [];
+        const cps = play.getComponentsInChildren(Checkpoint).map((c) => c.node.position).sort((a, b) => a.x - b.x);
+        const leo = play.getComponentsInChildren(PlayerController).find((c) => c.catName !== 'Angelo') ?? null;
+        const cx = cps[0]?.x ?? (leo ? leo.node.position.x + 800 : 0);
+        const cy = cps[0]?.y ?? (leo ? leo.node.position.y : 0);
+        if (this.node.getComponentsInChildren(ShopNPC).length === 0) {
+            const n = this.mk('ShopNPC', play);
+            n.setPosition(cx + 300, cy, 0);
+            // Đứng sau mèo (vẽ trước node mèo)
+            if (leo) n.setSiblingIndex(leo.node.getSiblingIndex());
+            n.addComponent(UITransform).setContentSize(200, 220);
+            n.getComponent(UITransform)!.setAnchorPoint(0.5, 0);
+            n.addComponent(ShopNPC);
+            // Hình tạm: hình đứng của Leo, nhuộm xám, quay mặt sang trái (sau này thay ảnh trong node Hinh)
+            const vis = leo?.getComponentInChildren(PlayerVisual) ?? null;
+            const sf = vis?.idleFrame ?? vis?.getComponent(Sprite)?.spriteFrame ?? this.frame('mg_char_idle');
+            const img = this.mk('Hinh', n);
+            img.addComponent(UITransform).setAnchorPoint(0.5, 0);
+            if (sf) {
+                const sp = img.addComponent(Sprite);
+                sp.sizeMode = Sprite.SizeMode.TRIMMED;
+                sp.spriteFrame = sf;
+                sp.color = new Color(150, 150, 165, 255);
+                const k = (vis?.targetHeight ?? 207) / Math.max(1, sf.rect.height);
+                const facesRight = vis?.artFacesRight ?? true;
+                img.setScale(facesRight ? -k : k, k, 1);
+            } else {
+                this.placeholder(img, 200, 207, new Color(150, 150, 165, 255), 'NPC');
+            }
+            out.push(`thêm NPC cửa hàng (node ShopNPC, mèo xám tạm) ở x ${Math.round(cx + 300)}, sau checkpoint 1: đứng gần bấm Lên để mở cửa hàng`);
+        }
+        if (this.node.getComponentsInChildren(BigFishPickup).length === 0) {
+            // Cá bự (tạm: ảnh cá vàng to gấp ~1.7, nhuộm cam), chân cá cao hơn mặt đất 40
+            const s = 1.3 / ART;
+            const b = this.prop(play, 'mg_coin', cx + 150, cy + 40, s, { phColor: new Color(255, 160, 80, 255), ph: [140, 140], tint: new Color(255, 160, 80, 255) });
+            b.node.name = 'CaBu';
+            const f = b.node.addComponent(BigFishPickup);
+            f.size = new Size(b.w * 0.8, b.h * 0.8);
+            f.offset = new Vec2(0, b.h / 2);
+            out.push(`thêm 1 cá bự (node CaBu) ở x ${Math.round(cx + 150)}, cạnh checkpoint 1, để thử mua kỹ năng`);
+        }
+        return out;
+    }
+
     private fitBossArena(play: Node): string[] {
         const D = 782.5;
         const blocks = play.getComponentsInChildren(GroundBlock);

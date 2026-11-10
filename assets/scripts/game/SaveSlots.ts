@@ -16,8 +16,12 @@ export interface SlotData {
     fish: number;
     coins: number;
     downs: number;
-    /** uuid các con cá đã ăn (vào lại thì không còn cá đó) */
+    /** uuid các con cá đã ăn (vào lại thì không còn cá đó), kể cả cá bự */
     collected: string[];
+    /** Cá bự đang có (nguyên liệu mở kỹ năng ở cửa hàng). Ô lưu cũ chưa có thì là 0 */
+    bigFish?: number;
+    /** Các ô cây kỹ năng đã mua (id trong game/Upgrades.ts). Ô lưu cũ chưa có thì chưa mua gì */
+    unlocks?: string[];
     /** Đã qua màn */
     cleared: boolean;
     /** Độ khó chọn lúc tạo ô (0 CASUAL, 1 NORMAL, 2 MANIAC). Ô lưu cũ chưa có thì tính là CASUAL. */

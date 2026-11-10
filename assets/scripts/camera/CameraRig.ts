@@ -1,8 +1,12 @@
-import { _decorator, Component, Node, UITransform, Vec2 } from 'cc';
+import { _decorator, Component, Node, Rect, UITransform, Vec2 } from 'cc';
 import { EDITOR } from 'cc/env';
-import { clamp } from '../core/Box';
+import { clamp, overlaps } from '../core/Box';
 import { PlatformerBody } from '../core/PlatformerBody';
 import { Settings } from '../core/Settings';
+import { Solid } from '../core/Solid';
+
+const _probe = new Rect();
+const _solidRect = new Rect();
 import { ParallaxLayer } from './ParallaxLayer';
 const { ccclass, property, executeInEditMode } = _decorator;
 
@@ -96,7 +100,42 @@ export class CameraRig extends Component {
     @property({ group: 'Giới hạn màn', tooltip: 'Về đích (camera đứng yên): mép phải khung hình phải cách Max X ít nhất chừng này, sát hơn thì camera trượt nhẹ sang trái, để mèo còn chỗ chạy khuất trước khi đụng tường cuối màn' })
     holdExitRoom = 250;
 
+    @property({ group: 'Kiểu Hollow Knight', tooltip: 'Bật: camera đi theo chiều dọc (nhảy, đứng chỗ cao), lệch theo hướng quay mặt, chúi xuống ở mép vực, giữ Xuống / Lên để nhìn xuống / lên. Tắt: như cũ' })
+    hkStyle = true;
+
+    @property({ group: 'Kiểu Hollow Knight', tooltip: 'Camera lên cao tối đa (thay cho Max Y khi bật kiểu Hollow Knight)' })
+    hkMaxY = 4000;
+
+    @property({ group: 'Kiểu Hollow Knight', tooltip: 'Nhảy cao hơn chỗ đứng chừng này camera mới trôi lên theo (vùng chết, nhảy thấp thì camera đứng yên)' })
+    jumpZone = 120;
+
+    @property({ group: 'Kiểu Hollow Knight', tooltip: 'Camera lệch về hướng mèo quay mặt chừng này (thay cho Offset X)' })
+    faceShift = 220;
+
+    @property({ group: 'Kiểu Hollow Knight', tooltip: 'Quay đầu thì camera trôi sang hướng mới trong khoảng chừng này giây' })
+    faceTime = 0.8;
+
+    @property({ group: 'Kiểu Hollow Knight', tooltip: 'Đứng gần mép vực (trong Ledge Dist) và quay mặt ra vực thì camera chúi xuống chừng này' })
+    ledgeLook = 250;
+
+    @property({ group: 'Kiểu Hollow Knight', tooltip: 'Mép vực cách chân mèo bao xa thì tính là đứng gần mép' })
+    ledgeDist = 150;
+
+    @property({ group: 'Kiểu Hollow Knight', tooltip: 'Giữ Xuống (ngồi) / giữ Lên khi đứng yên thì camera nhìn xuống / lên chừng này' })
+    holdLook = 260;
+
+    @property({ group: 'Kiểu Hollow Knight', tooltip: 'Giữ phím bao lâu (giây) mới bắt đầu nhìn xuống / lên' })
+    holdDelay = 0.6;
+
     readonly position = new Vec2();
+
+    /** Kiểu Hollow Knight: độ lệch ngang theo hướng mặt, độ chúi dọc (nhìn xuống âm), thời gian đang giữ Xuống / Lên */
+    private face = 0;
+    private lookY = 0;
+    private holdDown = 0;
+    private holdUp = 0;
+    /** Khu boss: khoá độ cao camera theo mặt đất khu boss (không nhảy theo, không nhìn xuống) */
+    private lockedY: number | null = null;
 
     private look = 0;
     private anchorY = 0;
@@ -156,14 +195,32 @@ export class CameraRig extends Component {
 
         const zoom = Math.max(0.1, this.zoom);
         const halfW = this.frameWidth() / 2 / zoom;
-        const desiredX = this.maxX - this.minX > halfW * 2
-            ? clamp(cx + this.look + this.offset.x, this.minX + halfW, this.maxX - halfW)
-            : (this.minX + this.maxX) / 2;
-        const desiredY = clamp(this.trackY(list[0].position.y), this.minY, this.maxY) + this.offset.y;
+        let desiredX: number, desiredY: number;
+        if (this.hkStyle) {
+            // Ngang: lệch về hướng quay mặt, quay đầu thì trôi dần sang hướng mới
+            const ctl = list[0].getComponent('PlayerController') as unknown as { facing?: number; controls?: { down: boolean; upHeld: boolean } } | null;
+            const facing = ctl?.facing ?? 1;
+            this.face += (facing * this.faceShift - this.face) * (1 - Math.exp(-dt * 3 / Math.max(0.05, this.faceTime)));
+            desiredX = this.maxX - this.minX > halfW * 2
+                ? clamp(cx + this.face, this.minX + halfW, this.maxX - halfW)
+                : (this.minX + this.maxX) / 2;
+            // Dọc: theo chỗ đứng / nhảy cao (vùng chết), cộng độ chúi (mép vực, giữ Xuống / Lên); khu boss thì khoá
+            const want = this.lockedY !== null ? 0 : this.hkLook(list[0], ctl, facing, dt);
+            this.lookY += (want - this.lookY) * (1 - Math.exp(-4 * dt));
+            const base = this.lockedY ?? this.trackJump(list[0].position.y);
+            desiredY = clamp(base + this.lookY, this.minY, Math.max(this.maxY, this.hkMaxY)) + this.offset.y;
+        } else {
+            desiredX = this.maxX - this.minX > halfW * 2
+                ? clamp(cx + this.look + this.offset.x, this.minX + halfW, this.maxX - halfW)
+                : (this.minX + this.maxX) / 2;
+            desiredY = clamp(this.trackY(list[0].position.y), this.minY, this.maxY) + this.offset.y;
+        }
 
         if (this.snapped) {
             this.position.x += (desiredX - this.position.x) * (1 - Math.exp(-this.dampingX * dt));
-            this.position.y += (desiredY - this.position.y) * (1 - Math.exp(-this.dampingY * dt));
+            // Rơi xuống (camera cần đi xuống) thì bám nhanh gấp đôi để thấy chỗ đáp
+            const dampY = this.hkStyle && desiredY < this.position.y ? this.dampingY * 2 : this.dampingY;
+            this.position.y += (desiredY - this.position.y) * (1 - Math.exp(-dampY * dt));
         } else {
             this.position.set(desiredX, desiredY);
             this.snapped = true;
@@ -228,6 +285,43 @@ export class CameraRig extends Component {
     }
 
     /** Độ cao camera bám theo: chỗ mèo đứng gần nhất, trừ khi rơi thấp hơn hoặc bay quá cao. */
+    /** Khu boss: khoá độ cao camera theo mặt đất y (null = mở lại). */
+    lockY(y: number | null) {
+        this.lockedY = y;
+        if (y !== null) this.lookY = 0;
+    }
+
+    /**
+     * Kiểu Hollow Knight: đứng trên đất thì camera theo đúng chỗ đứng (đáp lên chỗ cao thì nâng lên);
+     * trên không chỉ đi lên khi bay cao hơn chỗ đứng quá Jump Zone; rơi thấp hơn chỗ đứng thì theo xuống ngay.
+     */
+    private trackJump(y: number): number {
+        const body = this.targetBody;
+        if (!body || !this.snapped || body.grounded || y < this.anchorY) this.anchorY = y;
+        else if (y > this.anchorY + this.jumpZone) this.anchorY = y - this.jumpZone;
+        return this.anchorY;
+    }
+
+    /** Độ chúi dọc mong muốn: giữ Xuống / Lên đủ lâu, hoặc đứng gần mép vực và quay mặt ra vực (âm = nhìn xuống). */
+    private hkLook(node: Node, ctl: { controls?: { down: boolean; upHeld: boolean } } | null, facing: number, dt: number): number {
+        const body = this.targetBody;
+        if (!body || !body.grounded) {
+            this.holdDown = this.holdUp = 0;
+            return 0;
+        }
+        const down = !!ctl?.controls?.down;
+        const up = !!ctl?.controls?.upHeld && Math.abs(body.velocity.x) < 20;
+        this.holdDown = down ? this.holdDown + dt : 0;
+        this.holdUp = up ? this.holdUp + dt : 0;
+        if (this.holdDown >= this.holdDelay) return -this.holdLook;
+        if (this.holdUp >= this.holdDelay) return this.holdLook;
+        // Mép vực: phía trước mặt cách Ledge Dist không có nền đỡ chân
+        const p = node.position;
+        _probe.set(p.x + facing * this.ledgeDist - 10, p.y - 40, 20, 34);
+        const hasGround = Solid.all.some((s) => s.enabled && s.node.activeInHierarchy && overlaps(s.getRect(_solidRect), _probe));
+        return hasGround ? 0 : -this.ledgeLook;
+    }
+
     private trackY(y: number): number {
         const body = this.targetBody;
         if (this.followJump || !body || !this.snapped) {
