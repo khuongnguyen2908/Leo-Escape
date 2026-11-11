@@ -29,6 +29,9 @@ export class PlatformerBody extends Component {
     @property({ tooltip: 'Tốc độ rơi tối đa' })
     maxFallSpeed = 1500;
 
+    @property({ tooltip: 'Tự bước lên bậc thấp: đang đứng trên đất mà đi vào mép một khối cao hơn chân không quá chừng này thì bước lên luôn, khỏi nhảy (cầu thang). 0 = tắt' })
+    stepHeight = 0;
+
     readonly velocity = new Vec2();
     gravityScale = 1;
 
@@ -58,12 +61,20 @@ export class PlatformerBody extends Component {
 
         // Trục X: chỉ bục đặc mới chặn ngang
         let dx = v.x * dt;
+        let stepUp = 0;
         this.hitLeft = this.hitRight = false;
         if (dx !== 0) {
             for (const s of Solid.all) {
                 if (s.oneWay) continue;
                 const o = s.getRect(_other);
                 if (r.yMin >= o.yMax - EPS || r.yMax <= o.yMin + EPS) continue;
+                // Bậc thấp (Step Height): đang đứng trên đất và mặt khối chỉ cao hơn chân một chút thì bước lên, không chặn
+                const rise = o.yMax - r.yMin;
+                const ahead = dx > 0 ? (o.xMin >= r.xMax - EPS && o.xMin - r.xMax < dx) : (o.xMax <= r.xMin + EPS && o.xMax - r.xMin > dx);
+                if (ahead && this.stepHeight > 0 && this.grounded && v.y <= 0 && rise > 0 && rise <= this.stepHeight) {
+                    stepUp = Math.max(stepUp, rise);
+                    continue;
+                }
                 if (dx > 0 && o.xMin >= r.xMax - EPS && o.xMin - r.xMax < dx) {
                     dx = o.xMin - r.xMax;
                     this.hitRight = true;
@@ -75,6 +86,7 @@ export class PlatformerBody extends Component {
             if (this.hitLeft || this.hitRight) v.x = 0;
         }
         r.x += dx;
+        r.y += stepUp;
 
         // Trục Y
         let dy = v.y * dt;
@@ -100,7 +112,7 @@ export class PlatformerBody extends Component {
         if (this.grounded || this.hitCeiling) v.y = 0;
 
         const p = this.node.position;
-        this.node.setPosition(p.x + dx, p.y + dy, p.z);
+        this.node.setPosition(p.x + dx, p.y + stepUp + dy, p.z);
     }
 
     /** Có mặt đất (bục bất kỳ) ngay tại điểm (x, y) không — dùng để kẻ địch quay đầu ở mép vực. */

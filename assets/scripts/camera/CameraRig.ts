@@ -9,7 +9,9 @@ import { Solid } from '../core/Solid';
 interface CatLike { facing?: number; controls?: { down: boolean; upHeld: boolean } }
 
 const _probe = new Rect();
+const _zone = new Rect();
 const _solidRect = new Rect();
+import { CameraZone } from './CameraZone';
 import { ParallaxLayer } from './ParallaxLayer';
 const { ccclass, property, executeInEditMode } = _decorator;
 
@@ -209,14 +211,29 @@ export class CameraRig extends Component {
             const ctl = this.targetCtl;
             const facing = ctl?.facing ?? 1;
             this.face += (facing * this.faceShift - this.face) * (1 - Math.exp(-dt * 3 / Math.max(0.05, this.faceTime)));
-            desiredX = this.maxX - this.minX > halfW * 2
-                ? clamp(cx + this.face, this.minX + halfW, this.maxX - halfW)
-                : (this.minX + this.maxX) / 2;
+            // Vùng camera (CameraZone: phòng riêng, khu dưới phố) thay cho giới hạn chung khi mèo đứng trong vùng
+            const zone = this.lockedY === null ? CameraZone.find(list[0].position.x, list[0].position.y) : null;
+            const zr = zone ? zone.rect(_zone) : null;
+            const minX = zr && zone!.clampSides ? zr.x : this.minX;
+            const maxX = zr && zone!.clampSides ? zr.x + zr.width : this.maxX;
+            desiredX = maxX - minX > halfW * 2
+                ? clamp(cx + this.face, minX + halfW, maxX - halfW)
+                : (minX + maxX) / 2;
             // Dọc: theo chỗ đứng / nhảy cao (vùng chết), cộng độ chúi (mép vực, giữ Xuống / Lên); khu boss thì khoá
             const want = this.lockedY !== null ? 0 : this.hkLook(list[0], ctl, facing, dt);
             this.lookY += (want - this.lookY) * (1 - Math.exp(-4 * dt));
             const base = this.lockedY ?? this.trackJump(list[0].position.y);
-            desiredY = clamp(base + this.lookY, this.minY, Math.max(this.maxY, this.hkMaxY)) + this.offset.y;
+            if (zr) {
+                // Trong vùng: bỏ Min Y chung (khu dưới phố thấp hơn 0), giữ khung hình trong vùng theo các ô Clamp
+                const halfH = this.frameWidth() * 9 / 16 / 2 / zoom;
+                let y = base + this.lookY + this.offset.y;
+                const lo = zone!.clampBottom ? zr.y + halfH : -Infinity;
+                const hi = zone!.clampTop ? zr.y + zr.height - halfH : Infinity;
+                y = lo > hi ? (zr.y + zr.y + zr.height) / 2 : clamp(y, lo, hi);
+                desiredY = y;
+            } else {
+                desiredY = clamp(base + this.lookY, this.minY, Math.max(this.maxY, this.hkMaxY)) + this.offset.y;
+            }
         } else {
             desiredX = this.maxX - this.minX > halfW * 2
                 ? clamp(cx + this.look + this.offset.x, this.minX + halfW, this.maxX - halfW)

@@ -1,4 +1,4 @@
-import { _decorator, assetManager, BlockInputEvents, Color, Component, instantiate, Label, Node, resources, Size, Sprite, SpriteFrame, sys, TTFFont, UITransform, Vec2, view, Widget } from 'cc';
+import { _decorator, assetManager, BlockInputEvents, Color, Component, director, instantiate, Label, Node, resources, Size, Sprite, SpriteFrame, sys, TTFFont, UITransform, Vec2, view, Widget } from 'cc';
 import { EDITOR } from 'cc/env';
 import { CameraRig } from '../camera/CameraRig';
 import { ParallaxLayer } from '../camera/ParallaxLayer';
@@ -36,6 +36,7 @@ import { LeafCanopy } from './LeafCanopy';
 import { LightRays } from './LightRays';
 import { PinToScreenTop } from './PinToScreenTop';
 import { PlaceholderBox } from './PlaceholderBox';
+import { buildMapThu } from './MapThuBuilder';
 import { ShopNPC } from './ShopNPC';
 import { SkyGradient } from './SkyGradient';
 import { SoftGlow } from './SoftGlow';
@@ -193,6 +194,20 @@ export class DemoLevelBuilder extends Component {
     get rebuildInScene() { return false; }
     set rebuildInScene(v: boolean) {
         if (v && EDITOR) this.rebuildFromScratch();
+    }
+
+    @property({ displayName: '🧱 Dựng map thử (chỉ scene MapThu)', tooltip: 'Dựng thử Map 1 bằng khối màu vẽ code (mái nhà, cống, hang, hầm, bờ sông, 2 chìa, cổng 2 ổ khoá) theo docs/camera-demo.html. Chỉ chạy khi scene đang mở tên MapThu; Main.scene không bị đụng. Bấm lại thì xoá node MapThu cũ và dựng mới (chỉnh tay bên trong sẽ mất). Bấm xong Ctrl+S' })
+    get buildTestMap() { return false; }
+    set buildTestMap(v: boolean) {
+        if (!v || !EDITOR) return;
+        const sceneName = director.getScene()?.name ?? '';
+        if (sceneName !== 'MapThu') {
+            console.warn(`[DemoLevelBuilder] 🧱 chỉ dùng trong scene MapThu (đang mở: ${sceneName || 'không rõ'}). Không làm gì.`);
+            return;
+        }
+        const done = buildMapThu(this.node);
+        try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
+        console.log(`[DemoLevelBuilder] 🧱 Map thử:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu.`);
     }
 
     @property({ displayName: 'Cho phép xoá màn đang có', tooltip: 'Khoá an toàn cho nút ⟳. Tự tắt lại sau khi dựng' })

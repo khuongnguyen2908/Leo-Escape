@@ -110,6 +110,12 @@ export class LeoSkills extends Component implements CatSkills {
     @property
     throwLift = 1150;
 
+    @property({ group: 'Bám tường', tooltip: 'Đang bám tường thì trượt xuống chậm nhất bao nhiêu (chỉ khi ô Wall Jump của PlayerController bật)' })
+    wallSlideSpeed = 170;
+
+    @property({ group: 'Bám tường', tooltip: 'Bật khỏi tường văng ngang nhanh chừng này' })
+    wallJumpSpeed = 620;
+
     @property({ tooltip: 'Tốc độ leo dây' })
     climbSpeed = 420;
 
@@ -122,6 +128,9 @@ export class LeoSkills extends Component implements CatSkills {
     private poundFromY = 0;
     private burstTime = 0;
     private airLeft = 1;
+    /** Bám tường: tường bên nào (-1 trái, 1 phải) và còn được bật trong bao lâu sau khi rời tường */
+    private wallSide = 0;
+    private wallTimer = 0;
 
     onLoad() {
         // Ảnh hiệu ứng kỹ năng của Leo (art/fx): tải trước để lần dùng đầu tiên đã có hình
@@ -207,15 +216,44 @@ export class LeoSkills extends Component implements CatSkills {
 
     /** Nhảy lần 2 trên không (đang bê Angelo, đập bụng, gồng... thì không). */
     airJump(): boolean {
-        if (this.state !== 'none' || this.carrying || this.airLeft <= 0) return false;
+        if (this.state !== 'none' || this.carrying) return false;
         const c = this.cat;
+        if (this.wallTimer > 0) {
+            // Nhảy bật tường: văng ra ngược phía tường, được nhảy 2 lần lại
+            c.body.velocity.x = -this.wallSide * this.wallJumpSpeed;
+            c.pushLock = 0.18;
+            c.facing = -this.wallSide;
+            c.startJump(c.jumpSpeed * 0.95);
+            this.wallTimer = 0;
+            this.airLeft = this.airJumps;
+            this.getComponent(RunDust)?.airJumpPuff();
+            return true;
+        }
+        if (this.airLeft <= 0) return false;
         this.airLeft--;
         c.startJump(c.jumpSpeed * this.airJumpPower);
         this.getComponent(RunDust)?.airJumpPuff();
         return true;
     }
 
-    beforeMove(_dt: number) {}
+    /** Bám tường (chỉ khi PlayerController.wallJump bật): đang rơi mà đẩy vào tường thì trượt chậm xuống. */
+    beforeMove(dt: number) {
+        const c = this.cat, b = c.body, ctl = c.controls;
+        if (!c.wallJump || this.state !== 'none' || this.carrying || b.grounded) {
+            this.wallTimer = 0;
+            return;
+        }
+        const pressingIn = (b.hitLeft && ctl.left) || (b.hitRight && ctl.right);
+        if (pressingIn && b.velocity.y < 0) {
+            this.wallSide = b.hitLeft ? -1 : 1;
+            this.wallTimer = 0.15;
+            // Tắt trọng lực lúc bám, không thì vẫn bị kéo nhanh thêm sau khi giới hạn
+            b.velocity.y = Math.max(b.velocity.y - 600 * dt, -this.wallSlideSpeed);
+            b.gravityScale = 0;
+        } else {
+            this.wallTimer -= dt;
+        }
+    }
 
     interrupt() {
         if (this.carrying) this.dropPartner(0, 300, false);

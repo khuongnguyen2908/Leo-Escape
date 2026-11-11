@@ -184,6 +184,9 @@ const TEXT = {
     'gameover.menu': ['Về menu', 'Quit to menu'],
     'goal.locked': ['Hạ boss trước đã!', 'Defeat the boss first!'],
     'bigfish.got': ['+1 CÁ BỰ', '+1 BIG FISH'],
+    'key.got': ['+1 CHÌA KHOÁ', '+1 KEY'],
+    'gate.need': ['Còn thiếu {0} chìa khoá', '{0} more key(s) needed'],
+    'gate.open': ['Cổng đã mở!', 'The gate is open!'],
 
     // Cửa hàng (ShopNPC, ShopPage) và cây kỹ năng (game/Upgrades.ts)
     'shop.title': ['CỬA HÀNG', 'SHOP'],

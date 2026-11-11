@@ -195,6 +195,21 @@ Bị chém trúng lúc đang rướn / lao thì mất đòn. Số liệu: nhóm 
 cá nhấp nhô và nghiêng nhẹ, đốm `MG_coin_sparkle` trên cá nhấp nháy, xoay chậm (`CoinPickup`). Bị ăn: cá phồng lên rồi teo mất, đốm bung ra, quầng nở thành vòng rồi tan (~0.45 giây).
 Ảnh chỉ dùng lúc chơi; trong editor vẫn thấy quầng tạm vẽ bằng code.
 
+## Map thử (scene MapThu)
+
+Mở `assets/scenes/MapThu.scene` (bản sao của Main), chọn Canvas, bấm **🧱 Dựng map thử** trên DemoLevelBuilder rồi Ctrl+S.
+Nút chỉ chạy ở scene tên MapThu; mọi khối nằm dưới node `MapThu` trong Gameplay (**đừng kéo node MapThu**, phải ở (0, 0)). Bấm lại thì dựng mới.
+
+| Thành phần | Dùng thế nào |
+|---|---|
+| **MapBlock** | Khối màu vẽ bằng code, gốc ở góc trên trái. *Kind*: Wall (tường / nền), Platform (bục một chiều, S S để rơi), Backdrop (chỉ là nền) |
+| **Door** | Cửa: đứng trước cửa bấm Lên → màn tối, sang chỗ node *Target* |
+| **CameraZone** | Khung giới hạn camera khi Leo đứng trong vùng (viền cam trong editor). Clamp Sides / Bottom / Top: chặn mép nào |
+| **KeyPickup**, **LockedGate**, **KeySlots** | Chìa để nhặt, cổng mở khi đủ *Keys Needed* chìa, 2 ô chìa trên HUD |
+| Wall Jump (PlayerController) | Đang rơi mà đẩy vào tường thì trượt chậm, bấm Nhảy bật ra. MapThu bật, Main tắt |
+| Step Height (PlatformerBody) | Tự bước lên bậc thấp hơn số này khi đang đi trên đất (cầu thang đi bộ được). MapThu đặt 45 cho Leo, Main 0 (tắt) |
+| Cầu thang xuống ô đá thấp | Nút 🧱 tìm ô đá `Tile_...` bạn đặt thẳng trong Gameplay dưới mặt phố (x 2600 → 4000), làm 6 bậc từ phố x 1980 xuống mặt ô đá. Kéo ô đá chỗ khác rồi bấm 🧱 lại là cầu thang chạy theo |
+
 ## Cửa hàng và cá bự
 
 - **Cá bự** (node `CaBu`, `BigFishPickup.ts`): nguyên liệu mở kỹ năng. Nhặt thì chữ "+1 CÁ BỰ" bay lên; **không hiện trên HUD**, chỉ thấy số cá bự trong cửa hàng.

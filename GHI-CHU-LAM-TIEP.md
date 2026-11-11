@@ -76,6 +76,13 @@ Hai dòng "bước 1", "bước 2" ngay dưới là việc đã làm trước kh
 - Bố cục đang thử (11/11): đầu map là **Nhà Leo** (không có khu Chợ); **Bờ sông nằm dưới đầu phố**, khe x 933–998 sau Nhà Leo là chỗ thấy nước,
   vào bằng ống cống ở đầu trái Cống. Chưa quyết: Cống liền dưới phố hay phòng riêng, zoom 0.8 hay 1.0.
 - Sơ đồ trong `docs/thiet-ke-game.html` mục 10 là **bản nháp cũ** (Bờ sông còn vẽ ở cuối phố).
+- **Scene thử `assets/scenes/MapThu.scene`** (11/11, bản sao của Main): nút **🧱 Dựng map thử** trên DemoLevelBuilder dựng Map 1 bằng khối màu
+  vẽ code theo `camera-demo.html` (code: `level/MapThuBuilder.ts`). Có: mái nhà + tổ chim (chìa 1), cống dưới phố (2 nắp cống, S S để chui,
+  leo lên bằng wall jump), bờ sông dưới Nhà Leo, hầm bí mật và hang (phòng riêng, vào bằng cửa, chìa 2 trong hang), cửa sắt lên phố,
+  cổng 2 ổ khoá ở x 8850, 2 ô chìa trên HUD. Đã chơi thử trọn một vòng. Chưa có: boss phụ, lưu chìa vào ô lưu, hình thật.
+  Component mới dùng được ở mọi scene: `MapBlock` (khối màu có va chạm), `Door`, `KeyPickup`, `LockedGate`, `CameraZone`, `ui/KeySlots`;
+  `PlayerController.wallJump` và `PlatformerBody.stepHeight` (Main đang tắt). Bấm 🧱 lại thì dựng mới từ đầu (chỉnh tay trong node MapThu sẽ mất).
+  Cầu thang bậc thấp từ phố (x 1980) xuống ô đá `Tile_6` người dùng đặt dưới khối đá cao cạnh checkpoint 1: chỗ cụt, chưa quyết đi tiếp đâu.
 
 Thiết kế (các khu, giá từng ô): `docs/thiet-ke-game.html` mục 10 và 11.
 - Mọi kỹ năng có từ đầu, riêng **Sóng kiếm** mua ở **cửa hàng** (hiện là NPC tạm `ShopNPC`). Đường bị khoá bằng **chìa khoá**, không bằng kỹ năng.

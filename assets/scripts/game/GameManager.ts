@@ -443,6 +443,19 @@ export class GameManager extends Component {
         if (id) this.collected.push(id);
     }
 
+    /** Số chìa khoá đang có (map thử: mở cổng 2 ổ khoá trước khu boss). Chưa ghi vào ô lưu. */
+    keys = 0;
+    /** Gọi khi số chìa đổi (ô chìa trên HUD, cổng) */
+    readonly keyListeners: (() => void)[] = [];
+
+    /** Nhặt chìa (KeyPickup). */
+    addKey(id?: string) {
+        Sound.play('checkpoint', 0.9);
+        this.keys++;
+        if (id) this.collected.push(id);
+        for (const f of this.keyListeners.slice()) f();
+    }
+
     /**
      * Mua một ô cây kỹ năng: đủ cá bự, cá vàng và đã có ô trước thì trừ cá, mở kỹ năng, ghi ngay vào ô lưu.
      * Mua thêm tim thì hồi đầy tim luôn. Trả về true nếu mua được.

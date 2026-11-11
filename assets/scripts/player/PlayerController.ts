@@ -92,6 +92,9 @@ export class PlayerController extends Component {
     @property({ group: 'Nhảy', tooltip: 'Vẫn nhảy được trong khoảng này (giây) sau khi rời mép' })
     coyoteTime = 0.1;
 
+    @property({ group: 'Nhảy', tooltip: 'Bám tường bật nhảy: đang rơi mà đẩy vào tường thì trượt chậm, bấm Nhảy để bật ra phía ngược lại. Màn chính đang tắt; scene thử MapThu bật (leo ống cống)' })
+    wallJump = false;
+
     @property({ group: 'Nhảy', tooltip: 'Bấm nhảy sớm trong khoảng này (giây) trước khi chạm đất vẫn được tính' })
     jumpBuffer = 0.12;
 

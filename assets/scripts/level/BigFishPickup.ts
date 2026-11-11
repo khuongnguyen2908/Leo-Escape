@@ -1,10 +1,13 @@
-import { _decorator, Color, Graphics, Node, tween, UIOpacity, UITransform, Vec3 } from 'cc';
+import { _decorator, Color, Graphics, Node, Sprite, tween, UIOpacity, UITransform, Vec3 } from 'cc';
 import { EDITOR } from 'cc/env';
 import { GameManager } from '../game/GameManager';
 import { T } from '../ui/Lang';
 import { uiLabel, uiNode } from '../ui/UiKit';
 import { PlayerTrigger } from './PlayerTrigger';
-const { ccclass, property } = _decorator;
+const { ccclass, property, executeInEditMode } = _decorator;
+
+const FISH = new Color(255, 160, 80, 255);
+const FISH_EDGE = new Color(120, 60, 20, 255);
 
 const HALO = new Color(255, 196, 90, 255);
 const TEXT = new Color(255, 226, 150, 255);
@@ -17,6 +20,7 @@ const TEXT_EDGE = new Color(0x46, 0x2c, 0x22, 255);
  * Đã nhặt thì ghi vào ô lưu (uuid node), vào lại không còn con này.
  */
 @ccclass('BigFishPickup')
+@executeInEditMode
 export class BigFishPickup extends PlayerTrigger {
     @property({ tooltip: 'Nhấp nhô lên xuống bao nhiêu' })
     bobHeight = 14;
@@ -27,6 +31,27 @@ export class BigFishPickup extends PlayerTrigger {
     private baseY = NaN;
     private time = 0;
     private halo: Node | null = null;
+
+    /** Không có ảnh (map thử dựng bằng code): vẽ tạm một con cá cam, tâm ở gốc node. */
+    onLoad() {
+        if (this.getComponent(Sprite)) return;
+        const g = this.getComponent(Graphics) ?? this.addComponent(Graphics);
+        g.clear();
+        g.fillColor = FISH;
+        g.strokeColor = FISH_EDGE;
+        g.lineWidth = 5;
+        g.ellipse(0, 0, 70, 40);
+        g.moveTo(60, 0);
+        g.lineTo(110, 34);
+        g.lineTo(110, -34);
+        g.close();
+        g.fill();
+        g.stroke();
+        g.fillColor = FISH_EDGE;
+        g.circle(-38, 8, 7);
+        g.fill();
+        if (this.size.width === 0) this.size.set(150, 100);
+    }
 
     start() {
         if (EDITOR) return;
