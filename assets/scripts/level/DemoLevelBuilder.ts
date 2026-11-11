@@ -1166,8 +1166,9 @@ export class DemoLevelBuilder extends Component {
         const groundY = -this.H / 2 + this.groundFromBottom;
 
         this.buildSky();
-        const bg = this.layer('BG', BG_F, 0.05, groundY);
-        const mg = this.layer('MG', MG_F, 0.3, groundY);
+        // BG (nhà xa, trời) đứng yên theo chiều dọc; MG (nhà, cây đứng trên mặt phố) lên xuống cùng mặt đất để chân nhà không bị lệch
+        const bg = this.layer('BG', BG_F, 0, groundY);
+        const mg = this.layer('MG', MG_F, 1, groundY);
         const play = this.layer('Gameplay', 1, 1, groundY);
         const fr = this.layer('FR', FR_F, 1.1, groundY);
         // Băng rôn treo trên cao: trôi ngang như FR nhưng đứng yên theo chiều dọc, để mép trên không bị hở khi camera lên xuống

@@ -448,6 +448,8 @@ Mọi tiếng nằm trong `assets/resources/sounds`. Một phần là tiếng th
 - **Mỗi file script chỉ chứa một component** (`@ccclass` kế thừa Component). Đây là quy định của Cocos.
 
 - **Cấu trúc lớp** dưới Canvas (số trong ngoặc là hệ số trôi ngang): `Sky` → `BG` (0.3) → `Light_Far` (0) → `MG` (0.8) → `Filter` (0) → `River` (0.9) → `Light` (0.9) → `Gameplay` (1) → `FR` (1.35) → `FR_Top` (1.35) → `HUD`.
+  Theo chiều dọc: `BG` (nhà xa, trời) Factor Y = 0, đứng yên khi camera lên xuống; `MG` (nhà, cây đứng trên mặt phố) Factor Y = 1,
+  lên xuống cùng mặt đất nên chân nhà không bao giờ lệch (camera kiểu Hollow Knight không chạy theo cú nhảy thấp, nên lúc đi và nhảy thường MG gần như đứng yên).
   `FR_Top` chứa đồ treo trên cao (băng rôn): Factor là (1.35, 0), tức trôi ngang nhưng đứng yên theo chiều dọc,
   để mép trên không bị hở khi camera lên xuống. Đồ nào cần dính mép trên màn hình thì đặt vào lớp này.
   Băng rôn, cờ trong lớp này có component **PinToScreenTop**: mép trên luôn sát mép khung hình, kéo ngang được còn độ cao do component giữ.
