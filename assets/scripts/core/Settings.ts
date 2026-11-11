@@ -8,23 +8,11 @@ export type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'ski
 
 export const ACTIONS: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'skill', 'interact', 'swap'];
 
-export const ACTION_NAMES: Record<Action, string> = {
-    left: 'Sang trái',
-    right: 'Sang phải',
-    up: 'Lên bục',
-    down: 'Xuống bục',
-    jump: 'Nhảy',
-    attack: 'Đánh',
-    skill: 'Kỹ năng',
-    interact: 'Tương tác',
-    swap: 'Đổi mèo',
-};
-
 type KeyMap = Record<Action, number>;
 
 /**
  * Kiểu phím có sẵn: WASD (J đánh, K nhảy) hoặc Mũi tên (X đánh, Z nhảy). 'custom' = đã đổi lẻ phím.
- * Game chỉ có 2 nút: Đánh và Nhảy (không còn Angelo): Kỹ năng, Tương tác, Đổi mèo không gán phím (NONE).
+ * Game có 4 nút: Đánh, Nhảy, Lướt (hành động interact) và Special (hành động skill). Đổi mèo không gán phím (không còn Angelo).
  */
 export type KeyLayout = 'wasd' | 'arrows' | 'custom';
 
@@ -67,12 +55,14 @@ interface Data {
     shake: boolean;
     lang: LangCode;
     keys: KeyMap[];
+    /** Bản của bộ phím đã lưu. Từ 2 trở lên thì không chạy lại bước đổi bộ phím mặc định cũ */
+    keysVersion: number;
 }
 
 const STORE_KEY = 'leo-escape-settings';
 
 function defaults(): Data {
-    return { master: 1, music: 0.35, sfx: 0.8, fullscreen: false, shake: true, lang: 'en', keys: DEFAULT_KEYS.map((k) => ({ ...k })) };
+    return { master: 1, music: 0.35, sfx: 0.8, fullscreen: false, shake: true, lang: 'en', keys: DEFAULT_KEYS.map((k) => ({ ...k })), keysVersion: 2 };
 }
 
 function load(): Data {
@@ -93,9 +83,11 @@ function load(): Data {
                 if (typeof k === 'number') d.keys[p][a] = k;
             }
         }
-        // Còn đúng bộ phím mặc định cũ (6 phím chính) thì đổi sang bộ mới (WASD: K nhảy; bỏ Kỹ năng / Tương tác / Đổi mèo)
+        // Còn đúng bộ phím mặc định cũ (6 phím chính) thì đổi sang bộ mới (WASD: K nhảy).
+        // Chỉ làm MỘT lần cho cài đặt lưu từ bản cũ (chưa có keysVersion): bộ Mũi tên mới trùng 6 phím chính với bộ cũ,
+        // chạy lại mỗi lần mở game thì phím Special / Lướt người chơi tự đặt sẽ bị trả về mặc định
         const p0 = d.keys[0];
-        OLD_LAYOUTS.forEach((old, i) => {
+        if (!(saved.keysVersion >= 2)) OLD_LAYOUTS.forEach((old, i) => {
             const same = (Object.keys(old) as Action[]).every((a) => p0[a] === old[a]);
             const stale = p0.skill !== KeyCode.NONE || p0.interact !== KeyCode.NONE || p0.swap !== KeyCode.NONE;
             if (same && stale) d.keys[0] = { ...LAYOUT_KEYS[i === 0 ? 'wasd' : 'arrows'] };
@@ -119,8 +111,6 @@ function load(): Data {
 
 let data: Data | null = null;
 const listeners: (() => void)[] = [];
-/** Đang mở bảng Cài đặt: đổi thì áp dụng ngay nhưng chưa ghi xuống máy, bấm Lưu mới ghi (bản lúc mở để trả lại). */
-let editSnapshot: string | null = null;
 
 function get(): Data {
     if (!data) data = load();
@@ -136,7 +126,7 @@ function write() {
 }
 
 function save() {
-    if (editSnapshot === null) write();
+    write();
     for (const l of listeners.slice()) l();
 }
 
@@ -205,35 +195,6 @@ export const Settings = {
     resetGame() {
         get().lang = defaults().lang;
         save();
-    },
-
-    /** Mở bảng Cài đặt: từ giờ đổi gì cũng áp dụng ngay nhưng chưa ghi xuống máy. */
-    beginEdit() {
-        if (editSnapshot === null) editSnapshot = JSON.stringify(get());
-    },
-
-    /** Có đổi gì so với lúc mở bảng không. */
-    get dirty(): boolean {
-        return editSnapshot !== null && editSnapshot !== JSON.stringify(get());
-    },
-
-    /** Bấm Lưu: ghi xuống máy, bản này thành mốc mới (vẫn đang trong bảng). */
-    commitEdit() {
-        write();
-        if (editSnapshot !== null) editSnapshot = JSON.stringify(get());
-    },
-
-    /** Bỏ thay đổi: trả mọi cài đặt về như lúc mở bảng, rồi kết thúc phiên. */
-    cancelEdit() {
-        if (editSnapshot === null) return;
-        data = JSON.parse(editSnapshot);
-        editSnapshot = null;
-        for (const l of listeners.slice()) l();
-    },
-
-    /** Đóng bảng (đã lưu hoặc không đổi gì). */
-    endEdit() {
-        editSnapshot = null;
     },
 
     get lang(): LangCode { return get().lang; },

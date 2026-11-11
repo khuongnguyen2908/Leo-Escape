@@ -26,7 +26,7 @@ const isGround = c => c && '_overlap' in c && '_tileHeight' in c;
 const canvas = S.find(o => o._name === 'Canvas' && o.__type__ === 'cc.Node');
 // Bỏ qua UI và node chỉ dùng trong editor. Lớp đang tắt (như MG) cũng bị bỏ qua, giống lúc chơi.
 const SKIP = new Set(['Landing', 'DemoRef', 'Camera', 'image 1465', 'HUD', 'BossBar', 'TouchControls']);
-const CAMS = [660, 2580, 4500, 6420], CAM_Y = 46;
+const CAMS = [660, 2580, 4500, 6420], CAM_Y = 33;
 const mul = (m, n) => [m[0]*n[0]+m[2]*n[1], m[1]*n[0]+m[3]*n[1], m[0]*n[2]+m[2]*n[3], m[1]*n[2]+m[3]*n[3], m[0]*n[4]+m[2]*n[5]+m[4], m[1]*n[4]+m[3]*n[5]+m[5]];
 const apply = (m, x, y) => [m[0]*x + m[2]*y + m[4], m[1]*x + m[3]*y + m[5]];
 const scr = ([x, y]) => [Math.round((960 + x) * 10) / 10, Math.round((540 - y) * 10) / 10];

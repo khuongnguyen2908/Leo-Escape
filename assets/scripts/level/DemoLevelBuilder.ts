@@ -5,6 +5,7 @@ import { ParallaxLayer } from '../camera/ParallaxLayer';
 import { ColliderDebug } from '../core/ColliderDebug';
 import { PlatformerBody } from '../core/PlatformerBody';
 import { Solid } from '../core/Solid';
+import { BossArena } from '../enemy/BossArena';
 import { BossBrain } from '../enemy/BossBrain';
 import { EnemyPatrol } from '../enemy/EnemyPatrol';
 import { GameManager } from '../game/GameManager';
@@ -38,7 +39,6 @@ import { PlaceholderBox } from './PlaceholderBox';
 import { ShopNPC } from './ShopNPC';
 import { SkyGradient } from './SkyGradient';
 import { SoftGlow } from './SoftGlow';
-import { TutorialHint } from './TutorialHint';
 import { BlockKind, TutorialBlock } from './TutorialBlock';
 import { TutorialExit } from './TutorialExit';
 import { TutorialRoom } from './TutorialRoom';
@@ -137,7 +137,11 @@ const ENEMY_HP: [number, number][] = [[3, 12], [10, 40]];
 /** Thân va chạm của Leo: rộng 85 thì hình mèo (rộng 200) lấn vào tường; nới lên 150. */
 const LEO_BODY_WIDTH = 150;
 /** Máu boss (mốc phase theo % trong BossBrain: còn 67 sang phase 2, còn 34 sang phase 3; mỗi phase boss ra đủ 2 đòn mới qua mốc). */
-const BOSS_HP = 100;
+const BOSS_HP = 150;
+/** Camera thấy rộng hơn: 0.7 = khung hình ~2740 × 1540 đơn vị game (bước ⚙ 34) */
+const CAMERA_ZOOM = 0.7;
+/** Đất tối bên dưới đáy ảnh ô đá sâu bao nhiêu (đủ che cả khi giữ Xuống để nhìn xuống ở zoom 0.7) */
+const FILL_BELOW = 1400;
 type EnemyOpts = { name?: string; frames?: string[]; scale?: number; range?: number; hp?: number; speed?: number; body?: [number, number] };
 type Built = { node: Node; w: number; h: number };
 /** [tên ảnh, x, y, tỉ lệ so với cỡ gốc, lật?] */
@@ -305,7 +309,7 @@ export class DemoLevelBuilder extends Component {
         this.node.getChildByName('HUD_Angelo')?.setPosition(d.width / 2 - HUD_LEFT, d.height / 2 - HUD_TOP, 0);
     }
 
-    /** Bộ não boss (phase, đòn axit): gắn khi chơi vào kẻ địch to xác nếu chưa có, không lưu vào scene. */
+    /** Bộ não boss (phase, đòn axit): bước ⚙ 33 gắn sẵn vào scene; scene cũ chưa có thì gắn khi chơi. */
     private ensureBossBrain(play: Node) {
         for (const e of play.getComponentsInChildren(EnemyPatrol)) {
             if (e.big && !e.getComponent(BossBrain)) e.addComponent(BossBrain);
@@ -511,9 +515,9 @@ export class DemoLevelBuilder extends Component {
             done.push(`${e.node.name}: dời tới chỗ hình (${Math.round(x)}, ${Math.round(y)}), hình Visual về (0, 0)`);
         }
 
-        // 19. Máu boss → 100 (chỉ đổi khi còn đúng số cũ 40 hoặc 150 của các bản trước)
+        // 19. Máu boss → 150, khớp với ô Boss Hp của BossBrain (số thật lúc vào trận). Chỉ đổi khi còn đúng số cũ 40 hoặc 100
         for (const e of play.getComponentsInChildren(EnemyPatrol)) {
-            if (e.big && (e.hp === 40 || e.hp === 150)) {
+            if (e.big && (e.hp === 40 || e.hp === 100)) {
                 const from = e.hp;
                 e.hp = BOSS_HP;
                 done.push(`${e.node.name}: máu ${from} → ${BOSS_HP}`);
@@ -551,21 +555,12 @@ export class DemoLevelBuilder extends Component {
             }
         }
 
-        // 21. Nhạc nền mới: ô Music của GameManager còn là bài cũ "bgm" thì đổi sang bgm_forest (bạn tự đặt bài khác thì để yên)
+        // 21b. Nhạc nền mới: ô Music của GameManager còn là bài cũ "bgm" thì đổi sang bgm_forest (bạn tự đặt bài khác thì để yên)
         const gmMusic = this.getComponent(GameManager);
         if (gmMusic && gmMusic.music === 'bgm') {
             gmMusic.music = 'bgm_forest';
             done.push('nhạc nền: bgm → bgm_forest (nhạc trận boss: bgm_boss, ô Boss Music của BossArena)');
         }
-
-        // 20b. Bỏ hướng dẫn trong màn chính (dấu ! và bảng gợi ý TutorialHint): đã có màn hướng dẫn riêng
-        let hintsGone = 0;
-        for (const h of play.getComponentsInChildren(TutorialHint)) {
-            h.node.removeFromParent();
-            h.node.destroy();
-            hintsGone++;
-        }
-        if (hintsGone) done.push(`xoá ${hintsGone} vùng hướng dẫn trong màn chính (dấu !)`);
 
         // 23. Ảnh mới theo 4 ảnh demo: bàn xanh, ghế đỏ, nhà vẽ lại, quán Lợi Ký, mây, nhà nền, lớp lọc màu, bụi, tán lá tiền cảnh
         done.push(...this.applyNewArt(play));
@@ -609,6 +604,39 @@ export class DemoLevelBuilder extends Component {
         //     Chỉ tạo khi cả màn chưa có ShopNPC / BigFishPickup nào (đã có thì để yên chỗ bạn kéo)
         done.push(...this.ensureShop(play));
 
+        // 34. Camera zoom 0.7 (thấy rộng hơn, như bản thử docs/camera-demo.html). Chỉ đổi khi Zoom còn đúng 1.
+        //     Kèm đất tối bên dưới mọi khối nền đá (ảnh ô đá chỉ sâu ~230 dưới mặt đường, zoom 0.7 lộ thêm phần dưới):
+        //     chỉ đặt khi ô Fill Below còn 0
+        const zoomRig = this.node.getComponent(CameraRig);
+        if (zoomRig && Math.abs(zoomRig.zoom - 1) < 0.001) {
+            zoomRig.zoom = CAMERA_ZOOM;
+            done.push(`camera: Zoom 1 → ${CAMERA_ZOOM}`);
+        }
+        let underFilled = 0;
+        for (const gb of play.getComponentsInChildren(GroundBlock)) {
+            if (gb.fillBelow > 0) continue;
+            gb.fillBelow = FILL_BELOW;
+            underFilled++;
+        }
+        if (underFilled) done.push(`${underFilled} khối nền đá: tô đất tối sâu ${FILL_BELOW} bên dưới đáy ảnh ô đá (ô Fill Below, hình tạm)`);
+
+        // 33. Boss: gắn sẵn BossBrain và BossArena vào node boss trong scene. Trước đây hai component này chỉ được gắn lúc chơi
+        //     nên các ô chỉnh (máu, tốc độ lao, thời gian báo trước, số gai...) không hiện trong Inspector.
+        //     Số trong các ô lúc mới gắn là số mặc định đang chạy; từ giờ chỉnh trong Inspector rồi Ctrl+S là có tác dụng
+        for (const e of play.getComponentsInChildren(EnemyPatrol)) {
+            if (!e.big) continue;
+            const added: string[] = [];
+            if (!e.getComponent(BossBrain)) {
+                e.addComponent(BossBrain);
+                added.push('BossBrain');
+            }
+            if (!e.getComponent(BossArena)) {
+                e.addComponent(BossArena);
+                added.push('BossArena');
+            }
+            if (added.length) done.push(`${e.node.name}: gắn sẵn ${added.join(' + ')} để chỉnh boss trong Inspector (số giữ nguyên như đang chơi)`);
+        }
+
         // 24. Tán lá tối (fr_bush) bị bước 9 ghim mép trên như dây cờ (Overlap mặc định 4) nên tán lá lớn tụt xuống che màn hình:
         //     đặt Overlap để mép trên nhô ra ngoài khung đúng như đo trên ảnh demo (chỉ khi Overlap còn đúng 4)
         const frTopLayer = this.node.getChildByName('FR_Top');
@@ -635,31 +663,6 @@ export class DemoLevelBuilder extends Component {
         console.log(done.length
             ? `[DemoLevelBuilder] Đã cập nhật, giữ nguyên phần bạn sắp xếp:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu.`
             : '[DemoLevelBuilder] Màn đã đủ và mới nhất, không đổi gì.');
-    }
-
-    /**
-     * Vùng hướng dẫn mặc định của màn 1 (chưa có TutorialHint nào mới tạo; đã có thì để yên cho bạn tự kéo, tự tích).
-     * Vùng cao 1400 tính từ y = 0, phủ cả nền thấp lẫn bậc đá cao.
-     */
-    private ensureTutorialHints(play: Node): string[] {
-        if (play.getComponentsInChildren(TutorialHint).length > 0) return [];
-        const hints: [string, number, (h: TutorialHint) => void][] = [
-            ['Hint_CoBan', 600, (h) => { h.move = true; h.jump = true; h.doubleJump = true; }],
-            ['Hint_Chem', 3050, (h) => { h.attack = true; h.dash = true; }],
-            ['Hint_NangCao', 4750, (h) => { h.wave = true; h.sweep = true; h.launch = true; }],
-        ];
-        for (const [name, x, setup] of hints) {
-            const n = new Node(name);
-            n.layer = play.layer;
-            play.addChild(n);
-            n.setPosition(x, 0, 0);
-            n.addComponent(UITransform).setContentSize(900, 1400);
-            const h = n.addComponent(TutorialHint);
-            h.size = new Size(900, 1400);
-            h.offset = new Vec2(0, 500);
-            setup(h);
-        }
-        return [`3 vùng hướng dẫn (Hint_CoBan x=600, Hint_Chem x=3050, Hint_NangCao x=4750): kéo node để dời, tích ô trong 'Dạy đòn' để đổi đòn`];
     }
 
     /**
@@ -1222,7 +1225,7 @@ export class DemoLevelBuilder extends Component {
         cam.minX = LEVEL_START;
         cam.maxX = LEVEL_END;
         // Khung hình như ảnh demo: mèo đứng ở ~30% từ trái khi chạy, camera không lên xuống
-        cam.zoom = 1;
+        cam.zoom = CAMERA_ZOOM;
         cam.offset = new Vec2(220, 0);
         cam.lookAhead = 160;
         cam.minY = 0;
@@ -1269,11 +1272,11 @@ export class DemoLevelBuilder extends Component {
         ];
         const front: Placement[] = [
             // Khung 1: nhà mái tôn bên trái, quán cafe (có sẵn máy lạnh trên mái) bên phải
-            ['mg_nhao_1', x(1, 85), -10, 1], ['mg_cafe', x(1, 1210), -10, 1],
+            ['mg_nhao_3', x(1, 85), -10, 1], ['mg_cafe', x(1, 1210), -10, 1],
             // Khung 2: tiệm Thạch Trung
             ['mg_nhao_2', x(2, 450), -10, 1],
             // Khung 3: nhà bên phải
-            ['mg_nhao_1', x(3, 1180), -10, 1, true],
+            ['mg_nhao_4', x(3, 1180), -10, 1, true],
             // Khung 4: quán bên trái trước bậc đá của boss
             ['mg_cafe', x(4, 120), -10, 1, true],
         ];
@@ -1455,7 +1458,6 @@ export class DemoLevelBuilder extends Component {
         this.prop(play, 'as_cayquat', x(3, 1185), 0, 1, { phColor: PH_TREE });
 
         // ── Khung 4: biển quán, cột biển, tủ điện, hàng rào, thùng giấy, boss chó trên bậc đá
-        this.prop(play, 'mg_banghieu', x(4, 105), 0, 1);
         this.checkpoint(play, x(4, 230), 0);
         this.pickup(play, 'mg_nuocgiaikhat', x(4, 280), 0);
         this.prop(play, 'mg_hangrao_1', x(4, 600), 0, 1);

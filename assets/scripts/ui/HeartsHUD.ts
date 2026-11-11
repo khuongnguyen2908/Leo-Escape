@@ -1,5 +1,4 @@
-import { _decorator, Color, Component, Graphics, Label, Node, Sprite, SpriteFrame, tween, UITransform, Vec3 } from 'cc';
-import { useGameFont } from './GameFont';
+import { _decorator, Color, Component, Graphics, Node, Sprite, SpriteFrame, tween, UITransform, Vec3 } from 'cc';
 const { ccclass, property } = _decorator;
 
 const HEART_RED = new Color(232, 72, 85, 255);
@@ -57,35 +56,6 @@ export class HeartsHUD extends Component {
         });
         this.shown = hp;
     }
-
-    /** Hiện chữ lớn giữa màn hình (thắng/thua). */
-    showMessage(text: string) {
-        this.hideMessage();
-        const parent = this.node.parent ?? this.node;
-        const box = this.child('Message', parent);
-        this.message = box;
-        box.setPosition(0, 0, 0);
-        const g = box.addComponent(Graphics);
-        g.fillColor = new Color(30, 25, 25, 190);
-        g.roundRect(-420, -90, 840, 180, 40);
-        g.fill();
-        const label = this.child('Text', box).addComponent(Label);
-        label.string = text;
-        label.fontSize = 84;
-        label.lineHeight = 100;
-        label.color = new Color(255, 240, 210, 255);
-        useGameFont(label);
-        box.setScale(0.6, 0.6, 1);
-        tween(box).to(0.3, { scale: Vec3.ONE }, { easing: 'backOut' }).start();
-    }
-
-    /** Ẩn chữ giữa màn (Try again! khi hồi sinh ở checkpoint). */
-    hideMessage() {
-        if (this.message && this.message.isValid) this.message.destroy();
-        this.message = null;
-    }
-
-    private message: Node | null = null;
 
     private build() {
         this.built = true;

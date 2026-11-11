@@ -22,7 +22,6 @@
     <button data-z="1">1.0</button><button data-z="0.9">0.9</button><button data-z="0.8">0.8</button><button data-z="0.7">0.7</button>
     <span>Zoom trong phòng:</span>
     <button data-rz="1">1.0</button><button data-rz="0.8">bằng ngoài trời</button>
-    <span>Bờ sông:</span><button id="bSong"></button>
     <span>Sân boss:</span><button id="bSan"></button>
     <button id="bMini">Bản đồ nhỏ</button>
     <button id="bArt">Tô đất chưa có hình</button>
@@ -45,7 +44,7 @@
 const VIEW_W = 1920, VIEW_H = 1080;
 /** Trong game thật, hình khối đá chỉ vẽ tới khoảng y -200 (đo từ ảnh chụp), va chạm thì sâu tới -470 */
 const ART_BOTTOM = -200;
-const opt = { zoom: 0.8, roomZoom: 1, song: 'lien', san: 'lien', mini: true, artDepth: true, wall: false, cong: 'duoi' };
+const opt = { zoom: 0.8, roomZoom: 1, san: 'lien', mini: true, artDepth: true, wall: false, cong: 'duoi' };
 
 // ===== Dựng thế giới =====
 // Khối: [x trái, y đỉnh, rộng, cao, kiểu]  kiểu: 'g' đất/tường, 'p' bục một chiều
@@ -57,8 +56,7 @@ function build() {
   const D = (x, y, to, label, zone) => doors.push({ x, y, to, label, zone });
 
   // ---------- Ngoài trời: con phố THẬT (Main.scene) + Mái nhà, Bờ sông theo Map 1 ----------
-  const songLien = opt.song === 'lien';
-  const rightWall = songLien ? 16500 : 12018;
+  const rightWall = 12018;
   zones.push({ id: 'pho', name: 'Phố Tạ Hiện', kind: 'out', x0: -300, x1: rightWall, minY: 0, sky: '#bfe3ef' });
   // Khối va chạm thật: [x trái, y đỉnh, rộng, cao]
   const REAL = [
@@ -83,19 +81,18 @@ function build() {
     S(8925, 370, 1640, 840, 'g', 'pho');                    // lấp khu boss, sân boss thành phòng riêng
     D(8800, 370, 'san', 'cổng 2 ổ khoá', 'pho');
   }
-  // Bờ sông
-  if (songLien) {
-    for (let i = 0; i < 7; i++) S(12018 + i * 160, 370 - (i + 1) * 180, 160, 900);   // bậc đi xuống
-    S(13140, -900, 1100, 600); S(15000, -900, 1500, 600);  // bờ kè
-    S(14240, -1250, 760, 300);                              // lòng sông
-    hazards.push({ x: 14240, y: -1150, w: 760, h: 100, water: true });
-    S(14520, -1000, 200, 26, 'p');
-    zones.push({ id: 'song', name: 'Bờ sông (liền mạch với phố)', kind: 'out', x0: 12100, x1: rightWall, minY: -900, sky: '#a9d3e0' });
-    decos.push({ t: 'label', x: 14300, y: -700, s: 'BỜ SÔNG' });
-    pickups.push({ x: 16200, y: -860, kind: 'bigfish' });
-  } else {
-    D(11800, 370, 'song', 'xuống bờ sông', 'pho');
-  }
+  // Bờ sông: nằm dưới đoạn đầu phố (dưới Nhà Leo). Khe x 933..998 giữa hai khối đá là chỗ đầu tiên thấy nước
+  // (khe hẹp hơn mèo, chỉ để nhìn). Vào bằng ống cống ở đầu trái Cống đổ ra sông. Đường cụt, cuối có cá bự
+  zones.push({ id: 'song', name: 'Bờ sông (dưới đầu phố, vào từ ống cống)', kind: 'out', under: true, x0: -300, x1: 1000, minY: -1150, sky: '#a9d3e0' });
+  S(-1500, -470, 1200, 1100);                               // đất bên trái (vách trái bờ sông)
+  S(-300, -1050, 400, 700);                                 // kè trái (cá bự)
+  S(700, -1150, 300, 600);                                  // kè phải, ngang sàn cống
+  S(100, -1300, 600, 300);                                  // lòng sông
+  hazards.push({ x: 100, y: -1180, w: 600, h: 100, water: true });
+  S(360, -1120, 180, 26, 'p');                              // thuyền / tảng đá nổi
+  pickups.push({ x: -180, y: -1050, kind: 'bigfish' });
+  for (const x of [420, 480]) pickups.push({ x, y: -1110, kind: 'fish' });
+  decos.push({ t: 'river', x: -300, w: 1300 }, { t: 'label', x: 350, y: -600, s: 'BỜ SÔNG' });
   // Đồ thật trên phố
   decos.push({ t: 'house', x: -300, w: 560, h: 700, label: 'NHÀ LEO' });
   decos.push({ t: 'npc', x: 3180, y: 370 }, { t: 'cp', x: 2880, y: 370 }, { t: 'cp', x: 7969, y: 420 }, { t: 'goal', x: 10644, y: 370 });
@@ -126,7 +123,8 @@ function build() {
     }
     zones.push({ id: 'cong', name: 'Cống (ngay dưới phố, liền mạch)', kind: 'out', under: true, x0: 1000, x1: 6100, minY: -1150, sky: '#bfe3ef' });
     S(1000, -1150, 5100, 700);                              // sàn cống
-    S(940, -470, 60, 1000); S(6100, -470, 60, 1000);        // hai đầu cống
+    S(1000, -470, 60, 530); S(6100, -470, 60, 1000);        // hai đầu cống (đầu trái chừa lỗ ống cống ra bờ sông)
+    decos.push({ t: 'outlet', x: 960, y: -1150 });
     S(2100, -880, 500, 26, 'p'); S(3000, -950, 600, 26, 'p'); S(4300, -820, 500, 26, 'p');
     S(4900, -760, 380, 26, 'p'); pickups.push({ x: 5090, y: -720, kind: 'bigfish' });          // ngách cá bự
     decos.push({ t: 'pipe2', x: 2700 }, { t: 'pipe2', x: 3900 }, { t: 'label', x: 2500, y: -620, s: 'CỐNG (dưới phố)' });
@@ -134,6 +132,8 @@ function build() {
   } else {
     D(1450, 0, 'cong', 'nắp cống', 'pho');
     D(5600, -12, 'cong@5900', 'nắp cống', 'pho');
+    S(1000, -470, 60, 1000);                                // cống là phòng riêng: bờ sông bịt bên phải, ra vào bằng cửa ống
+    D(850, -1150, 'cong@150', 'vào ống cống', 'song');
   }
 
   // ---------- Phòng (đặt xa, toạ độ riêng) ----------
@@ -142,6 +142,7 @@ function build() {
     R.S(900, 380, 600, 30, 'p'); R.S(1900, 620, 500, 30, 'p'); R.S(3200, 420, 700, 30, 'p'); R.S(4500, 700, 500, 30, 'p');
     R.pipe(600); R.pipe(2600); R.pipe(5200);
     R.D(300, 0, 'pho@1450', 'lên phố'); R.D(5900, 0, 'pho@5600', 'lên phố'); R.D(3000, 0, 'hang', 'xuống hang');
+    R.D(150, 0, 'song@850', 'ống cống ra bờ sông');
     R.P(5600, 900, 'bigfish'); R.S(5350, 860, 500, 30, 'p');
   });
   room('hang', 'Hang chó-gián', -14000, 0, 4200, 1300, '#40242c', (R) => {
@@ -153,10 +154,6 @@ function build() {
   room('ham', 'Hầm bí mật', -18000, 0, 1600, 900, '#2f3a44', (R) => {
     R.S(0, 0, 1600, 300); R.S(-300, 1200, 300, 1500); R.S(1600, 1200, 300, 1500); R.S(0, 1200, 1600, 300);
     R.S(700, 300, 400, 30, 'p'); R.P(900, 360, 'bigfish'); R.D(200, 0, 'pho@650', 'lên phố');
-  });
-  if (opt.song === 'phong') room('song', 'Bờ sông', -24000, 0, 4200, 1100, '#5a7f8f', (R) => {
-    R.S(0, 0, 4200, 300); R.S(-300, 1400, 300, 1700); R.S(4200, 1400, 300, 1700);
-    R.water(1500, 900); R.S(2400, 120, 400, 30, 'p'); R.P(3900, 60, 'bigfish'); R.D(200, 0, 'pho@11800', 'lên phố');
   });
   if (opt.san === 'phong') room('san', 'Sân nhà lớn', -28000, 0, 1920 / 1 - 280, 1000, '#5b3d33', (R) => {
     R.S(0, 0, 1640, 300); R.S(-300, 1400, 300, 1700); R.S(1640, 1400, 300, 1700);
@@ -194,7 +191,7 @@ function zoneOf(x, y) {
   let best = null;
   for (const z of zones) {
     if (z.kind === 'lock') continue;
-    if (z.kind === 'room' ? (x >= z.x0 - 50 && x <= z.x1 + 50) : (x >= z.x0 - 60 && x <= z.x1 + 60 && y > -1600 && (z.id !== 'song' || y < 200) && (z.id !== 'cong' || y < -440))) {
+    if (z.kind === 'room' ? (x >= z.x0 - 50 && x <= z.x1 + 50) : (x >= z.x0 - 60 && x <= z.x1 + 60 && y > -1600 && (z.id !== 'song' || y < -440) && (z.id !== 'cong' || y < -440))) {
       if (!best || (z.x1 - z.x0) < (best.x1 - best.x0)) best = z;
     }
   }
@@ -384,7 +381,7 @@ function drawOutdoorBg() {
 }
 function drawSewerBg() {
   const z = zones.find((q) => q.id === 'cong'); if (!z) return;
-  rectW(z.x0 - 60, -470, z.x1 - z.x0 + 120, 1500, '#3b3550');
+  rectW(z.x0, -470, z.x1 - z.x0 + 60, 1500, '#3b3550');
   const s = cam.zoom; g.fillStyle = 'rgba(255,255,255,.05)';
   for (let x = z.x0; x < z.x1; x += 300) for (let y = -520; y > -1150; y -= 200) { const [a, b] = W2S(x + ((y / 200) % 2 ? 150 : 0), y); g.fillRect(a, b, 280 * s, 180 * s); }
 }
@@ -413,6 +410,12 @@ function drawDeco(d) {
   if (d.t === 'label') { textW(d.x, d.y, d.s, 46, '#3a2b25'); return; }
   if (d.t === 'lid') { rectW(d.x - 10, d.y + 14, 160, 14, '#4a4a4a'); textW(d.x + 70, d.y + 70, 'nắp cống', 26); return; }
   if (d.t === 'shaft') { rectW(d.x, d.y, 140, d.y + 990, '#2b2638'); return; }
+  if (d.t === 'river') {
+    rectW(d.x, -470, d.w, 1100, '#5f8fa3');                 // nền bờ sông
+    rectW(933, -150, 67, 320, '#4f93b8');                   // nước nhìn thấy qua khe giữa hai khối đá
+    return;
+  }
+  if (d.t === 'outlet') { rectW(d.x, d.y + 160, 200, 160, '#4b4560', '#2b2638'); textW(d.x + 150, d.y + 120, 'ống cống', 26, '#fff'); return; }
   if (d.t === 'pipe2') { rectW(d.x, -470, 120, 680, '#6b6386'); return; }
   if (d.t === 'pipe') { rectW(d.x, 1400, 140, 1400, '#6b6386'); return; }
   if (d.t === 'boss') { const [a, b] = W2S(d.x, d.y + 230); g.fillStyle = '#7a3b2a'; g.beginPath(); g.ellipse(a, b, 300 * cam.zoom, 230 * cam.zoom, 0, 0, Math.PI * 2); g.fill(); textW(d.x, d.y + 250, 'BOSS', 50, '#fff'); }
@@ -445,7 +448,7 @@ function drawHud(z) {
   if (opt.mini) drawMini();
 }
 function drawMini() {
-  const X0 = -400, X1 = opt.song === 'lien' ? 16600 : 12100, Y0 = -1400, Y1 = 2900;
+  const X0 = -400, X1 = 12100, Y0 = -1400, Y1 = 2900;
   const W = 460, x0 = VIEW_W - W - 24, y0 = 24; const sc = W / (X1 - X0); const H = (Y1 - Y0) * sc;
   g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(x0 - 8, y0 - 8, W + 16, H + 40);
   const mx = (x) => x0 + (x - X0) * sc, my = (y) => y0 + (Y1 - y) * sc;
@@ -496,7 +499,6 @@ function setZoom(z) { opt.zoom = z; syncButtons(); }
 function syncButtons() {
   document.querySelectorAll('[data-z]').forEach((b) => b.classList.toggle('on', Number(b.dataset.z) === opt.zoom));
   document.querySelectorAll('[data-rz]').forEach((b) => b.classList.toggle('on', Number(b.dataset.rz) === opt.roomZoom));
-  document.getElementById('bSong').textContent = opt.song === 'lien' ? 'liền mạch (đổi)' : 'phòng riêng (đổi)';
   document.getElementById('bSan').textContent = opt.san === 'lien' ? 'liền mạch + khoá camera (đổi)' : 'phòng riêng (đổi)';
   document.getElementById('bMini').classList.toggle('on', opt.mini);
   document.getElementById('bArt').classList.toggle('on', opt.artDepth);
@@ -507,7 +509,6 @@ function syncButtons() {
 }
 document.querySelectorAll('[data-z]').forEach((b) => b.onclick = () => { setZoom(Number(b.dataset.z)); cv.focus(); });
 document.querySelectorAll('[data-rz]').forEach((b) => b.onclick = () => { opt.roomZoom = Number(b.dataset.rz); syncButtons(); cv.focus(); });
-document.getElementById('bSong').onclick = () => { opt.song = opt.song === 'lien' ? 'phong' : 'lien'; rebuild(); };
 document.getElementById('bSan').onclick = () => { opt.san = opt.san === 'lien' ? 'phong' : 'lien'; rebuild(); };
 document.getElementById('bMini').onclick = () => { opt.mini = !opt.mini; syncButtons(); cv.focus(); };
 document.getElementById('bArt').onclick = () => { opt.artDepth = !opt.artDepth; syncButtons(); cv.focus(); };

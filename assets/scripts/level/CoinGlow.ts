@@ -37,6 +37,13 @@ export class CoinGlow extends Component {
     private big: Node | null = null;
     private small: Node | null = null;
     private dots: Node[] = [];
+    /** Component của các lớp ảnh và của con cá, lấy một lần (lateUpdate chạy mỗi khung cho từng con cá) */
+    private bigUt: UITransform | null = null;
+    private bigOp: UIOpacity | null = null;
+    private smallOp: UIOpacity | null = null;
+    private dotOps: (UIOpacity | null)[] = [];
+    private targetUt: UITransform | null = null;
+    private targetUtOf: Node | null = null;
     private bursting = -1;
     private lastX = 0;
     private lastY = 0;
@@ -72,6 +79,10 @@ export class CoinGlow extends Component {
         this.big = layer('GlowBig', bigFrame);
         this.small = layer('GlowSmall', smallFrame);
         this.dots = SPOTS.map((_, i) => layer(`Bokeh${i}`, smallFrame));
+        this.bigUt = this.big.getComponent(UITransform);
+        this.bigOp = this.big.getComponent(UIOpacity);
+        this.smallOp = this.small.getComponent(UIOpacity);
+        this.dotOps = this.dots.map((d) => d.getComponent(UIOpacity));
     }
 
     /** Cá bị ăn: quầng nở thành vòng rồi tan, đốm tắt; xong tự xoá (CoinPickup gọi). */
@@ -86,7 +97,12 @@ export class CoinGlow extends Component {
         // Đang nổ: giữ cỡ và chỗ con cá lúc bị ăn (cá đang teo đi, bám theo thì quầng teo theo thay vì nở ra)
         if (this.bursting < 0 && t && t.isValid) {
             // Tâm con cá: gốc cá ở đáy-giữa, nên cộng nửa chiều cao đã nhân tỉ lệ
-            const ut = t.getComponent(UITransform);
+            // Lúc chơi giữ lại UITransform của cá; trong editor hỏi lại mỗi lần (cá có thể bị đổi component)
+            if (EDITOR || this.targetUtOf !== t) {
+                this.targetUtOf = t;
+                this.targetUt = t.getComponent(UITransform);
+            }
+            const ut = this.targetUt;
             const cy = ut ? (0.5 - ut.anchorY) * ut.height * Math.abs(t.scale.y) : 0;
             const p = t.position;
             this.lastX = p.x;
@@ -106,18 +122,17 @@ export class CoinGlow extends Component {
         }
         this.node.setScale(1, 1, 1);
         // Ảnh quầng cùng khung với ảnh cá: phóng theo bề ngang cá đang hiện
-        const base = this.lastW / Math.max(1, this.big.getComponent(UITransform)!.width);
+        const base = this.lastW / Math.max(1, this.bigUt!.width);
         // u: đổi lệch (tính theo bề ngang cá 220 trong bản phác) ra đơn vị trong màn
         const u = this.lastW / 220;
 
         if (this.bursting >= 0) {
             this.bursting += dt;
             const k1 = Math.min(1, this.bursting / 0.4), k2 = Math.min(1, this.bursting / 0.3), kd = Math.min(1, this.bursting / 0.2);
-            this.set(this.big, 0, 0, base * (1 + 0.9 * easeOut(k1)), 1 - k1);
-            this.set(this.small, 0, 0, base * (1 + 1.1 * easeOut(k2)), 1 - k2);
-            for (const d of this.dots) {
-                const op = d.getComponent(UIOpacity)!;
-                op.opacity = Math.round(op.opacity * (1 - kd));
+            this.set(this.big, this.bigOp, 0, 0, base * (1 + 0.9 * easeOut(k1)), 1 - k1);
+            this.set(this.small, this.smallOp, 0, 0, base * (1 + 1.1 * easeOut(k2)), 1 - k2);
+            for (const op of this.dotOps) {
+                if (op) op.opacity = Math.round(op.opacity * (1 - kd));
             }
             if (this.bursting >= BURST) this.node.destroy();
             return;
@@ -125,20 +140,21 @@ export class CoinGlow extends Component {
 
         const tt = this.time;
         // Hai quầng trôi theo vòng nhỏ, lệch nhịp nhau, vừa trôi vừa sáng mờ
-        this.set(this.big, 12 * u * wave(tt, 2.4), 10 * u * wave(tt, 2.4, 0.25), base * (1 + 0.05 * wave(tt, 2.4)), 0.8 + 0.2 * wave(tt, 2.4));
-        this.set(this.small, -9 * u * wave(tt, 1.6, 0.25), 8 * u * wave(tt, 1.6), base * (0.95 + 0.05 * wave(tt, 1.2)), 0.85 - 0.15 * wave(tt, 1.2));
+        this.set(this.big, this.bigOp, 12 * u * wave(tt, 2.4), 10 * u * wave(tt, 2.4, 0.25), base * (1 + 0.05 * wave(tt, 2.4)), 0.8 + 0.2 * wave(tt, 2.4));
+        this.set(this.small, this.smallOp, -9 * u * wave(tt, 1.6, 0.25), 8 * u * wave(tt, 1.6), base * (0.95 + 0.05 * wave(tt, 1.2)), 0.85 - 0.15 * wave(tt, 1.2));
         // Đốm bokeh: hiện dần, trôi lên, tắt; nối nhau đều đặn
-        SPOTS.forEach(([sx, sy, size], i) => {
+        for (let i = 0; i < SPOTS.length; i++) {
+            const spot = SPOTS[i];
             const life = ((tt / IDLE) + i * 0.25) % 1;
             const a = Math.sin(life * Math.PI) * 0.9;
-            this.set(this.dots[i], sx * this.lastW, (-sy * this.lastW) + 40 * u * life, base * size, a);
-        });
+            this.set(this.dots[i], this.dotOps[i], spot[0] * this.lastW, (-spot[1] * this.lastW) + 40 * u * life, base * spot[2], a);
+        }
     }
 
-    private set(n: Node, x: number, y: number, scale: number, alpha: number) {
+    private set(n: Node, op: UIOpacity | null, x: number, y: number, scale: number, alpha: number) {
         n.setPosition(x, y, 0);
         n.setScale(scale, scale, 1);
-        n.getComponent(UIOpacity)!.opacity = Math.round(255 * Math.max(0, Math.min(1, alpha)));
+        if (op) op.opacity = Math.round(255 * Math.max(0, Math.min(1, alpha)));
     }
 
     private fadeOut() {

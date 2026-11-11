@@ -13,7 +13,6 @@ import { uiLabel, uiNode } from '../ui/UiKit';
 import { EnemyPatrol } from './EnemyPatrol';
 const { ccclass, property } = _decorator;
 
-const WALL_RED = new Color(235, 50, 50, 255);
 const BONE = new Color(245, 236, 215, 255);
 const BONE_LINE = new Color(120, 100, 80, 255);
 const BANNER = new Color(25, 18, 16, 210);
@@ -28,12 +27,12 @@ type State = 'idle' | 'intro' | 'fight' | 'done';
 /**
  * Khu đánh boss (BossBrain tự gắn cùng node boss):
  *  - Chưa vào trận: boss đứng yên quay mặt sang phải gặm khúc xương (xương vẽ tạm bằng code).
- *  - Mèo rơi xuống chạm đáy hang (khối đá của boss): hai dấu X đỏ to mờ chặn hai đầu khu (chặn thật), camera giữ trong khu,
+ *  - Mèo rơi xuống chạm đáy hang (khối đá của boss): hai tường vô hình chặn hai đầu khu, camera giữ trong khu,
  *    rồi cảnh mở màn từng nhịp: camera trượt sang boss → boss gặm xương → giật mình (!) → ngáp dài → quay đầu → sủa
  *    → tên boss trượt vào rồi ra → xong mới hiện thanh máu, đầy dần → camera về mèo, bắt đầu đánh.
  *    Lần sau (gục rồi quay lại) chỉ chiếu bản ngắn.
- *  - Boss chết: khựng hình, chớp sáng, chữ ĐÃ HẠ BOSS!, mở hai dấu X, camera hết bị giữ.
- *  - Mèo gục hết, về checkpoint: mở dấu X, boss về gặm xương, vào lại thì bản ngắn.
+ *  - Boss chết: khựng hình, chớp sáng, chữ ĐÃ HẠ BOSS!, mở hai tường chặn, camera hết bị giữ.
+ *  - Mèo gục hết, về checkpoint: mở tường chặn, boss về gặm xương, vào lại thì bản ngắn.
  * Mọi mốc thời gian là ô chỉnh ở đây (giây, tính từ lúc bước vào khu).
  */
 @ccclass('BossArena')
@@ -59,16 +58,13 @@ export class BossArena extends Component {
     @property({ group: 'Mở màn', tooltip: 'Tên boss trượt vào (trượt vào, giữ, trượt ra mất khoảng 2.1 giây)' })
     nameAt = 4.4;
 
-    @property({ group: 'Mở màn', tooltip: 'Thanh máu boss hiện ra, đầy dần (sau khi tên boss trượt ra hết)' })
-    barAt = 6.6;
-
     @property({ group: 'Mở màn', tooltip: 'Camera trượt về mèo, bắt đầu đánh' })
     fightAt = 7.6;
 
     @property({ group: 'Mở màn', tooltip: 'Bản ngắn (gục rồi vào lại): bắt đầu đánh sau chừng này giây' })
     shortFightAt = 1.5;
 
-    @property({ tooltip: 'Dấu X cách mép trong của khu boss (khu = mặt đá boss đứng, chừa 60 mỗi đầu) bao xa về phía mép khối đá' })
+    @property({ tooltip: 'Tường chặn vô hình cách mép trong của khu boss (khu = mặt đá boss đứng, chừa 60 mỗi đầu) bao xa về phía mép khối đá' })
     wallInset = 20;
 
 
@@ -377,7 +373,7 @@ export class BossArena extends Component {
     retry() {
         if (this.state === 'done') return;
         this.unscheduleAllCallbacks();
-        this.hideWalls(true);
+        this.hideWalls();
         this.unlockCamera();
         this.banner?.destroy();
         this.banner = null;
@@ -435,7 +431,7 @@ export class BossArena extends Component {
     private showWalls() {
         const parent = this.boss?.node.parent;
         if (!parent) return;
-        this.hideWalls(true);
+        this.hideWalls();
         // Tường chặn vô hình ở hai đầu lối đi của khu boss (đã bỏ dấu X đỏ; chỉ còn khung va chạm)
         for (const x of [this.left - this.wallInset, this.right + this.wallInset]) {
             const n = uiNode('BossWall', parent, 160, 1400);
@@ -447,18 +443,13 @@ export class BossArena extends Component {
         }
     }
 
-    private hideWalls(instant = false) {
+    private hideWalls() {
         for (const n of this.walls) {
             if (!n.isValid) continue;
+            // Tắt khung va chạm ngay (node bị xoá cuối khung hình mới mất)
             const solid = n.getComponent(Solid);
             if (solid) solid.enabled = false;
-            const op = n.getComponent(UIOpacity);
-            if (instant || !op) {
-                n.destroy();
-                continue;
-            }
-            Tween.stopAllByTarget(op);
-            tween(op).to(0.4, { opacity: 0 }).call(() => n.destroy()).start();
+            n.destroy();
         }
         this.walls = [];
     }

@@ -44,7 +44,7 @@ type State = 'none' | 'pound' | 'lying' | 'climb' | 'burst';
  *    K lần nữa để dậy); K trên không đập bụng, S + K Mèo Nổ như cũ. Chưa có Angelo thì bỏ qua phím K.
  *  - Tương tác (L) cạnh Angelo: BÊ Angelo lên đầu; bấm L lần nữa để NÉM theo hướng đang quay mặt.
  *    Chưa có Angelo trong màn thì phím Tương tác là phím LƯỚT NÉ (PlayerController.tryDash).
- * Năng lượng chỉ tốn khi phóng sóng kiếm (giữ J); các kỹ năng ở đây không tốn (Mèo Nổ vẫn cần đầy thanh).
+ * Sóng kiếm và các kỹ năng ở đây không tốn nộ; riêng Mèo Nổ cần đầy thanh nộ và tốn hết.
  *  - Giữ Lên (W) cạnh dây len Angelo thả: LEO DÂY; thả phím thì đu lơ lửng, Xuống để tụt, Nhảy để buông.
  * GameManager tự gắn khi bắt đầu chơi; số liệu chỉnh ở đây.
  */
@@ -59,10 +59,10 @@ export class LeoSkills extends Component implements CatSkills {
     @property({ group: 'Nhảy 2 lần', tooltip: 'Lần nhảy trên không mạnh bằng bao nhiêu so với nhảy thường (miễn phí)' })
     airJumpPower = 0.85;
 
-    @property({ group: 'Mở khoá', tooltip: 'Có đập bụng (Xuống + J khi đang bay) chưa. Tạm tắt, sau này mở trong cửa hàng nâng cấp. Tắt thì Xuống + J trên không là chém thường' })
+    @property({ group: 'Mở khoá', tooltip: 'Có đập bụng (Xuống + J khi đang bay) chưa. GameManager tự đặt theo ô đã mua ở cửa hàng (tick tay không có tác dụng). Chưa có thì Xuống + J trên không là chém thường' })
     poundUnlocked = false;
 
-    @property({ group: 'Mở khoá', tooltip: 'Có tuyệt chiêu Mèo Nổ (Xuống + L) chưa. Tạm tắt, sau này mở trong cửa hàng nâng cấp. Tắt thì Xuống + L là lướt' })
+    @property({ group: 'Mở khoá', tooltip: 'Có tuyệt chiêu Mèo Nổ (Xuống + phím Lướt) chưa. GameManager tự đặt theo ô đã mua ở cửa hàng (tick tay không có tác dụng). Chưa có thì Xuống + Lướt là lướt thường' })
     burstUnlocked = false;
 
     @property({ tooltip: 'Tốc độ lao xuống khi đập bụng' })

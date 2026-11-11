@@ -12,3 +12,7 @@
 *.wav binary
 *.ttf binary
 *.otf binary
+*.gif binary
+*.ase binary
+*.aseprite binary
+*.zip binary

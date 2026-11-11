@@ -1,9 +1,9 @@
-import { BlockInputEvents, Color, EventTouch, Graphics, Label, Node, Sprite, SpriteFrame, UITransform, Vec3 } from 'cc';
+import { BlockInputEvents, Color, Graphics, Label, Node, Sprite, SpriteFrame, UITransform } from 'cc';
 import { keepSystemFont, useGameFont } from './GameFont';
 import { Sound } from '../core/Sound';
 
 /**
- * Các mảnh giao diện vẽ bằng code (nút, khung, thanh trượt, công tắc) cho menu và màn chọn,
+ * Các mảnh giao diện vẽ bằng code (nút, khung) cho menu và màn chọn,
  * cùng tông nâu kem với nút cảm ứng. Không phải component; gọi từ PauseMenu, LandingScreen, CharacterSelect.
  * Chữ có dấu tiếng Việt dùng font hệ thống vì font Super Bouncer thiếu nhiều chữ (ẾỤẶỀƯỢ...).
  */
@@ -19,8 +19,6 @@ export const UI = {
     p1: new Color(240, 150, 60, 255),
     p2: new Color(80, 150, 225, 255),
 };
-
-const _p = new Vec3();
 
 export function uiNode(name: string, parent: Node, w = 0, h = 0): Node {
     const n = new Node(name);
@@ -213,121 +211,4 @@ export function uiButton(parent: Node, text: string, w: number, h: number, onCli
 /** Ô điều hướng bàn phím (MenuNav) cho một nút. */
 export function navButton(b: UiButton): { node: Node; press: () => void; focus: (on: boolean) => void } {
     return { node: b.node, press: () => b.click(), focus: (on) => b.setFocus(on) };
-}
-
-export interface UiSlider {
-    node: Node;
-    set(v: number): void;
-    setFocus(on: boolean): void;
-    /** Tăng / giảm d (bàn phím A/D), có gọi onChange. */
-    nudge(d: number): void;
-}
-
-/** Thanh trượt 0..1. */
-export function uiSlider(parent: Node, w: number, value: number, onChange: (v: number) => void): UiSlider {
-    const h = 56;
-    const n = uiNode('Slider', parent, w + 40, h);
-    const g = n.addComponent(Graphics);
-    let v = value;
-    let focus = false;
-    const draw = () => {
-        g.clear();
-        if (focus) {
-            g.strokeColor = UI.accent;
-            g.lineWidth = 5;
-            g.roundRect(-w / 2 - 34, -h / 2 - 4, w + 68, h + 8, (h + 8) / 2);
-            g.stroke();
-        }
-        g.fillColor = UI.creamDim;
-        g.roundRect(-w / 2, -8, w, 16, 8);
-        g.fill();
-        g.fillColor = UI.accent;
-        g.roundRect(-w / 2, -8, w * v, 16, 8);
-        g.fill();
-        g.fillColor = UI.brown;
-        g.circle(-w / 2 + w * v, 0, 20);
-        g.fill();
-        g.strokeColor = UI.cream;
-        g.lineWidth = 4;
-        g.circle(-w / 2 + w * v, 0, 20);
-        g.stroke();
-    };
-    const ut = n.getComponent(UITransform)!;
-    const pick = (e: EventTouch) => {
-        const loc = e.getUILocation();
-        _p.set(loc.x, loc.y, 0);
-        ut.convertToNodeSpaceAR(_p, _p);
-        v = Math.max(0, Math.min(1, (_p.x + w / 2) / w));
-        draw();
-        onChange(v);
-    };
-    n.on(Node.EventType.TOUCH_START, pick);
-    n.on(Node.EventType.TOUCH_MOVE, pick);
-    draw();
-    return {
-        node: n,
-        set: (x: number) => { v = x; draw(); },
-        setFocus: (on: boolean) => { focus = on; draw(); },
-        nudge: (d: number) => {
-            v = Math.max(0, Math.min(1, Math.round((v + d) * 20) / 20));
-            draw();
-            onChange(v);
-        },
-    };
-}
-
-export interface UiToggle {
-    node: Node;
-    set(v: boolean): void;
-    setFocus(on: boolean): void;
-    /** Bật ↔ tắt (bàn phím), có gọi onChange. */
-    flip(): void;
-}
-
-/** Chữ BẬT / TẮT của công tắc (Lang gắn vào để đổi theo ngôn ngữ). */
-export const toggleText = { on: 'BẬT', off: 'TẮT' };
-
-/** Công tắc bật/tắt. */
-export function uiToggle(parent: Node, value: boolean, onChange: (v: boolean) => void): UiToggle {
-    const w = 120, h = 56;
-    const n = uiNode('Toggle', parent, w, h);
-    const g = n.addComponent(Graphics);
-    const label = uiLabel(n, '', 24, Color.WHITE);
-    let v = value;
-    let focus = false;
-    const draw = () => {
-        g.clear();
-        if (focus) {
-            g.strokeColor = UI.accent;
-            g.lineWidth = 5;
-            g.roundRect(-w / 2 - 8, -h / 2 - 8, w + 16, h + 16, (h + 16) / 2);
-            g.stroke();
-        }
-        g.fillColor = v ? UI.green : UI.creamDim;
-        g.roundRect(-w / 2, -h / 2, w, h, h / 2);
-        g.fill();
-        g.fillColor = UI.cream;
-        g.strokeColor = UI.brown;
-        g.lineWidth = 4;
-        const x = v ? w / 2 - h / 2 : -w / 2 + h / 2;
-        g.circle(x, 0, h / 2 - 6);
-        g.fill();
-        g.stroke();
-        setText(label, v ? toggleText.on : toggleText.off);
-        label.color = v ? Color.WHITE : UI.text;
-        label.node.setPosition(v ? -18 : 18, 0, 0);
-    };
-    const flip = () => {
-        v = !v;
-        draw();
-        onChange(v);
-    };
-    n.on(Node.EventType.TOUCH_END, flip);
-    draw();
-    return {
-        node: n,
-        set: (x: boolean) => { v = x; draw(); },
-        setFocus: (on: boolean) => { focus = on; draw(); },
-        flip,
-    };
 }

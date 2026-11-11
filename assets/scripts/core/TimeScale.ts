@@ -18,14 +18,6 @@ function patch() {
  * Dùng cho slow motion lúc hạ boss. Âm thanh không bị chậm theo. Đổi scene thì GameManager gọi reset().
  */
 export const TimeScale = {
-    get value() { return scale; },
-
-    /** Đặt tốc độ ngay. */
-    set(v: number) {
-        patch();
-        scale = Math.max(0, v);
-    },
-
     /** Về bình thường, huỷ slow motion đang chạy. */
     reset() {
         if (timer) clearInterval(timer);

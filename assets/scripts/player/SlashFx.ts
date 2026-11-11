@@ -14,20 +14,14 @@ const STYLES: [number, number, number, number, number][] = [
 ];
 
 /**
- * Vệt chém bằng ảnh (bộ SlashFX Combos, cắt bằng tools/cat_khoi.py) theo nhịp combo 5 nhát:
- * [bộ ảnh, x tâm ảnh phía trước, y tâm ảnh so với chân, phóng to, lật ngang ảnh, vẽ sau lưng mèo].
- * Ảnh gốc quay mặt sang phải; lật ngang thì vệt cong ngược lại nhưng vẫn nằm phía trước (x không đổi dấu).
- * Số đo 05/11/2026 bằng cách ghép từng khung lên hình Leo cao 207: vệt lớn nhất cỡ ngang thân mèo,
- * nhát 3–5 to hơn (rộng 290–380). Ô ảnh cắt lấy tâm ô gốc làm tâm, nên y có thể lớn (phần vẽ nằm lệch dưới ô).
+ * Vệt chém cũ còn dùng (bộ SlashFX Combos, cắt bằng tools/cat_khoi.py): vệt quét ngang rộng FX_cut3_, hiện lúc phóng sóng kiếm.
+ * [bộ ảnh, x tâm ảnh phía trước, y tâm ảnh so với chân, phóng to, vẽ sau lưng mèo]. Ảnh gốc quay mặt sang phải.
+ * Số đo 05/11/2026 bằng cách ghép từng khung lên hình Leo cao 207. Ô ảnh cắt lấy tâm ô gốc làm tâm.
+ * (Các bộ cũ khác FX_cut1_ / FX_cut2_ / FX_spin_ / FX_finish_ không còn chỗ nào hiện nên không tải nữa.)
  */
-type ImageStyle = [string, number, number, number, boolean, boolean];
-const IMAGE_STYLES: ImageStyle[] = [
-    ['FX_cut1_', 90, 21, 4.3, true, true],       // nhát 1: quét từ thân mèo ra trước, sau lưng mèo
-    ['FX_cut2_', 61, 177, 4.8, false, false],    // nhát 2: quét từ dưới lên
-    ['FX_cut3_', 36, 69, 5.1, false, true],      // nhát 3: quét ngang rộng, vòng sau lưng mèo
-    ['FX_spin_', -40, 125, 4.6, false, false],   // nhát 4: chém xoay 360°, cao hơn tai mèo
-    ['FX_finish_', 225, 64, 6.2, true, true],    // nhát 5: kết liễu, cong ngược lại, sau lưng mèo
-];
+const WAVE_SLASH: [string, number, number, number, boolean] = ['FX_cut3_', 36, 69, 5.1, true];
+/** Chưa có ảnh FX_cut3_ thì vẽ tạm bằng code theo kiểu này trong STYLES (vung rộng) */
+const WAVE_SLASH_STYLE = 2;
 
 /**
  * Bộ vệt chém mới (art/fx/Character): thường dùng màu 1 (Normal Atk/…_color1), đang bật special dùng màu đỏ (Special/…_color2).
@@ -49,7 +43,7 @@ const COMBO_SLASH: [SlashKind, number, number, number, number, number][] = [
 
 /** Tải trước mọi bộ ảnh vệt chém (gọi lúc vào màn). */
 export function preloadSlashImages() {
-    for (const [prefix] of IMAGE_STYLES) DustPuff.preload(prefix);
+    DustPuff.preload(WAVE_SLASH[0]);
     for (const kind of ['Slash', 'Slash2', 'Slash3'] as SlashKind[]) {
         DustPuff.preload(slashSet(kind, false));
         DustPuff.preload(slashSet(kind, true));
@@ -58,8 +52,8 @@ export function preloadSlashImages() {
 
 /**
  * Vệt chém của Leo, gắn trên node con của mèo.
- * Có ảnh art/fx (FX_cut1_, FX_cut2_, FX_cut3_, FX_spin_, FX_finish_) thì chạy ảnh;
- * vệt nào đánh dấu "sau lưng" (nhát 1, 3, 5) thì vẽ trên node back (PlayerController đặt dưới hình mèo); chưa có thì vẽ bằng code: quét nhanh theo cung tròn,
+ * Có ảnh art/fx/Character (bộ Slash, Slash3) thì chạy ảnh; vệt lúc phóng sóng kiếm (FX_cut3_) vẽ trên node back
+ * (PlayerController đặt dưới hình mèo). Chưa có ảnh thì vẽ bằng code: quét nhanh theo cung tròn,
  * dày ở giữa, nhọn hai đầu, rồi mờ dần.
  */
 @ccclass('SlashFx')
@@ -97,18 +91,17 @@ export class SlashFx extends Component {
         this.draw();
     }
 
-    /** Vệt chém cũ (bộ FX_cut…) — dùng lúc phóng sóng kiếm. */
-    playLegacy(facing: number, combo: number) {
+    /** Vệt chém cũ (bộ FX_cut3_) — dùng lúc phóng sóng kiếm. */
+    playLegacy(facing: number) {
         this.facing = facing >= 0 ? 1 : -1;
-        const i = Math.max(0, Math.min(IMAGE_STYLES.length - 1, combo));
-        const [prefix, x, y, scale, flipX, behind] = IMAGE_STYLES[i];
+        const [prefix, x, y, scale, behind] = WAVE_SLASH;
         if (DustPuff.ready(prefix)) {
             const parent = behind && this.back && this.back.isValid ? this.back : this.node;
             DustPuff.spawn(prefix, parent, this.facing * x, y,
-                { dir: flipX ? -this.facing : this.facing, scale, fps: this.imageFps, center: true });
+                { dir: this.facing, scale, fps: this.imageFps, center: true });
             return;
         }
-        this.style = Math.min(STYLES.length - 1, i);
+        this.style = WAVE_SLASH_STYLE;
         this.t = 0;
         this.draw();
     }

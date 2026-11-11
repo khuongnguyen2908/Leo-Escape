@@ -14,8 +14,8 @@ const READY = new Color(255, 214, 90, 255);
 const SPECIAL = new Color(255, 170, 60, 255);
 
 /**
- * Thanh năng lượng dưới hàng tim, đọc năng lượng của mèo mỗi frame. Nhảy, chém, lướt đều tốn năng lượng;
- * bấm mà không đủ thì thanh nháy đỏ và rung.
+ * Thanh nộ dưới hàng tim, đọc energy của mèo mỗi frame. Đánh trúng thì đầy dần, đầy thì bật được Special;
+ * bấm Special khi chưa đầy thì thanh nháy đỏ và rung.
  * Chưa có ảnh thì tự vẽ; kéo ảnh khung + ảnh thanh vào là tự đổi sang dùng ảnh (MG_energy_gauge, MG_energy_fill).
  */
 @ccclass('EnergyBar')

@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rà soát dự án Leo Escape</title>
+<style>
+  :root { --bg:#f6f1e9; --card:#fffdf9; --ink:#2a201c; --soft:#6b5a50; --line:#dccfbe; --accent:#b4531f; --ok:#3b6d11; --okbg:#e6f0d8; --warn:#8a5a00; --warnbg:#fbeccb; --bad:#a32d2d; --badbg:#f9dede; --chip:#efe5d6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1d1714; --card:#28201c; --ink:#f1e7d8; --soft:#bfae9c; --line:#4a3d35; --accent:#f08a4b; --ok:#a9d77a; --okbg:#27361a; --warn:#f2c05a; --warnbg:#3d3115; --bad:#f09595; --badbg:#421d1d; --chip:#3a2e29; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 28px 16px 120px; }
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  h2 { font-size: 21px; margin: 40px 0 6px; padding-top: 14px; border-top: 2px solid var(--line); }
+  h3 { font-size: 17px; margin: 0; }
+  p { margin: 8px 0; }
+  .lead { color: var(--soft); max-width: 70ch; }
+  code { background: var(--chip); padding: 1px 5px; border-radius: 4px; font-size: .9em; overflow-wrap: anywhere; }
+  .stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr)); gap:12px; margin: 18px 0; }
+  .stat { background: var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .stat b { display:block; font-size: 26px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--soft); font-size: 14px; }
+  .note { background: var(--warnbg); color: var(--warn); border-radius: 8px; padding: 10px 14px; margin: 14px 0; }
+  .done { background: var(--card); border:1px solid var(--line); border-radius:10px; padding: 4px 16px 10px; margin: 12px 0; }
+  .done h3 { margin: 12px 0 2px; }
+  .done ul { margin: 4px 0 8px; padding-left: 22px; }
+  .done li { margin: 4px 0; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius:10px; padding: 12px 16px; margin: 12px 0; }
+  .card.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+  .head { display:flex; gap:10px; align-items:flex-start; }
+  .head input { width: 20px; height: 20px; margin-top: 3px; flex: none; accent-color: var(--accent); }
+  .head label { flex:1; cursor:pointer; }
+  .id { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; margin-right: 6px; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; margin: 6px 0 0 30px; }
+  .tag { font-size: 12.5px; padding: 1px 9px; border-radius: 99px; background: var(--chip); color: var(--soft); }
+  .tag.rec { background: var(--okbg); color: var(--ok); }
+  .tag.ask { background: var(--warnbg); color: var(--warn); }
+  .tag.late { background: var(--chip); color: var(--soft); }
+  .tag.unv { background: var(--badbg); color: var(--bad); }
+  dl { margin: 8px 0 0 30px; display:grid; grid-template-columns: 96px 1fr; gap: 4px 12px; font-size: 15px; }
+  dt { color: var(--soft); }
+  dd { margin: 0; }
+  @media (max-width: 560px) { dl { grid-template-columns: 1fr; margin-left: 0; } dt { margin-top: 6px; } .tags { margin-left: 0; } }
+  .bar { position: fixed; left:0; right:0; bottom:0; background: var(--card); border-top:1px solid var(--line); padding: 10px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .bar button { font: inherit; padding: 7px 16px; border-radius: 8px; border:1px solid var(--accent); background: var(--accent); color:#fff; cursor:pointer; }
+  .bar button.ghost { background: transparent; color: var(--accent); }
+  .bar output { flex:1; min-width: 200px; color: var(--soft); font-size: 14px; overflow-wrap:anywhere; }
+  table { border-collapse: collapse; width:100%; font-size: 15px; margin: 8px 0; }
+  th, td { text-align:left; padding: 6px 10px; border-bottom:1px solid var(--line); vertical-align: top; }
+  td.n { text-align:right; font-variant-numeric: tabular-nums; white-space:nowrap; }
+  .scroll { overflow-x:auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Rà soát dự án Leo Escape</h1>
+  <p class="lead">Ngày 11/11/2026. Đã rà cả thư mục: code game, tài liệu, file hướng dẫn cho Claude (CLAUDE.md, skill, bài học, bộ nhớ), công cụ, asset và cấu hình git. Dự án không có file <code>AGENTS.md</code>, và không chỗ nào nhắc tới nó.</p>
+
+  <div class="stats">
+    <div class="stat"><b>20</b><span>file trong repo đã sửa ngay</span></div>
+    <div class="stat"><b>3</b><span>lỗi thật trong game đã sửa</span></div>
+    <div class="stat"><b id="nProp">0</b><span>đề xuất chờ bạn duyệt</span></div>
+    <div class="stat"><b>~72 KB</b><span>Claude phải đọc trước mỗi việc, có thể còn ~20 KB</span></div>
+  </div>
+
+  <div class="note"><b>Cập nhật cuối ngày 11/11:</b> bạn đã duyệt 28 mục (trừ P22, P28). Đã làm xong P1–P10, P12–P15, P21, P23–P27, P30; chờ bạn xem bản nén rồi mới thay P17, P18, P20; P19 làm trong editor; P29 làm sau khi commit; P11 và P16 để sau như ghi trong đề xuất. Trang này là bản chụp lúc rà soát, không cập nhật tiếp.</div>
+
+  <div class="note"><b>Chưa thử trong game.</b> Code đã biên dịch sạch và không có vòng import, nhưng các sửa lỗi bên dưới mới kiểm bằng cách đọc code. Creator chưa biên dịch lại nên tôi chưa chơi thử được. Chưa commit gì.</div>
+
+  <h2>A. Đã sửa ngay</h2>
+  <div class="done">
+    <h3>Lỗi trong game</h3>
+    <ul>
+      <li><b>Phím tự đặt bị trả về mặc định mỗi lần mở game.</b> Ai dùng kiểu phím Mũi tên rồi đổi phím Special hay Lướt, hoặc dùng WASD mà đặt Nhảy = Space, thì lần mở sau lại mất. Nguyên nhân: bước "đổi bộ phím cũ sang bộ mới" chạy lại mỗi lần. Giờ chỉ chạy một lần. <code>core/Settings.ts</code></li>
+      <li><b>Mở cửa hàng hoặc hội thoại lâu hơn 99 giây thì mèo bất tử thêm khoảng 15 phút.</b> Giờ đóng lại là hết bất tử sau nửa giây, mở bao lâu cũng vậy. <code>game/GameManager.ts</code></li>
+      <li><b>Danh sách chữ đổi ngôn ngữ phình ra sau mỗi lần chơi lại màn</b> (rò bộ nhớ nhẹ). Giờ tự dọn chữ của màn đã xoá. <code>ui/Lang.ts</code></li>
+    </ul>
+    <h3>Chạy thừa mỗi khung hình</h3>
+    <ul>
+      <li>Camera tìm component của mèo theo tên ở mọi khung hình: giờ tìm một lần. <code>camera/CameraRig.ts</code></li>
+      <li>Thanh máu boss tạo một mảng không dùng tới ở mọi khung hình: đã bỏ. <code>ui/BossHealthBar.ts</code></li>
+    </ul>
+    <h3>Đồ thừa của tính năng đã bỏ</h3>
+    <ul>
+      <li>Lướt bằng bấm đúp: ô <i>Double Tap Time</i> và 3 biến đi kèm. <code>player/PlayerController.ts</code></li>
+      <li>Thanh máu boss hiện theo khoảng cách: ô <i>Show Distance</i>. Dấu X đỏ: ô <i>Bar At</i>, màu <code>WALL_RED</code>. <code>ui/BossHealthBar.ts</code>, <code>enemy/BossArena.ts</code></li>
+    </ul>
+    <h3>Chú thích và dòng gợi ý (tooltip) nói sai so với code</h3>
+    <ul>
+      <li>10 file còn ghi "lướt bằng bấm đúp", "nhảy, chém, lướt tốn năng lượng", "dấu X đỏ", "đập bụng tạm khoá", "nút kỹ năng (K)", "Angelo vẫn nằm trong scene"… Đã sửa cho đúng cách game đang chạy.</li>
+      <li>Hai bước ⚙ cùng mang số 21: bước sau đổi thành 21b.</li>
+      <li>Công cụ so hình với ảnh demo còn dùng độ cao camera cũ 46: đổi thành 33 như scene. <code>tools/so-sanh-demo/extract.js</code></li>
+    </ul>
+    <h3>Tài liệu</h3>
+    <ul>
+      <li><b>GHI-CHU-LAM-TIEP.md</b> (file Claude ở máy nhà đọc đầu tiên):
+        <ul>
+          <li>Mô tả lối chơi cũ từ 03/11 (combo 3 nhát, giữ J lướt chém, mọi thứ tốn năng lượng) → đúng như hiện tại.</li>
+          <li><i>Offset Y = 46</i> → 33. "Kế hoạch xem mục 11" → mục 12.</li>
+          <li>Danh sách "còn thiếu ảnh" còn ghi tiệm Lợi Ký, tán lá tối, bàn xanh, mây trắng: 4 thứ này đã có trong game, đã gỡ khỏi danh sách.</li>
+          <li>Map 1 ghi "đã chốt" → ghi rõ mới chốt cách khoá đường, <b>bố cục chưa chốt</b>, đang thử ở <code>camera-demo.html</code>, và vị trí Bờ sông mới.</li>
+          <li>Mục build chỉ có itch.io (chưa từng làm) → viết lại đúng các bước GitHub Pages đang dùng.</li>
+          <li>Cảnh báo không chạy <code>tools/make_sfx.py</code> nữa (lý do ở mục P27).</li>
+        </ul>
+      </li>
+      <li><b>README.md</b>: bản Creator "3.8 nào cũng được" → đúng 3.8.8; bảng phím (Lướt của Người 2 ghi nhầm Shift phải, "game có 3 nút", nút cảm ứng "bàn tay, đổi mèo"); Đập bụng và Mèo Nổ ghi "tạm khoá bằng ô tick" → mua ở cửa hàng; hệ số trôi của các lớp nền (ghi 0.12 và 0.5, thật là 0.3 và 0.8, thiếu 6 lớp); câu "ô đá không lưu vào scene" trái với đoạn ngay trên nó.</li>
+      <li><b>docs/thiet-ke-game.html</b>: ô "Thanh năng lượng dài hơn" → "Nộ đầy nhanh" (bạn đã chọn); "cần làm mới" → đã làm xong; thêm dòng báo bố cục Map 1 chưa chốt; ngày bản.</li>
+      <li><b>BAI-HOC.md</b>: 2 chỗ bảo "xem lịch sử phiên chat" (phiên mới không mở được); câu "làm xong thì commit và push ngay" trái với luật "chỉ commit khi bạn bảo".</li>
+    </ul>
+    <h3>Git và bộ nhớ của Claude</h3>
+    <ul>
+      <li><code>.gitignore</code> thêm <code>*.zip</code>: trước đây gõ <code>git add -A</code> như ghi chú hướng dẫn là đưa luôn file zip 9.4 MB vào repo.</li>
+      <li><code>.gitattributes</code> thêm luật cho file <code>.gif .ase .aseprite .zip</code>.</li>
+      <li>Bộ nhớ riêng của Claude trên máy này: ghi chú dự án đã cũ 9 ngày và chép lại tài liệu trong repo, rút còn vài dòng trỏ về repo; ghi chú Map 1 cập nhật theo quyết định hôm nay.</li>
+    </ul>
+  </div>
+
+  <h2>B. Chờ bạn duyệt</h2>
+  <p class="lead">Tick những mục bạn đồng ý, bấm <b>Chép danh sách</b> ở thanh dưới cùng rồi dán vào chat. Mục nào muốn đổi cách làm thì cứ ghi thêm. Nhãn <span class="tag rec">Nên làm</span> là ý của tôi; <span class="tag ask">Cần bạn quyết</span> là chỗ tôi không tự chọn được; <span class="tag unv">Sẽ kiểm lại trước khi xoá</span> là phát hiện từ đợt quét tự động, tôi chưa tự kiểm từng dòng.</p>
+  <div id="props"></div>
+
+  <h2>C. Bản web nặng ở đâu</h2>
+  <p class="lead">Bốn file đầu chiếm 22 MB trong khoảng 37 MB tài nguyên. Nén chúng là cách giảm thời gian tải nhanh nhất (mục P17, P18).</p>
+  <div class="scroll"><table>
+    <thead><tr><th>File</th><th>Dung lượng</th><th>Ghi chú</th></tr></thead>
+    <tbody>
+      <tr><td><code>sounds/bgm_boss.mp3</code></td><td class="n">7.7 MB</td><td>3 phút 42 giây, khoảng 276 kbps</td></tr>
+      <tr><td><code>art/Loading_filter.png</code></td><td class="n">5.8 MB</td><td>Lớp phủ màn tải 1920×1080</td></tr>
+      <tr><td><code>sounds/bgm_forest.mp3</code></td><td class="n">5.6 MB</td><td>2 phút 47 giây, khoảng 270 kbps</td></tr>
+      <tr><td><code>art/BG_loading.png</code></td><td class="n">3.0 MB</td><td>Nền màn tải 1920×1080</td></tr>
+      <tr><td>Mô-đun engine không dùng</td><td class="n">≈2.0 MB</td><td>Vật lý 3D (bullet), spine</td></tr>
+      <tr><td><code>art/BG_filter.png</code></td><td class="n">1.2 MB</td><td>Lớp lọc màu</td></tr>
+      <tr><td>Skybox mặc định của Creator</td><td class="n">0.9 MB</td><td>12 ảnh trời 3D, game 2D không dùng</td></tr>
+      <tr><td><code>sounds/bgm.wav</code>, <code>Run 1.wav</code>, <code>Run 2.wav</code></td><td class="n">1.3 MB</td><td>WAV chưa nén</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>D. Đã kiểm, không có vấn đề</h2>
+  <ul>
+    <li>Skill <code>quy-trinh-lam-viec</code>: phần đầu file hợp lệ, các đường link trong skill và CLAUDE.md đều mở được.</li>
+    <li>Không có file nào được git theo dõi mà lẽ ra phải bỏ qua; lịch sử git không giấu file nặng đã xoá.</li>
+    <li>Mọi asset đều có file <code>.meta</code>, không trùng mã; mọi ảnh đều nhập đúng dạng sprite-frame; không có cặp <code>.wav</code> + <code>.ogg</code> trùng tên.</li>
+    <li>Cả 104 file script đều đang được dùng hoặc gắn trong scene; mỗi file một <code>@ccclass</code>.</li>
+    <li>Các chỗ đăng ký nghe phím, nghe đổi cài đặt đều có gỡ khi node bị xoá.</li>
+    <li>Extension nhân bản tại chỗ (Ctrl+Shift+D) hợp lệ.</li>
+    <li>README phần boss, giá cửa hàng, bảng camera: khớp với code.</li>
+  </ul>
+
+  <h2>E. Chưa rà tới</h2>
+  <ul>
+    <li>Chưa chạy game hay mở Creator: mọi kết luận đều từ đọc code và file scene.</li>
+    <li>Code từng đòn của boss và phần dựng giao diện các trang menu mới đọc lướt.</li>
+    <li>README chỉ kiểm khoảng 40 con số, chưa kiểm hết bảng âm thanh, thành tích, độ khó.</li>
+    <li>Chưa hỏi GitHub: repo đang riêng tư hay công khai (liên quan mục P25).</li>
+    <li>4 gai nhọn (Hazard) ở y = −11 dưới bậc đá cao x 6690–8929 trông lạ, chưa kiểm có chạm tới được không.</li>
+  </ul>
+</main>
+
+<div class="bar">
+  <button id="copy">Chép danh sách</button>
+  <button class="ghost" id="recs">Tick các mục "Nên làm"</button>
+  <button class="ghost" id="clear">Bỏ tick</button>
+  <output id="out">Chưa chọn mục nào.</output>
+</div>
+
+<script>
+const G = [
+  ['g1', 'Giảm lượng chữ Claude phải đọc mỗi việc'],
+  ['g2', 'Cần bạn quyết về thiết kế'],
+  ['g3', 'Dọn code không còn dùng (không đổi cách chơi)'],
+  ['g4', 'Giảm dung lượng bản web'],
+  ['g5', 'File thừa trong dự án'],
+  ['g6', 'Cấu hình'],
+];
+// [id, nhóm, tên, vấn đề, đề xuất, lợi ích, rủi ro / bạn cần làm, nhãn]
+const P = [
+['P1','g1','Chia nhỏ và rút gọn BAI-HOC.md',
+ 'File nặng 58 KB, 60 bài, không có mục lục. CLAUDE.md và skill đều bắt đọc "trước mỗi việc", nên việc nào Claude cũng nạp cả file (ước chừng 20 nghìn token). Nhiều bài trùng ý nhau (ảnh nhập sai dạng: 2 bài; khung trình duyệt bị ẩn: 3 lần; nút sửa hàng loạt đè nhau: 3 bài). Vài bài nói về code đã xoá (bảng gợi ý bám theo mèo, đòn dội tường của boss, nút 📌). Riêng bài "Thử game trong trình duyệt" dài 8.6 KB.',
+ 'Đầu file thêm khối <b>Luôn nhớ</b> khoảng 15 dòng và một mục lục theo nhóm. Gộp các bài trùng, bỏ bài hết hiệu lực. Chuyển mẹo thử trình duyệt sang <code>docs/meo-thu-game.md</code>, chỉ đọc khi cần thử.',
+ 'Mỗi việc Claude chỉ đọc 5–9 KB thay vì 58 KB: nhanh hơn, đỡ tốn, ít sót bài quan trọng.',
+ 'Gộp ẩu thì mất chi tiết. Tôi làm theo danh sách gộp cụ thể, bạn xem lại phần thay đổi trước khi commit.', 'rec'],
+['P2','g1','Sửa câu "đọc trước mỗi việc" trong CLAUDE.md và skill',
+ 'CLAUDE.md ghi "Đọc GHI-CHU trước" và "Đọc BAI-HOC trước mỗi việc" không kèm điều kiện, kể cả khi bạn chỉ hỏi một câu.',
+ 'Đổi thành: "Trước mỗi việc có sửa file: đọc phần Luôn nhớ và nhóm bài liên quan trong BAI-HOC.md". Câu hỏi thì không cần.',
+ 'Đi kèm P1 mới có tác dụng.', 'Đây là file luật của bạn nên tôi không tự sửa.', 'rec'],
+['P3','g1','Làm rõ luật "đồng ý" trong skill',
+ 'Dòng 50 ghi chỉ làm khi bạn đồng ý rõ ràng với phương án cuối. Dòng 52 lại ghi trả lời đủ các câu hỏi là coi như đồng ý. Nhưng câu hỏi (bước 3) đi trước phương án cuối (bước 4), nên có lúc bạn "đồng ý" với một phương án chưa được đọc.',
+ 'Viết lại: "Nếu mỗi lựa chọn trong câu hỏi đã nói rõ sẽ đổi file hay node nào và bạn chọn đủ, thì coi là đồng ý. Nếu trả lời xong tôi mới viết phương án cuối, thì chờ thêm một lần ok."',
+ 'Hết chỗ hiểu hai cách.', 'Cần bạn chọn muốn chặt hay thoáng.', 'ask'],
+['P4','g1','Thêm 2 luật còn thiếu vào skill',
+ 'Skill có luật ghi bài học nhưng không có luật giữ README và GHI-CHU đúng với game. Hầu hết chỗ tài liệu sai tôi vừa sửa đều do thiếu luật này. Cũng không có luật giới hạn độ dài bài học hay xoá bài khi code đã bỏ.',
+ 'Thêm: (1) "Việc vừa làm đổi cách chơi, phím, nút editor, tên file hay cách build thì sửa luôn đúng đoạn đó trong README và GHI-CHU, sửa đè lên câu cũ". (2) "Một bài học tối đa khoảng 8 dòng; code liên quan đã bỏ thì xoá bài".',
+ 'Tài liệu không lệch dần nữa, BAI-HOC không phình lại.', 'Skill dài thêm khoảng 4 dòng.', 'rec'],
+['P5','g1','Rút gọn README.md (76 KB)',
+ 'Có khoảng 20–25 KB không còn là hướng dẫn: nhật ký từng lần bấm ⚙ (4 KB, kiểu "0.0622 → 0.3, chỉ đổi khi còn đúng 0.0622"); cây cấu trúc code chỉ liệt kê 45 trong 104 file và có dòng sai (4 KB); mô tả Angelo và bản cũ mà chính README ghi là "để tham khảo" (5 KB); mục "Tạo scene và chạy" và "Việc nên làm tiếp" nói về dự án lúc mới bắt đầu (3 KB).',
+ 'Xoá 4 phần đó. Nhật ký ⚙ thay bằng một câu: "⚙ thêm thứ còn thiếu, việc nó làm in ra Console".',
+ 'README còn khoảng 50 KB, đọc dễ tìm hơn.', 'Phần Angelo chờ P7 rồi mới cắt.', 'rec'],
+
+['P7','g2','Angelo và chơi 2 người: bỏ hẳn hay tạm tắt?',
+ 'Bốn nơi nói bốn kiểu. README: "game không còn Angelo". GHI-CHU: "bước 1 đang thử: hai con mèo". Tài liệu thiết kế: "hai con mèo là một đội, đã chốt". Code: nút ⚙ xoá node Angelo mỗi lần bấm, nhưng 5 file của Angelo vẫn còn (kỹ năng, AI đi theo, dây len, đổi mèo, màn chọn mèo).',
+ '<b>Cách A (đề xuất):</b> ghi một câu thống nhất ở cả 4 nơi: "Angelo và chế độ 2 người đang tạm tắt, code còn giữ". <b>Cách B:</b> bỏ hẳn, xoá 5 file và các nhánh code liên quan, sửa tài liệu thiết kế.',
+ 'Claude ở máy nào cũng hiểu đúng.', 'Cách B là xoá nhiều code, khó lấy lại nếu sau này muốn làm 2 mèo.', 'ask'],
+['P8','g2','Qua màn rồi chơi lại thì mất hết kỹ năng đã mua',
+ 'Ô lưu đã qua màn khi vào lại sẽ chơi từ đầu mà không nạp lại cá bự, cá vàng và kỹ năng. Tới checkpoint đầu tiên, game ghi đè ô lưu bằng số 0. Lúc làm cửa hàng tôi đã giữ cách cũ của cá vàng, nhưng với kỹ năng thì mất là nặng.',
+ 'Giữ kỹ năng đã mua và số cá bự khi chơi lại; cá bự đã nhặt không hiện lại (khỏi nhặt vô hạn). Cá vàng: tuỳ bạn.',
+ 'Mua kỹ năng có ý nghĩa lâu dài.', 'Cần bạn chọn cá vàng giữ hay về 0.', 'ask'],
+['P9','g2','Máu boss: chạy thật là 150, scene và nút ⚙ ghi 100',
+ 'Component điều khiển boss được gắn lúc chạy game chứ không nằm trong scene, nên nó dùng số trong code (150) và đè lên số 100 bạn thấy trong Inspector. Bước ⚙ số 19 còn cố đổi về 100, không có tác dụng.',
+ 'Chọn một con số. Tôi đề xuất giữ 150 (đang chơi vậy) và sửa bước ⚙ cho khớp.',
+ 'Hết lệch giữa cái thấy và cái chạy.', 'Cần bạn chọn 100 hay 150.', 'ask'],
+['P10','g2','Khoảng 60 ô chỉnh của boss không sửa được trong editor',
+ 'Cùng nguyên nhân với P9: <code>BossBrain</code> và <code>BossArena</code> chỉ được gắn lúc chạy, nên mọi ô chỉnh (tốc độ lao, thời gian báo trước, số gai…) không hiện trong Inspector. README lại hướng dẫn bạn chỉnh các ô đó.',
+ 'Thêm một bước ⚙ gắn sẵn hai component này vào node Boss trong scene, giữ đúng số đang chạy.',
+ 'Bạn tự chỉnh boss trong editor được.', 'Bạn bấm ⚙ rồi Ctrl+S. Tôi cần thử lại trận boss.', 'rec'],
+['P11','g2','Tài liệu thiết kế: sơ đồ Map 1 và chỗ ghi "tiệm Lợi Ký"',
+ 'Sơ đồ mục 10 còn vẽ Bờ sông ở cuối phố và khu Chợ. 4 chỗ còn ghi "mua ở tiệm Lợi Ký". Bảng phím, "combo 3 nhát", "mỗi con một thanh năng lượng" cũng cũ.',
+ 'Chờ bạn chốt bố cục trong camera-demo rồi vẽ lại sơ đồ và sửa các dòng này một lần.',
+ 'Khỏi sửa hai lần.', 'Không có. Tôi đã thêm dòng "bản nháp cũ" để không ai hiểu nhầm.', 'late'],
+
+['P12','g3','Xoá bảng hướng dẫn cũ TutorialHint (366 dòng)',
+ 'Scene không còn bảng nào, hàm tạo nó không còn được gọi, và nút ⚙ còn có bước xoá nó nếu thấy. README ghi đã bỏ khỏi màn chính.',
+ 'Xoá file, 8 dòng chữ <code>tut.*</code>, hàm tạo và bước xoá đi kèm.',
+ 'Bớt 400 dòng code chết.', 'Nếu bạn muốn dùng lại bảng gợi ý này thì đừng duyệt.', 'unv'],
+['P13','g3','Xoá các mảnh code không ai gọi',
+ '23 dòng chữ trong bảng ngôn ngữ không dùng; thanh trượt và công tắc vẽ bằng code (115 dòng) không dùng; chức năng "sửa cài đặt rồi bấm Lưu" không còn nơi gọi; chữ "Try again" giữa màn; chế độ giữ khói và 4 bộ khói cũ; đòn "nằm ngửa làm đệm" của Leo (chỉ có nghĩa khi có Angelo); nháy đỏ báo trước kiểu cũ của chim.',
+ 'Xoá từng mảnh, mỗi mảnh kiểm lại bằng tìm kiếm rồi biên dịch.',
+ 'Bớt khoảng 350 dòng, đọc code nhanh hơn.', 'Phần "nằm ngửa" phụ thuộc P7.', 'unv'],
+['P14','g3','Phím bị kẹt khi cửa sổ mất tiêu điểm',
+ 'Đang giữ phím mà Alt+Tab hay bấm ra ngoài thì game không nhận được lúc nhả phím, mèo cứ chạy tiếp tới khi bấm lại phím đó.',
+ 'Khi cửa sổ mất tiêu điểm hoặc tab bị ẩn thì coi như nhả hết phím.',
+ 'Hết cảnh mèo tự chạy.', 'Cần thử trên trình duyệt sau khi sửa.', 'rec'],
+['P15','g3','Tối ưu nhỏ ở mỗi khung hình',
+ 'Danh sách mèo bị tạo mới khoảng 50 lần mỗi khung hình; 24 dây cờ và tán lá ghim mép trên, 11 con cá và quầng sáng, nút cảm ứng đều tìm lại component của mình ở mọi khung hình.',
+ 'Tìm một lần lúc bắt đầu rồi giữ lại.',
+ 'Máy tính gần như không thấy khác. Có ích cho điện thoại yếu.', 'Sửa nhiều file nhỏ, cần chơi thử lại.', 'late'],
+['P16','g3','Dọn các bước ⚙ đã xong việc',
+ 'Nút ⚙ có 32 bước, phần lớn là sửa một lần cho scene cũ và đã áp xong từ lâu (scene nằm trong git nên máy nào cũng như nhau). File <code>DemoLevelBuilder.ts</code> dài 2200 dòng vì vậy.',
+ 'Bỏ những bước chắc chắn không còn làm gì, giữ các bước "thêm nếu thiếu".',
+ 'File ngắn đi nhiều, bấm ⚙ nhanh hơn, ít nguy cơ bước cũ đè lên chỗ bạn đã chỉnh.', 'Phải xét từng bước một. Để sau khi xong Map 1.', 'late'],
+
+['P17','g4','Nén 2 bài nhạc nền (13.3 MB)',
+ '<code>bgm_boss.mp3</code> 7.7 MB và <code>bgm_forest.mp3</code> 5.6 MB đang ở khoảng 270 kbps.',
+ 'Xuất lại ở 128 kbps (nghe trên loa máy tính gần như không khác).',
+ 'Còn khoảng 6 MB, bớt 7 MB.', 'Bạn xuất lại từ file gốc, hoặc cài ffmpeg để tôi nén giúp. Giữ đúng tên file.', 'rec'],
+['P18','g4','Nén 2 ảnh màn tải (8.8 MB)',
+ '<code>Loading_filter.png</code> 5.8 MB và <code>BG_loading.png</code> 3.0 MB, đều 1920×1080.',
+ 'Nén PNG giảm màu, hoặc xuất JPG cho ảnh nền không cần trong suốt.',
+ 'Còn khoảng 1–2 MB.', 'Ảnh của bạn vẽ nên bạn xuất lại, kéo đè vào Creator để giữ nguyên liên kết.', 'rec'],
+['P19','g4','Tắt phần engine không dùng và skybox',
+ 'Bản build mang theo vật lý 3D (1.4 MB), spine (0.6 MB) và 12 ảnh trời 3D mặc định (0.9 MB). Code không dùng thứ nào.',
+ 'Trong Creator: Project Settings → Feature Cropping bỏ tick Physics, Spine và các mục 3D; xoá ảnh trời ở Scene → Skybox.',
+ 'Bớt khoảng 3 MB, game khởi động nhanh hơn.', 'Bạn làm trong editor (tôi chỉ từng bước), rồi chơi thử lại cả màn.', 'rec'],
+['P20','g4','Đổi 3 file WAV sang OGG',
+ '<code>bgm.wav</code> (nhạc menu), <code>Run 1.wav</code>, <code>Run 2.wav</code> (tiếng bước chân 24-bit) tổng 1.3 MB.',
+ 'Xuất OGG, xoá bản WAV trong Creator.',
+ 'Bớt khoảng 1 MB.', 'Không để cả hai đuôi cùng tên (đã có bài học).', 'late'],
+['P21','g4','Màn mở đầu tải trước cả thư mục hiệu ứng',
+ 'Lúc khởi động game tải trước toàn bộ 402 ảnh trong <code>art/fx</code>, trong đó khoảng 36 ảnh không còn đòn nào dùng. Phần vệt chém còn nạp 5 bộ ảnh trong khi chỉ dùng 1.',
+ 'Chỉ nạp bộ vệt chém đang dùng; ảnh không dùng thì xoá theo P24.',
+ 'Khởi động nhẹ hơn một chút.', 'Đi cùng P24.', 'unv'],
+
+['P22','g5','4 ảnh không nơi nào dùng',
+ '<code>MG_bat</code>, <code>MG_bimbim</code>, <code>MG_cuaso_1</code>, <code>MG_cucnong</code> (106 KB): không có trong scene, không có trong code, nhưng vẫn vào bản build.',
+ 'Xoá trong Creator, hoặc chuyển ra ngoài thư mục <code>resources</code> nếu bạn còn định dùng.',
+ 'Gọn thư mục.', 'Ảnh bạn vẽ, bạn quyết.', 'ask'],
+['P23','g5','Ảnh và hiệu ứng của bản cũ',
+ '<code>MG_nhao_1</code> (198 KB, đã thay bằng <code>MG_nhao_4</code>), <code>MG_banghieu</code>; các bộ <code>FX_dust_</code>, <code>FX_jump_</code>, <code>FX_slash_</code>, <code>FX_tornado_</code> (26 ảnh), <code>FX_airspin_</code>, thư mục <code>Boss/Gowth</code> (7 ảnh), tiếng <code>ui_drop.wav</code>.',
+ 'Xoá trong Creator. Sửa công cụ cắt ảnh để nó không sinh lại <code>FX_airspin_</code>.',
+ 'Bớt khoảng 40 file.', 'Bạn xác nhận không dùng lại.', 'ask'],
+['P24','g5','Bộ vệt chém cũ FX_cut1, FX_cut2, FX_spin, FX_finish',
+ 'README ghi chỉ còn <code>FX_cut3_</code> được dùng, nhưng 4 bộ kia vẫn nằm trong bảng của code và vẫn được nạp.',
+ 'Kiểm lại từng bộ, bộ nào thật sự không hiện ra nữa thì gỡ khỏi bảng và xoá ảnh.',
+ 'Bớt khoảng 20 ảnh và phần nạp thừa.', 'Cần kiểm kỹ vì hai lượt quét cho kết luận khác nhau.', 'unv'],
+['P25','g5','Thư mục art-nguon: 48 trong 62 file không công cụ nào đọc',
+ 'Đây là các gói hiệu ứng gốc (SmokeFX Lite, SlashFX, Hitspark…), 460 KB. Công cụ cắt ảnh chỉ dùng 14 file.',
+ 'Giữ 14 file đang dùng, số còn lại để ngoài repo.',
+ 'Repo gọn hơn.', 'Nếu là gói mua hoặc tải về, hãy xem giấy phép có cho để trong repo không, nhất là khi repo công khai.', 'ask'],
+['P26','g5','File lẻ không còn dùng',
+ '<code>Leo-Escape-web.zip</code> 9.4 MB (bản build ngày 04/11, đã cũ); <code>docs/so-sanh-lop-MG.jpg</code> 270 KB không tài liệu nào nhắc tới; 2 bản "stash" cũ của file scene trong git.',
+ 'Xoá cả ba.',
+ 'Bớt 9.7 MB trên máy.', 'Stash là bản scene cất tạm ở máy công ty: xoá rồi không lấy lại được.', 'ask'],
+['P27','g5','Công cụ tạo âm thanh tạm đã lỗi thời',
+ '<code>tools/make_sfx.py</code> ghi ra <code>jump/hit/hurt/slash1/slash3.wav</code> trong khi game đang dùng bản <code>.ogg</code> cùng tên, và ghi đè nhạc menu. Chạy lại là gặp đúng lỗi "hai file trùng tên khác đuôi" đã ghi trong bài học.',
+ 'Xoá file (âm thanh giờ là file thật, không còn cần sinh tạm).',
+ 'Hết một cái bẫy.', 'Tôi đã ghi cảnh báo vào GHI-CHU trong lúc chờ.', 'rec'],
+['P28','g5','6 file ảnh tên có dấu tiếng Việt',
+ '<code>AS_câyquất</code>, <code>BG_mây_1</code>, <code>BG_mây_2</code>, <code>FR_cộtcaasm</code> (còn sai chính tả), <code>FR_cờ</code>, <code>MG_nắng</code>. Bài học của dự án bảo tránh tên có dấu. Thư mục <code>Boss/Thuner</code> cũng sai chính tả (code đang phải đoán cả hai cách viết).',
+ 'Đổi tên ngay trong Creator (giữ nguyên liên kết trong scene).',
+ 'Tránh lỗi khi build cho điện thoại sau này.', 'Bạn đổi trong Creator, tôi sửa README theo.', 'late'],
+
+['P29','g6','Hết cảnh báo "LF will be replaced by CRLF"',
+ 'Mỗi lần commit git in ra hàng chục dòng cảnh báo. Lý do: git trên máy này tự đổi kiểu xuống dòng khi lấy file về, còn Creator và công cụ thì ghi kiểu khác. Hiện 359 trong 837 file chữ đang lẫn hai kiểu. Không hỏng gì, chỉ rối mắt và dễ che mất cảnh báo thật.',
+ 'Thêm <code>eol=lf</code> vào <code>.gitattributes</code>, rồi lấy lại toàn bộ file một lần.',
+ 'Hết cảnh báo ở cả hai máy.', 'Phải đóng Creator và commit hết trước khi làm.', 'rec'],
+['P30','g6','Tên tab trình duyệt của bản web',
+ 'Trang web đang có tiêu đề "Cocos Creator | Leo Escape" (lấy từ mẫu mặc định).',
+ 'Sửa mẫu trang thành "Leo Escape".',
+ 'Người chơi thấy đúng tên game.', 'Có hiệu lực từ lần build sau.', 'rec'],
+['P6','g1','Bỏ ghi cứng tên công cụ hỏi trong skill',
+ 'Skill ghi "dùng AskUserQuestion". Trên bản Claude không có công cụ này thì câu đó không làm theo được.',
+ 'Đổi thành "có công cụ hỏi nhiều lựa chọn thì dùng, không có thì hỏi bằng danh sách đánh số".',
+ 'Skill dùng được ở mọi nơi.', 'Rất nhỏ.', 'late'],
+];
+const TAG = { rec: ['rec','Nên làm'], ask: ['ask','Cần bạn quyết'], late: ['late','Để sau cũng được'], unv: ['unv','Sẽ kiểm lại trước khi xoá'] };
+const root = document.getElementById('props');
+const KEY = 'leo-ra-soat-chon';
+let saved = [];
+try { saved = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { saved = []; }
+for (const [gid, gname] of G) {
+  const h = document.createElement('h3'); h.textContent = gname; h.style.margin = '26px 0 4px'; root.appendChild(h);
+  for (const p of P.filter((x) => x[1] === gid)) {
+    const [id, , name, prob, prop, gain, risk, tag] = p;
+    const c = document.createElement('div'); c.className = 'card'; c.dataset.id = id; c.dataset.tag = tag;
+    c.innerHTML = `<div class="head"><input type="checkbox" id="c${id}"><label for="c${id}"><h3><span class="id">${id}</span>${name}</h3></label></div>
+      <div class="tags"><span class="tag ${TAG[tag][0]}">${TAG[tag][1]}</span></div>
+      <dl><dt>Vấn đề</dt><dd>${prob}</dd><dt>Đề xuất</dt><dd>${prop}</dd><dt>Được gì</dt><dd>${gain}</dd><dt>Lưu ý</dt><dd>${risk}</dd></dl>`;
+    root.appendChild(c);
+    const box = c.querySelector('input');
+    box.checked = saved.includes(id);
+    box.addEventListener('change', sync);
+  }
+}
+document.getElementById('nProp').textContent = P.length;
+function picked() { return [...document.querySelectorAll('.card input:checked')].map((b) => b.closest('.card').dataset.id); }
+function sync() {
+  const ids = picked();
+  document.querySelectorAll('.card').forEach((c) => c.classList.toggle('on', ids.includes(c.dataset.id)));
+  document.getElementById('out').textContent = ids.length ? 'Duyệt: ' + ids.join(', ') : 'Chưa chọn mục nào.';
+  try { localStorage.setItem(KEY, JSON.stringify(ids)); } catch (e) { /* không lưu được cũng không sao */ }
+}
+document.getElementById('recs').onclick = () => { document.querySelectorAll('.card').forEach((c) => { if (c.dataset.tag === 'rec') c.querySelector('input').checked = true; }); sync(); };
+document.getElementById('clear').onclick = () => { document.querySelectorAll('.card input').forEach((b) => { b.checked = false; }); sync(); };
+document.getElementById('copy').onclick = async () => {
+  const ids = picked(); const out = document.getElementById('out');
+  if (!ids.length) { out.textContent = 'Chưa chọn mục nào để chép.'; return; }
+  const text = 'Duyệt: ' + ids.join(', ');
+  try { await navigator.clipboard.writeText(text); out.textContent = 'Đã chép: ' + text; }
+  catch (e) { out.textContent = 'Không chép tự động được, bạn bôi đen dòng này: ' + text; }
+};
+sync();
+</script>
+</body>
+</html>

@@ -1,13 +1,49 @@
 # Sổ bài học
 
-Những lỗi đã gặp và đã sửa. **Đọc trước mỗi việc**: việc nào giống bài nào thì làm theo phần *Cách tránh*.
+Những lỗi đã gặp và đã sửa. Trước mỗi việc có sửa file: đọc phần **Luôn nhớ** và **Mục lục** ngay dưới đây,
+rồi chỉ đọc nhóm khớp với việc sắp làm và làm theo phần *Cách tránh*.
 Quy trình làm việc và lúc nào cần ghi: `.claude/skills/quy-trinh-lam-viec/SKILL.md`.
 
-Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có bài cùng chủ đề thì bổ sung vào bài đó):
+## Luôn nhớ
+
+1. **Scene là bản chính.** Không sửa `assets/scenes/Main.scene` trên đĩa khi Creator đang mở. Sửa hàng loạt thì thêm một bước vào nút ⚙ Cập nhật, không thêm nút mới.
+2. Trước khi nhờ người dùng bấm một nút trong editor: đọc hết mọi bước của nút đó và nói rõ nó sẽ đổi gì.
+3. Người dùng báo "đã lưu": xem giờ sửa của `Main.scene` (`ls -la --time-style=full-iso`) và tìm trong file một giá trị vừa đổi, trước khi thử hay so ảnh. Thay đổi do nút ⚙ làm không phải lúc nào cũng bật dấu `*`, nên Ctrl+S có thể không ghi gì (06/11 bị 2 lần liền): dặn thấy dấu `*` rồi mới Ctrl+S, chưa có thì kéo nhẹ một node.
+4. Giá trị đã lưu trong scene thắng giá trị mặc định trong code. Muốn đổi node có sẵn: đặt tên property mới (như `artFacesRight`), thêm bước ⚙, hoặc nhờ chỉnh trong Inspector.
+5. Mỗi file `.ts` chỉ một `@ccclass`, tên file trùng tên class.
+6. Hình vẽ bằng `Graphics` không được lưu vào scene: vẽ lại trong `onLoad`, kèm `executeInEditMode`.
+7. Code chạy trong editor không dùng `resources.load`: hỏi `asset-db` lấy uuid rồi `assetManager.loadAny(uuid)` (xem `loadArtInEditor`).
+8. Số lấy từ ảnh demo thì đo và so 1-1 (node `DemoRef`), không đoán. Ảnh demo vẽ đúng cỡ gốc (tỉ lệ 1, không phải 0.87); 1px ảnh = 1.5 đơn vị game; `FRAME_CAM = [660, 2580, 4500, 6420]`; số liệu ở `DemoLayout.ts`.
+9. Người dùng thêm ảnh / tiếng: `grep '"type"' <file>.png.meta` phải ra `sprite-frame`; mỗi file đủ cặp `X.ext` + `X.ext.meta`; thư mục `sounds` không có hai tiếng cùng tên khác đuôi (`Sound` gọi theo tên không đuôi, bản tải xong sau đè bản kia: thay tiếng thì xoá file cũ cả `.meta`).
+10. Thêm import giữa các file giao diện / màn chơi / GameManager: chạy `python tools/kiem_tra_import_vong.py` trước khi nhờ bấm Creator.
+11. Sửa code xong: kiểm tra bằng tsc đi kèm Creator (lệnh ở nhóm 4).
+12. Mỗi `X.onChange(...)` / `input.on(...)` phải có cặp gỡ trong `onDestroy`. Trong `onDestroy` chỉ dọn dẹp, không vẽ, không đổi hình.
+13. Đề xuất phím / nút mới: mở `LAYOUT_KEYS` / `DEFAULT_KEYS` trong `core/Settings.ts` xem phím nào đang dùng (hiện tại WASD: J đánh, K nhảy, L special, Space lướt; Mũi tên: X, Z, C, Shift phải). Máy người chơi còn cài đặt cũ đã lưu: cần đoạn tự gán trong `load()`.
+14. Chốt vị trí, cỡ, độ mờ của thứ gì: chụp màn hình ở đúng chỗ camera sẽ đứng khi chơi thật và đo bằng số, rồi mới ghi vào code / scene.
+15. Đổi cỡ hình thì khung va chạm (`Size` của Solid, PlatformerBody) không tự đổi theo: nhắc chỉnh và bật *Debug Colliders*.
+16. Làm ở 2 máy: `git pull` trước khi mở Creator, không sửa scene song song (file scene rất khó gộp), hỏi máy kia còn gì chưa push không; làm xong nhắc người dùng commit và push.
+17. Một số mô-đun engine đã tắt (danh sách trong GHI-CHU-LAM-TIEP.md, mục *Mô-đun engine đã tắt*): định dùng video, webview, vật lý 3D, Terrain... thì nhắc người dùng bật lại trước.
+
+## Mục lục
+
+| Nhóm | Đọc khi | Các bài |
+|---|---|---|
+| 1. Scene và nút ⚙ | sửa `Main.scene`, `DemoLevelBuilder.ts`, nhờ bấm nút trong editor | Quy tắc cho bước ⚙ · Component gắn lúc chạy · Component bị chồng (Ctrl+S không lưu: xem Luôn nhớ 3) |
+| 2. Va chạm và hình | đổi cỡ hình, thêm đồ đứng lên được, xếp ô đá | Khung va chạm không tự theo hình |
+| 3. Ảnh, âm thanh, asset | thêm / đổi ảnh, tiếng; tự tạo ảnh; đổi tên, chuyển file | Ảnh nhập dạng texture · Đổi tên, chuyển file · Tâm lệch vì Trim · Ảnh ghép trái / phải · Tên có dấu |
+| 4. Bẫy engine | code vẽ Graphics, nhạc, hẹn giờ, lò xo, import, tải lại màn, tsc | Đổi dữ liệu cũ chạy lại mỗi lần · Số to làm dấu · Mỗi node một thứ vẽ · Nhuộm màu ảnh · Âm thanh · Slow motion · Lò xo theo dt · Import vòng · Tải lại màn · tsc |
+| 5. Menu và bảng | viết, sửa menu, bảng hỏi, chữ trên màn hình | Checklist bảng / menu · Font thiếu dấu |
+| 6. Đòn đánh, hiệu ứng, camera | thêm đòn boss, hiệu ứng bám nhân vật, biển / chữ trong màn, camera | Đòn boss phải né được · Đổi zoom lộ phần chưa có hình · Hiệu ứng gắn vật đang chuyển động · Camera sát giới hạn màn · Chụp thật trước khi chốt số |
+| 7. Build, git, máy | build, nén, phát hành, chạy script, làm tài liệu | Zip bản build · QUIT bản web · Python và Edge chạy ngầm · Tài liệu thiết kế |
+
+Mẹo thao tác (thử game trong trình duyệt của app, so lớp với ảnh demo, cắt sprite sheet, bẫy PowerShell / sed) nằm ở
+[docs/meo-thu-game.md](docs/meo-thu-game.md): chỉ đọc khi làm mấy việc đó.
+
+Mẫu một bài (ghi vào đúng nhóm, mới nhất lên đầu nhóm; đã có bài cùng chủ đề thì bổ sung vào bài đó; mỗi bài tối đa khoảng 8 dòng):
 
 ```
 ### Tên ngắn của lỗi
-- Ngày: dd/mm/yyyy · Nhóm: scene / editor / code / build / art / git / làm việc
+- Ngày: dd/mm/yyyy
 - Triệu chứng: người dùng thấy gì
 - Nguyên nhân: vì sao bị
 - Cách sửa: đã sửa thế nào (file, node)
@@ -16,568 +52,252 @@ Mẫu một bài (mới nhất ghi lên đầu nhóm của nó; nếu đã có b
 
 ---
 
-## Scene và editor
+## 1. Scene và nút ⚙
 
-### Mèo như đứng trong tường cuối màn (ô đá xếp tay lấn ra ngoài khung va chạm)
-- Ngày: 08/11/2026 · Nhóm: scene
-- Triệu chứng: tới chân bức tường đá cao cuối màn (chỗ cờ goal), mèo bị chặn nhưng hình lại đứng lọt vào trong mặt tường.
-- Nguyên nhân: khối `Ground-002` xếp tay (Manual): ô góc `Tile_2` đặt lấn sang trái 215 so với gốc node, còn Solid luôn bắt đầu
-  từ gốc node (x 0 → Width). Va chạm đúng, chỉ hình vẽ lấn ra.
-- Cách sửa: người dùng đổi `Tile_2` Position X 283 → 498 cho mép hình trùng mép va chạm.
-- Cách tránh lần sau: xếp tay ô đá thì mép ngoài cùng của hình phải nằm trong [0, Width] của khối (nhất là khối cao làm tường).
-  Kiểm tra nhanh bằng JS: so khung các `Tile_*` với `_width` của GroundBlock (đoạn đo trong lịch sử phiên 08/11).
-
-### Chuyển thư mục ra khỏi `assets` khi Creator đang mở
-- Ngày: 05/11/2026 · Nhóm: editor
-- Triệu chứng: `mv "assets/resources/art/fx/SlashFX Combos" art-nguon/SlashFX` báo `Device or resource busy`.
-- Nguyên nhân: Creator vừa nhập thư mục mới (đã sinh `.meta`) và đang giữ nó. Thư mục chưa có `.meta` (như SmokeFX) thì vẫn chuyển được.
-- Cách sửa: chép sang chỗ mới (`cp`), xoá các `.meta` đã bị chép theo, rồi `rm -rf` thư mục cũ cùng file `.meta` của nó (xoá thì được).
-- Cách tránh lần sau: người dùng thả file nguồn (gif, `.ase`, dải sheet) vào `assets` thì chép ra `art-nguon/` rồi xoá bản trong `assets`.
-  Nhớ bỏ `.meta` ở bản chép, và nhắc người dùng lần sau thả thẳng vào `art-nguon/`.
-
-### Mèo đi xuyên vào thùng, khung va chạm lệch khỏi hình
-- Ngày: 04/11/2026 · Nhóm: scene
-- Triệu chứng: Leo đứng lẫn vào giữa thùng giấy có viên gạch (`mg_up`), không bị chặn. Không nhảy lên viên gạch được.
-- Nguyên nhân:
-  - Mọi đồ dựng bằng `platform()` đều là **bục một chiều** (`oneWay`): chỉ đứng được trên mặt, đi ngang thì xuyên qua.
-  - Khung va chạm tính theo tỉ lệ ảnh cũ 0.87 × `widthFrac` 0.85, nên chỉ rộng khoảng 74% hình và đặt giữa ảnh.
-  - Ảnh `MG_up` vẽ chung viên gạch với thùng, nên khung còn lệch hẳn sang trái, phủ khoảng trống phía trên viên gạch.
-- Cách sửa: bảng `SOLID_PROPS` và hàm `applySolidProp` trong DemoLevelBuilder.ts, chạy ở bước 13 của nút ⚙ Cập nhật.
-  - `mg_up` và `mg_thungrac` bỏ một chiều, khung ôm đúng thân, giữ độ cao mặt đứng đang có trong scene.
-  - Viên gạch là một Solid thứ hai trên cùng node (Solid phải là con trực tiếp của Gameplay, nên không tách ra node con).
+### Quy tắc cho bước ⚙ Cập nhật
+- Ngày: 03–06/11/2026 · có lần là **lỗi do Claude** (nhờ bấm ⚙ mà không đọc các bước cũ)
+- Đã xảy ra: bước 1 của ⚙ tự tính lại `Sink`, ghi đè số 📐 đã đặt (mép đá tụt, hở khe dưới chân đồ vật); bước 23 tạo lại `bg_filter`, `bg_nha`
+  mà người dùng đã kéo sang lớp khác; hồi còn 7 nút, nút ghim băng rôn giằng co với 📐. Giờ chỉ còn 3 nút:
+  **⚙ Cập nhật (giữ phần bạn xếp)**, **📐 Xếp lại theo ảnh demo**, **⟳ Dựng màn từ đầu** (khoá "Cho phép xoá màn đang có").
 - Cách tránh lần sau:
-  - Đo thân đồ vật trên ảnh gốc (quét alpha từng hàng bằng Python) rồi vẽ thử khung lên ảnh để xem trước khi ghi số.
-  - Một ảnh chứa nhiều khối (thùng + gạch) thì mỗi khối một Solid.
-  - Các đồ một chiều còn lại (thùng xốp, thùng điện, bàn, ghế đá) vẫn có khung khoảng 74% hình.
-    Người dùng muốn chặn thêm đồ nào thì thêm vào `SOLID_PROPS`.
+  1. Không thêm nút mới. Việc mới là một bước của ⚙: bấm nhiều lần vẫn ra cùng kết quả, chỉ sửa node có sẵn, không xoá.
+  2. Hai chỗ cùng đặt một giá trị (vị trí, độ cao, sink) thì chọn một nguồn (`DemoLayout.ts`), chỗ kia đọc từ đó; ⚙ không ghi đè số của 📐.
+  3. Bước "thêm nếu chưa có" tìm theo tên **trên cả scene** (`named()` trong `applyNewArt`); node người dùng đã kéo sang lớp khác thì không tạo lại.
+  4. Thêm hình vào `FR_Top` thì bước 9 sẽ ghim nó sát mép trên (PinToScreenTop): đặt sẵn *Overlap* đúng thay vì đặt y.
+  5. Sau khi người dùng bấm và Ctrl+S: so `_id` giữa `git show HEAD:assets/scenes/Main.scene` và file hiện tại để bắt thứ bị đổi ngoài ý muốn.
+  6. Buộc phải sửa file scene: người dùng phải đóng Creator trước (Creator giữ scene trong bộ nhớ, Ctrl+S ghi đè lên file).
 
-### Sửa `Main.scene` trên đĩa khi Creator đang mở
-- Ngày: trước 03/11/2026 · Nhóm: scene
-- Triệu chứng: chỉnh sửa bị mất, hoặc Creator ghi đè lên scene khi lưu.
-- Nguyên nhân: Creator giữ scene trong bộ nhớ. Bấm Ctrl+S là ghi bản trong bộ nhớ đè lên file.
-- Cách sửa: sửa hàng loạt bằng nút bấm trong editor (`DemoLevelBuilder.ts`: ⚙ Cập nhật, 📐 Xếp lại theo ảnh demo).
-- Cách tránh lần sau: **scene là bản chính.** Hỏi người dùng Creator có đang mở không. Ưu tiên viết nút bấm
-  trong editor, chỉ sửa node có sẵn và không xoá. Nếu buộc phải sửa file scene thì người dùng phải đóng Creator trước.
+### Component gắn lúc chạy thì Inspector không chỉnh được, số trong scene không phải số chạy thật
+- Ngày: 11/11/2026
+- Triệu chứng: Inspector ghi boss 100 máu nhưng chơi là 150; khoảng 60 ô chỉnh của boss không có trong editor.
+- Nguyên nhân: `BossBrain` / `BossArena` chỉ được `addComponent` lúc chơi, dùng số mặc định trong code và đè lên `EnemyPatrol.hp` của scene.
+- Cách sửa: bước ⚙ 33 gắn sẵn hai component vào node Boss; `BOSS_HP` và bước 19 đổi thành 150.
+- Cách tránh lần sau: component có ô để người dùng chỉnh thì phải nằm trong scene (thêm bằng bước ⚙). Một con số chỉ có một chỗ đặt.
 
-### Bấm "⚙ Cập nhật không xoá" làm mép đá tụt xuống, hở khe dưới chân đồ vật
-- Ngày: 03/11/2026 · Nhóm: scene · **Lỗi do Claude**
-- Triệu chứng: giữa chân đồ vật (hàng rào, chậu cây, thùng) và mặt đá hở một dải trống. Lỗi này đã được 📐 sửa một lần rồi.
-- Nguyên nhân: Claude bảo người dùng bấm ⚙ để gắn ảnh nút mới, nhưng không đọc hết các bước cũ trong nút đó.
-  Bước 1 của ⚙ tự tính lại `Sink` (`tileHeight × 60/285` = 59.2 và 58.7), ghi đè số đo từ ảnh demo mà 📐 đã đặt (66.5 và 83.5).
-- Cách sửa: bước 1 của ⚙ giờ dùng `sink` trong `DEMO_GROUNDS` (DemoLayout.ts) nếu khối đá có trong đó. Bấm ⚙ lại là mép đá về đúng chỗ.
+### Component tự thêm component khác bị chồng, sửa scene xong "tự nhảy về"
+- Ngày: 08/11/2026
+- Triệu chứng: console editor báo "Can't add component 'cc.UITransform' because Tut_Pillar already contains…"; sửa scene xong bị trả về.
+- Nguyên nhân: `Tut_Pillar` (TutorialBlock) có 3 Solid chồng nhau, `Ground-002` (GroundBlock) có 5, chắc do nhân bản / Undo; cái thừa vẫn chặn mèo
+  theo cỡ cũ. Đã sửa trong `redraw` của hai file: tự gỡ Solid thừa, chỉ thêm Graphics khi node chưa có thứ vẽ nào.
+- Cách tránh lần sau: component tự thêm component khác (`executeInEditMode`) phải dùng `getComponents` và dọn bản thừa, không chỉ
+  `getComponent(X) ?? addComponent(X)`; sửa thì tìm mọi chỗ như vậy trong `assets/scripts` và sửa hết một lần.
+  Thấy "Can't add component" thì mở scene đếm component của node đó.
+
+## 2. Va chạm và hình
+
+### Khung va chạm không tự theo hình (đi xuyên thùng, hình lọt trong tường, chém hụt)
+- Ngày: trước 03/11, 04/11, 08/11/2026
+- Nguyên nhân: `Size` của Solid và PlatformerBody không đổi khi scale node hay đổi ảnh. Đồ dựng bằng `platform()` là bục một chiều (`oneWay`):
+  đi ngang thì xuyên qua, khung chỉ rộng khoảng 74% hình. Khối đá xếp tay: Solid luôn đi từ gốc node (x 0 → Width), ô `Tile_n` thì kéo đi đâu cũng được.
 - Cách tránh lần sau:
-  1. Trước khi bảo người dùng bấm một nút trong editor, **đọc hết mọi bước của nút đó** và nói rõ nó sẽ đổi gì.
-  2. Nút sửa hàng loạt không được ghi đè số đo của nút khác (📐, DemoLayout). Số nào đã có trong DemoLayout thì lấy từ đó.
-  3. Sau khi người dùng bấm nút và Ctrl+S, so scene với bản trên git (script so `_id` giữa `git show HEAD:assets/scenes/Main.scene`
-     và file hiện tại) để bắt những gì bị đổi ngoài ý muốn.
+  1. Đổi cỡ hình thì nhắc chỉnh `Size`, bật *Debug Colliders* và Play để kiểm tra.
+  2. Đo thân đồ vật trên ảnh gốc (quét alpha từng hàng), vẽ thử khung lên ảnh trước khi ghi số.
+  3. Muốn đồ nào chặn hai bên thì thêm vào bảng `SOLID_PROPS` (DemoLevelBuilder.ts, bước 13 của ⚙; đã có `mg_up`, `mg_thungrac`). Một ảnh nhiều khối
+     (thùng + viên gạch) thì mỗi khối một Solid trên cùng node, vì Solid phải là con trực tiếp của Gameplay.
+  4. Xếp tay ô đá: mép ngoài của hình phải nằm trong [0, Width] của khối, nhất là khối cao làm tường (so khung các `Tile_*` với `_width` bằng JS).
 
-### Bước ⚙ "thêm nếu chưa có" thêm lại node người dùng đã chuyển sang lớp khác
-- Ngày: 06/11/2026 · Nhóm: scene
-- Triệu chứng: người dùng chuyển `bg_filter` từ BG sang MG và `bg_nha` từ Gameplay sang BG; bấm ⚙ lần sau thì có thêm một
-  `bg_filter` trong BG và một `bg_nha` trong Gameplay (bản trùng, làm khung 1–2 mờ đục và hiện nhà nền ở khung 3).
-- Nguyên nhân: bước 23 chỉ kiểm tra "lớp cũ đã có node tên này chưa" (`parent.getChildByName`), không biết node đã sang lớp khác.
-- Cách sửa: tìm theo tên trên cả Canvas (`named()` trong `applyNewArt`), và xoá hai bản trùng do bản cũ thêm vào.
-- Cách tránh lần sau: bước ⚙ "thêm nếu chưa có" luôn tìm theo tên **trên cả scene**, không chỉ trong lớp cha.
-  Người dùng hay kéo node sang lớp khác; đó là phần của họ, ⚙ không được tạo lại.
-
-### Bấm ⚙ rồi Ctrl+S mà scene không được lưu
-- Ngày: 06/11/2026 · Nhóm: editor
-- Triệu chứng: người dùng báo "đã bấm và lưu", log Creator có dòng "Đã cập nhật...", nhưng `Main.scene` trên đĩa vẫn là bản cũ (2 lần liền).
-- Nguyên nhân: thay đổi do code của nút ⚙ làm không phải lúc nào cũng bật dấu `*` (chưa lưu) trên tên scene, nên Ctrl+S không ghi gì.
-- Cách sửa: nhờ người dùng kéo nhẹ một node cho hiện dấu `*` rồi Ctrl+S; lần đó file được ghi.
-- Cách tránh lần sau: người dùng báo đã lưu thì **luôn xem giờ sửa của `assets/scenes/Main.scene`** (`ls -la --time-style=full-iso`)
-  và tìm trong file một node/giá trị mà ⚙ vừa đổi, trước khi thử hay so ảnh. Khi nhờ bấm ⚙, dặn luôn: thấy dấu `*` rồi mới Ctrl+S.
-
-### Nhiều nút sửa hàng loạt giằng co nhau (📌 Ghim băng rôn với 📐)
-- Ngày: 03/11/2026 · Nhóm: scene
-- Triệu chứng: 📐 đặt băng rôn theo độ cao demo, nhưng PinToScreenTop (thêm bởi 📌) kéo ngay về sát mép trên.
-  Băng rôn ở khung 1, 3, 4 cao hơn demo khoảng 100px.
-- Nguyên nhân: 7 nút, mỗi nút viết vào một lúc, không nút nào biết nút kia đặt gì. Cùng loại lỗi với vụ mép đá ở trên.
-- Cách sửa: gộp lại còn 3 nút. ⚙ gồm mọi việc "thêm nếu thiếu, không dời". 📐 bỏ qua độ cao của node đã ghim.
-  ⟳ có khoá an toàn "Cho phép xoá màn đang có".
-- Cách tránh lần sau: **không thêm nút mới.** Việc mới thì thêm thành một bước của ⚙, và bước đó phải bấm nhiều lần
-  vẫn ra cùng kết quả. Hai chỗ cùng đặt một giá trị (vị trí, độ cao, sink...) thì chọn một nguồn (DemoLayout) và cho chỗ kia đọc từ đó.
-- Bổ sung 06/11/2026: bước 9 của ⚙ gắn PinToScreenTop cho **mọi** hình trong `FR_Top`, nên 4 tán lá `fr_bush` mới thêm cũng bị ghim
-  sát mép trên (Overlap 4). Tán lá lớn vốn nhô ra ngoài khung bị kéo tụt xuống ~280, che chim và bảng Lợi Ký. Sửa: bước 24 đặt
-  Overlap riêng cho từng tán lá. **Thêm hình vào `FR_Top` thì tính luôn việc nó sẽ bị ghim**: đặt sẵn Overlap đúng thay vì đặt y.
-
-### Kiểm tra lớp nào đè lớp nào so với demo
-- Ngày: 03/11/2026 · Nhóm: làm việc
-- Cách làm: `tools/so-sanh-demo/` dựng lại 4 khung camera từ file scene (vị trí, tỉ lệ, parallax, thứ tự vẽ) bằng Node
-  và System.Drawing, rồi đặt ảnh demo bên dưới. Không cần mở Creator. Phóng to từng vùng để so chân đồ vật với mép đá.
-- Lưu ý: không vẽ phần Graphics (tia nắng, sương, hào quang). Muốn so bản trên git thì chạy với `git show HEAD:assets/scenes/Main.scene`.
-- Bẫy: trước khi kết luận "lỗi do nút X", đọc lại số trong scene **hiện tại**, vì người dùng có thể đã bấm và lưu rồi.
-
-### Giá trị lưu trong scene đè lên giá trị mặc định trong code
-- Ngày: trước 03/11/2026 · Nhóm: code
-- Triệu chứng: đổi giá trị mặc định của `@property` trong code nhưng game không đổi.
-- Nguyên nhân: component đã lưu trong scene giữ giá trị cũ, và giá trị đó thắng giá trị trong code.
-- Cách sửa: đặt **tên property mới**, ví dụ `artFacesRight`, để scene nhận giá trị mặc định mới.
-- Cách tránh lần sau: muốn đổi hành vi của node đã có trong scene thì không chỉ sửa giá trị mặc định.
-  Đặt tên property mới, hoặc sửa qua nút "Cập nhật", hoặc bảo người dùng chỉnh trong Inspector.
-
-### Font Super Bouncer thiếu chữ có dấu tiếng Việt
-- Ngày: 03/11/2026 · Nhóm: art
-- Triệu chứng: chữ tiếng Việt viết bằng font game sẽ mất hoặc vỡ những chữ như Ế Ụ Ặ Ề Ư Ợ Ạ Ệ Ứ Ờ Ả Ỹ Ơ Ổ Ị Ọ.
-- Nguyên nhân: font chỉ có 442 ký tự, có À Á Â Ê nhưng không có các chữ có dấu kép của tiếng Việt.
-  Kiểm tra bằng cách đọc bảng `cmap` của file .ttf (script node, xem lịch sử phiên 03/11/2026).
-- Cách sửa: `UiKit.setText` tự chọn font. Chữ không dấu (START, LEO) dùng font game, chữ có dấu dùng font hệ thống (Arial đậm).
-  `GameFont.keepSystemFont` chặn font game tải xong muộn gắn đè lên label đã chuyển sang font hệ thống.
-- Cách tránh lần sau: chữ trên màn hình có dấu tiếng Việt thì luôn đi qua `setText`, đừng gọi thẳng `useGameFont`.
-  Muốn đồng bộ font thì tìm font có hỗ trợ tiếng Việt (ví dụ Baloo 2, Be Vietnam Pro).
-
-### Giới hạn tốc độ rơi (bám tường) nhưng vẫn rơi nhanh
-- Ngày: 04/11/2026 · Nhóm: code
-- Triệu chứng: Angelo bám tường mà vẫn trượt xuống nhanh (đo được 300 thay vì 170).
-- Nguyên nhân: giới hạn vận tốc ngay trước `b.move`, nhưng trong `move` trọng lực lại cộng thêm.
-- Cách tránh lần sau: muốn giữ tốc độ rơi cố định thì đặt `gravityScale = 0` trong frame đó và tự cộng gia tốc nhỏ.
-  Sửa vật lý xong thì đo vận tốc qua vài frame trong trình duyệt, đừng đoán.
-
-### Hai `@ccclass` trong cùng một file
-- Ngày: trước 03/11/2026 · Nhóm: code
-- Triệu chứng: component không hiện hoặc không nhận đúng trong editor.
-- Cách tránh lần sau: mỗi file `.ts` chỉ một `@ccclass`, tên file trùng tên class.
-
-### Hình vẽ bằng Graphics bị mất sau khi mở lại scene
-- Ngày: trước 03/11/2026 · Nhóm: code
-- Nguyên nhân: nét vẽ của `Graphics` không được lưu vào scene.
-- Cách tránh lần sau: vẽ lại trong `onLoad`, kèm `executeInEditMode` để editor cũng thấy.
-
-### `resources.load` không chạy trong editor
-- Ngày: trước 03/11/2026 · Nhóm: editor
-- Cách sửa: hỏi `asset-db` lấy uuid rồi gọi `assetManager.loadAny(uuid)` (xem `loadArtInEditor`).
-- Cách tránh lần sau: code chạy trong editor (`executeInEditMode`, nút bấm) không dùng `resources.load`.
-
-### Đổi tên file asset ngoài Creator làm sai tên file .meta
-- Ngày: 06/11/2026 · Nhóm: editor
-- Triệu chứng: đổi tên nhạc thành `bgm_boss.mp3` mà file kèm thành `bgm_boss.meta` (đúng phải là `bgm_boss.mp3.meta`).
-  Để vậy thì Creator tạo meta mới (mã uuid mới) và coi meta cũ là "mồ côi".
-- Cách sửa: đổi tên meta thành `<tên file đầy đủ kèm đuôi>.meta`, nội dung giữ nguyên.
-- Cách tránh lần sau: đổi tên asset trong Creator (chuột phải → Rename). Mỗi khi người dùng thêm / đổi file, kiểm tra từng file có đúng cặp `X.ext` + `X.ext.meta`.
-
-### Nhạc nặng làm chậm mọi tiếng hiệu ứng
-- Ngày: 06/11/2026 · Nhóm: code
-- Nguyên nhân: `resources.loadDir('sounds')` tải cả thư mục một lượt; thêm 2 bài nhạc 13 MB thì tiếng nhảy, chém... phải chờ tải xong hết mới kêu.
-- Cách sửa: `Sound.preload` chỉ tải tiếng hiệu ứng (bỏ file tên bắt đầu "bgm"); `Sound.music` tải riêng bài cần phát; `Sound.prefetch` tải sẵn nhạc boss lúc chiếu mở màn.
-- Cách tránh lần sau: file lớn (nhạc, ảnh nền to) không gộp chung với thứ nhỏ cần dùng ngay.
-
-### Về đích: mèo tự chạy mà không ra khỏi màn hình được
-- Ngày: 06/11/2026 · Nhóm: code
-- Triệu chứng: chạm cờ, camera đứng yên, mèo chạy sang phải nhưng đụng tường cuối màn ngay mép màn hình, đứng kẹt tới hết 4 giây chờ.
-- Nguyên nhân: cờ nằm gần cuối màn; chạy vào cờ thì camera nhìn trước (~380 px) nên đã chạm Max X, mép phải khung hình trùng tường.
-  Lúc thử đầu tiên tôi dịch mèo tới cạnh cờ nên camera chưa kịp nhìn trước, thấy chạy đúng và suýt bỏ sót.
-- Cách sửa: lúc giữ camera, nếu mép phải khung hình cách Max X ít hơn `holdExitRoom` (250) thì camera trượt nhẹ sang trái.
-- Cách tránh lần sau: thử hiệu ứng camera thì đặt camera đúng chỗ nó sẽ đứng khi chơi thật (đang chạy, sát giới hạn màn),
-  đừng chỉ dịch nhân vật tới rồi đo. Cờ, cửa ra... nằm sát cuối màn thì nhớ camera đã bị giới hạn chặn.
-- Bẫy khi thử: cờ đích đứng trên bậc đá cao ngay mép trái bậc; đặt mèo lùi về bên trái là rơi xuống dưới bậc, không tới cờ được.
-
-### Về menu mà nhạc rừng vẫn phát chồng lên nhạc menu
-- Ngày: 06/11/2026 · Nhóm: code
-- Triệu chứng: vào game rồi về menu thì nghe cả `bgm_forest` lẫn nhạc menu `bgm` cùng lúc.
-- Nguyên nhân: bẫy của AudioSource trong Cocos 3.8: gán `clip` mới **trong lúc đang phát** thì engine tạo trình phát mới
-  mà không tắt trình phát cũ, nên bài cũ vẫn chạy (bắt được bằng cách móc `AudioBufferSourceNode.start/stop` trong trình duyệt:
-  sau khi về menu còn 2 nguồn đang phát, dài 167 giây và 16 giây).
-- Cách sửa: `Sound.music()` gọi `stop()` trước khi đổi `clip` (`core/Sound.ts`). Thử lại: về menu chỉ còn đúng nguồn 16 giây.
-- Cách tránh lần sau: đổi `clip` của AudioSource thì luôn `stop()` trước. Thử nhạc thì đếm số nguồn âm thanh đang phát
-  (móc `AudioBufferSourceNode.prototype.start/stop`), đừng chỉ nghe hay chỉ xem `playing`.
-
-### Nhạc thường vẫn phát trong trận boss
-- Ngày: 06/11/2026 · Nhóm: code
-- Triệu chứng: vào đánh boss mà vẫn nghe `bgm_forest`, không chuyển sang `bgm_boss`.
-- Nguyên nhân: `prefetch('bgm_boss')` đang tải dở thì tới lúc đánh, `music('bgm_boss')` thấy "đang tải" nên thoát luôn;
-  `prefetch` tải xong chỉ cất bài đó lại, không ai bật. Nhạc thường cũng chưa được tắt lúc vào hang.
-- Cách sửa: `prefetch` tải xong thì kiểm tra, nếu game đang muốn phát đúng bài đó thì phát luôn. Vào hang thì `Sound.stopMusic()` ngay.
-- Cách tránh lần sau: có hai đường cùng tải một thứ thì đường nào tải xong trước cũng phải làm nốt việc của đường kia.
-  Khi thử, phải thử cả trường hợp file **chưa tải xong** lúc cần dùng, đừng chỉ thử khi đã có sẵn.
-
-### Slow motion: engine không có nút chỉnh tốc độ thời gian cho mọi thứ
-- Ngày: 06/11/2026 · Nhóm: code
-- Đã thử: `Scheduler.setTimeScale` chỉ ảnh hưởng hẹn giờ, không ảnh hưởng `update(dt)` của component.
-- Cách làm: `core/TimeScale.ts` thay `director.tick` bằng hàm nhân `dt` với tốc độ → mọi update, tween, hẹn giờ đều chậm theo.
-  Nhịp chậm dần / nhanh dần chạy bằng `setInterval` + `Date.now()` (giờ thật, không bị chậm theo chính nó). Vào màn mới gọi `TimeScale.reset()`.
-- Lưu ý: trong lúc chậm, `scheduleOnce(…, 0.6)` thành vài giây giờ thật; thứ cần hiện đúng lúc (chữ ĐÃ HẠ BOSS!) dùng `setTimeout`.
+## 3. Ảnh, âm thanh, asset
 
 ### Ảnh mới thả vào bị nhập dạng texture, code không lấy được
-- Ngày: 03/11/2026 · Nhóm: art
-- Triệu chứng: ảnh mới (`Button_*`, `MG_energy_*`) đã nằm trong `assets/resources/art` nhưng game vẫn dùng hình vẽ tạm.
-- Nguyên nhân: Creator nhập ảnh mới với `"type": "texture"` trong file `.meta`, nên không có sprite-frame để `resources.load(.../spriteFrame)` lấy.
-- Cách sửa: chọn ảnh → Inspector → **Type = sprite-frame** → Apply.
-- Cách tránh lần sau: mỗi khi người dùng thêm ảnh, kiểm tra `.meta` bằng `grep '"type"' assets/resources/art/<tên>.png.meta`.
-  Nếu là `texture` thì nhắc người dùng đổi trước khi làm.
-- Ảnh do mình tự tạo (cắt sprite sheet...): ghi sẵn `.meta` tối giản trước khi Creator nhập
-  (`"importer": "image"`, `"imported": false`, uuid mới, `"subMetas": {}`, `"userData": {"type": "sprite-frame", ...}`).
-  Creator giữ đúng `sprite-frame` và tự điền phần còn lại (đã thử 05/11/2026 với 26 ảnh `FX_*`). Sau đó vẫn grep lại cho chắc.
+- Ngày: 03/11/2026, gặp lại 07/11/2026
+- Triệu chứng: ảnh đã nằm trong `assets/resources/art` nhưng game vẫn dùng hình vẽ tạm; `resources.load(..., SpriteFrame)` không tìm thấy.
+- Nguyên nhân: Creator nhập ảnh mới với `"type": "texture"` trong `.meta`. Sửa: Inspector → **Type = sprite-frame** → Apply.
+- Cách tránh lần sau: mỗi khi người dùng thêm ảnh, `grep '"type"' assets/resources/art/<tên>.png.meta`; ra `texture` thì nhắc đổi trước khi làm.
+  Tên thư mục phân biệt chữ hoa thường (`Loading_pattern` ≠ `loading_pattern`).
+- Ảnh mình tự tạo: ghi sẵn `.meta` tối giản trước khi Creator nhập (`"importer": "image"`, `"imported": false`, uuid mới, `"subMetas": {}`,
+  `"userData": {"type": "sprite-frame", ...}`), Creator tự điền phần còn lại. Sau đó vẫn grep lại.
 
-### Cắt sprite sheet hiệu ứng
-- Ngày: 05/11/2026 · Nhóm: art
-- Bẫy: hai bản màu của cùng một tấm sheet có thể xếp hàng khác nhau (bản xanh và bản cam của tấm FX: cột phải lệch thứ tự).
-  Luôn dò lại hàng trên đúng tấm sẽ cắt, đừng dùng số hàng của bản kia.
-- Cách làm: đo trước (chạy thử không ghi file) xem hình có chạm mép ô / tràn sang ô bên không, cắt xong ghép thành một hình kiểm tra gửi người dùng.
-- Bẫy PowerShell: `| Select-Object -First 1` sau một script sẽ **dừng luôn script** sau dòng đầu tiên (file không được ghi). Dùng `| Out-Null`.
-- Bẫy PowerShell: tên biến không phân biệt hoa thường. Tham số `$Jobs` và biến `$jobs` trong script là **một biến**, ghi đè nhau. Đặt tên khác hẳn (`$JobSpec`).
-- Hình to hơn ô lưới (vòng sóng khung cuối) thì bị cắt mất viền: kiểm tra số điểm ảnh chạm mép (`edge`) khi đo trước, khung nào bị cắt thì bỏ.
-
-### Khung chọn menu lệch 2 dòng so với dòng đang chọn
-- Ngày: 05/11/2026 · Nhóm: code
-- Triệu chứng: chọn NEW GAME mà khung chọn nằm ở ACHIEVEMENTS (thấp hơn 2 dòng).
-- Nguyên nhân: code lấy khoảng lệch giữa node `Selection` và **dòng đầu** làm mốc; người dùng kéo `Selection` xuống dòng ACHIEVEMENTS trong editor
-  để xem thử, nên khoảng lệch thành −152.
-- Cách sửa: lấy khoảng lệch so với **dòng gần khung nhất** (`setupMenu` trong `LandingScreen.ts`).
-- Cách tránh lần sau: đồ vật người dùng kéo trong editor để "xem thử" có thể nằm bất kỳ đâu. Đừng giả định nó ở chỗ ban đầu; lấy mốc gần nhất.
+### Đổi tên, chuyển file trong `assets` ngoài Creator
+- Ngày: 05–06/11/2026
+- Triệu chứng: đổi tên nhạc thành `bgm_boss.mp3` mà file kèm thành `bgm_boss.meta` (Creator sẽ tạo meta mới, uuid mới);
+  `mv` thư mục vừa nhập ra khỏi `assets` báo `Device or resource busy` vì Creator đang giữ.
+- Cách sửa: meta phải tên `<tên đầy đủ kèm đuôi>.meta`. Thư mục bị giữ: `cp` sang chỗ mới, xoá các `.meta` bị chép theo, rồi `rm -rf` thư mục cũ và `.meta` của nó.
+- Cách tránh lần sau: đổi tên asset trong Creator (chuột phải → Rename); kiểm tra từng file đủ cặp `X.ext` + `X.ext.meta`.
+  File nguồn (gif, `.ase`, dải sheet) thả vào `assets` thì chép ra `art-nguon/` rồi xoá bản trong `assets`; nhắc lần sau thả thẳng vào `art-nguon/`.
 
 ### Đặt ảnh theo ảnh mẫu mà tâm bị lệch (Sprite tự cắt viền trong suốt)
-- Ngày: 04/11/2026 · Nhóm: art
-- Triệu chứng: đo tâm logo, khung chọn trên ảnh mẫu rồi đặt đúng số đó, nhưng hình vẫn lệch vài chục px.
-- Nguyên nhân: Sprite mặc định bật *Trim*, cắt bỏ phần trong suốt quanh hình rồi đặt phần còn lại vào giữa node.
-  Ảnh có quầng sáng hay viền trống không đều (như `logo.png`) thì tâm phần còn lại khác tâm ảnh gốc.
+- Ngày: 04/11/2026
+- Nguyên nhân: Sprite mặc định bật *Trim*, cắt phần trong suốt quanh hình rồi đặt phần còn lại vào giữa node, nên lệch vài chục px.
 - Cách tránh lần sau: ảnh đặt theo số đo trên ảnh mẫu thì để `trim = false` và *Size Mode* = RAW (xem `ensureMainMenu` trong DemoLevelBuilder).
   Đo vị trí bằng cách dò ảnh gốc trên ảnh mẫu (OpenCV `matchTemplate` có mask), đừng ước bằng mắt.
 
-### Kích thước va chạm không tự theo khi scale hình
-- Ngày: trước 03/11/2026 · Nhóm: scene
-- Triệu chứng: chém hụt, đứng lơ lửng, hoặc bị đụng khi chưa chạm.
-- Nguyên nhân: `Size` của **Solid** và **PlatformerBody** không đổi khi scale node hay đổi ảnh.
-- Cách tránh lần sau: đổi cỡ hình thì nhắc chỉnh `Size`, rồi bật *Debug Colliders* và Play để kiểm tra.
-
-## Code giao diện (menu, bảng)
-
-### Mèo bị kéo to gấp mấy lần sau khi game giật
-- Ngày: 08/11/2026 · Nhóm: code
-- Triệu chứng: chụp màn hình thấy hình Leo cao gấp ~4 lần, vài khung sau tự về lại.
-- Nguyên nhân: `PlayerVisual` tính lò xo nhún (squash) bằng một bước Euler với cả dt của khung. Trình duyệt / máy giật làm một khung dài
-  (khung xem trước bị ẩn: cả giây) thì lò xo cứng (K 320) văng quá đà, độ co giãn ra số rất lớn.
-- Cách sửa: chia dt thành bước nhỏ (≤ 1/120 giây, tối đa 0.1 giây mỗi khung) và kẹp squash trong ±0.45.
-- Cách tránh lần sau: mọi lò xo / hiệu ứng tính theo dt (tween tự viết, rung, nảy) phải chia bước nhỏ hoặc kẹp dt; thử bằng cách gọi `update(1)` một phát xem có văng không.
-
-### Vệt móng boss nằm đè lên mặt boss
-- Ngày: 08/11/2026 · Nhóm: code
-- Triệu chứng: lúc boss cào vồ, ảnh `Boss/Claw` chồng lên đầu boss thay vì ở trước mặt; đẩy vệt xa thêm cũng không hết.
-- Nguyên nhân: vệt được đặt cố định trong màn ngay lúc bắt đầu vồ, rồi boss lao tới ~150 (950 × 0.16 giây) và chạy đè lên chính vệt của mình.
-- Cách sửa: `BossBrain` giữ node vệt (`clawMark`), mỗi khung lúc vồ đặt lại x = mép khung va chạm phía trước + `CLAW_AHEAD` (140).
-- Cách tránh lần sau: hiệu ứng gắn với một thân đang di chuyển thì cho nó bám theo thân (hoặc tính chỗ thân sẽ dừng), đừng đặt cố định lúc khởi động đòn.
-
-### Hai file tiếng cùng tên khác đuôi (jump.wav + jump.ogg)
-- Ngày: 08/11/2026 · Nhóm: asset
-- Triệu chứng: thêm `jump.ogg` mới nhưng trong game lúc nghe tiếng mới, lúc nghe tiếng cũ.
-- Nguyên nhân: `Sound` gọi tiếng theo tên không đuôi; hai file cùng tên thì bản nào tải xong sau sẽ đè bản kia, không đoán được.
-- Cách sửa: thay tiếng thì xoá file cũ (cả `.meta`), chỉ để lại một file mỗi tên.
-- Cách tránh lần sau: trước khi gắn tiếng mới, liệt kê thư mục `sounds` tìm tên trùng khác đuôi.
-- Bẫy khi sửa file: trong GNU sed, gạch chéo ngược + dấu huyền là "đầu dòng", nên lệnh sed thay chuỗi đó đã chèn dấu huyền vào đầu mọi dòng
-  (phải xoá lại). Sửa chữ có dấu huyền thì dùng Edit, đừng dùng sed.
-
-### Số cá lệch khỏi giữa thanh nâu
-- Ngày: 08/11/2026 · Nhóm: code
-- Triệu chứng: chữ "1,600" trên bộ đếm cá thấp hơn và hơi lệch phải so với thanh nâu.
-- Nguyên nhân: chữ đặt theo tâm cả ảnh `MG_coin_backing`, nhưng thanh nâu nằm cao hơn tâm ảnh 3,5px (con cá thò xuống dưới),
-  và chữ số của font ngồi thấp trong khung chữ. Đo ảnh: thanh nâu x 88–258, y 20–65 (tính từ trên).
-- Cách sửa: CoinCounter thêm ô *Text Offset Y* (7), *Text Offset X* 44 → 39.
-- Cách tránh lần sau: chữ đặt lên ảnh nền không cân (có hình thò ra) thì đo phần nền thật bằng điểm ảnh, đừng lấy tâm ảnh.
-  Đổi giá trị mặc định trong code không đổi được ô đã lưu trong scene: phải sửa cả scene.
-
-### Đặt biển hướng dẫn mới mà không xem khung hình
-- Ngày: 08/11/2026 · Nhóm: scene
-- Triệu chứng: biển BÙNG NỔ đặt ở y 760 thì phím L ra ngoài màn hình, dòng chữ đè lên bộ đếm cá trên HUD.
-- Nguyên nhân: chọn độ cao theo ý "biển cao, trên hình nộm" mà không tính camera trong màn hướng dẫn chỉ thấy tới khoảng y 660 dưới HUD.
-- Cách sửa: hạ xuống y 540, mũi tên 170, rút câu cho ngắn để không đụng biển Chém hất bên trái.
-- Cách tránh lần sau: trước khi chốt chỗ đặt vật mới, dời thử bằng code trên bản xem trước và chụp màn hình, rồi mới ghi vào scene.
-
-### Cung tròn Graphics chạy ngược chiều
-- Ngày: 08/11/2026 · Nhóm: code
-- Triệu chứng: cung nộ quanh nút L muốn chạy từ đỉnh theo chiều kim đồng hồ (sang phải), nhưng lại chạy sang trái.
-- Nguyên nhân: trục y của Cocos hướng lên, góc giảm dần là đi theo chiều kim đồng hồ; truyền `counterclockwise = true` cho `g.arc`
-  với góc cuối nhỏ hơn góc đầu thì nó đi vòng ngược lại.
-- Cách sửa: `g.arc(0, 0, r, PI/2, PI/2 - k*2PI, false)`.
-- Cách tránh lần sau: vẽ cung thử với một giá trị như 40% rồi chụp xem trước khi làm tiếp. Nút trên màn nhỏ: tạm phóng to node cha (scale 3) để soi.
-
-### Đoán phím "đang trống" mà không xem bộ phím mặc định
-- Ngày: 08/11/2026 · Nhóm: làm việc
-- Triệu chứng: đề xuất và làm special ở "phím K (Kỹ năng, đang bỏ trống)"; thử thì bấm K chỉ ra nhảy, special không bật.
-- Nguyên nhân: nhớ theo bộ phím cũ (Space nhảy, K kỹ năng). Bộ hiện tại (`core/Settings.ts`, `LAYOUT_KEYS`): WASD = J đánh, **K nhảy**,
-  Kỹ năng không gán phím; Mũi tên = X đánh, Z nhảy. Nút cảm ứng "K" cũng là nút nhảy.
-- Cách sửa: hỏi lại người dùng, special gán **L** (WASD) / **C** (mũi tên); máy đã lưu cài đặt mà phím Kỹ năng trống thì tự gán khi mở game.
-- Cách tránh lần sau: trước khi đề xuất phím / nút cho tính năng mới, mở `LAYOUT_KEYS` / `DEFAULT_KEYS` trong `Settings.ts` xem phím nào đang dùng,
-  và nhớ cài đặt cũ đã lưu trên máy người chơi (cần đoạn tự gán trong `load()`).
-
-### Nhuộm màu ảnh có màu sẵn (thanh năng lượng xanh) không ra màu muốn
-- Ngày: 08/11/2026 · Nhóm: code
-- Triệu chứng: thanh năng lượng đầy nộ / đang special đặt `Sprite.color` vàng nhưng nhìn ra xanh ô liu tối, khó nhận ra.
-- Nguyên nhân: `Sprite.color` nhân với màu ảnh: ảnh `MG_energy_fill` màu xanh lá nhân vàng ra ô liu; chỉ làm tối / ngả màu, không đổi hẳn màu được.
-- Cách sửa: lúc đó gán `customMaterial` = shader tô một màu (`core/Silhouette.ts`), `color` = vàng; hết thì trả `customMaterial = null`.
-- Cách tránh lần sau: ảnh đã có màu mà muốn đổi hẳn sang màu khác (loé trắng, tô vàng) thì dùng shader tô một màu, không nhuộm `color`.
-
-### Đòn boss mới viết ra mà không né được
-- Ngày: 08/11/2026 · Nhóm: code
-- Triệu chứng: thử bằng mèo giả trên preview: lao ngang lượt về luôn trúng (boss dừng ở tường 0.35 giây rồi lao ngược ngay, mèo vừa đáp
-  sau lưng boss không kịp nhảy); nền gợn sóng luôn trúng (mỗi khối nhô 0.5 giây, khối sau cách 0.075 giây → dải đá cao rộng ~500).
-- Nguyên nhân: đặt số theo cảm giác, không so với khả năng của mèo. Mèo nhảy cao ~300 (1250² / 2·2600), ở trên độ cao h trong khoảng
-  thời gian giải 1250t − 1300t² > h (trên 200: từ 0.2 tới 0.76 giây). Boss lao qua chỗ mèo mất (bề ngang chạm + bề ngang mèo) / tốc độ.
-- Cách sửa: lao 1500 → 1300, dội tường khựng 0.55 giây và nháy đỏ (ô *Shove Turn*); gợn sóng mỗi khối 0.35 giây, cách 0.1 giây, cao 130.
-  Đo lại bằng mèo giả: né được với phản xạ 0.1–0.2 giây.
-- Cách tránh lần sau: đòn nào bắt nhảy qua / chạy khỏi thì tính trước "mèo có kịp không" bằng các số trên, rồi thử bằng mèo giả
-  (vòng lặp tự tick, ra quyết định né như người chơi) trước khi báo xong. Đòn nào cũng phải có báo trước rõ và có cách né.
-
-### Bóng mờ khi lướt lún xuống dưới mặt đất
-- Ngày: 08/11/2026 · Nhóm: code
-- Triệu chứng: chụp lúc mèo lướt thấy các bóng mờ nối đuôi nằm thấp, nửa dưới chìm xuống nền đá.
-- Nguyên nhân: `spawnGhost` tạo node Sprite mới với gốc mặc định (giữa hình, 0.5 / 0.5), còn hình mèo đặt gốc ở bàn chân (0.5 / 0),
-  nên chép vị trí sang thì bóng tụt xuống nửa thân.
-- Cách sửa: bóng lấy cùng anchor với hình mèo (`UITransform.setAnchorPoint`).
-- Cách tránh lần sau: chép hình một node sang node mới (bóng, ảnh chụp lại) thì chép cả anchor, không chỉ vị trí / scale / góc.
-
-### Khối vẽ trong editor bị chồng component, sửa scene xong "tự nhảy về"
-- Ngày: 08/11/2026 · Nhóm: scene
-- Triệu chứng: console editor báo "Can't add component 'cc.UITransform' because Tut_Pillar already contains…",
-  "Can't add renderable component…"; người dùng thấy sửa scene xong bị trả về.
-- Nguyên nhân: node \`Tut_Pillar\` (TutorialBlock) có 3 Solid chồng nhau (cao 400 / 430 / 428.6), chắc do nhân bản / Undo khi đang
-  sửa chiều cao. Code chỉ cập nhật Solid đầu, hai cái thừa vẫn chặn mèo theo cỡ cũ; lỗi khi thêm component làm editor huỷ thao tác.
-- Cách sửa: \`TutorialBlock.redraw\` tự gỡ Solid thừa (giữ 1), chỉ thêm Graphics khi node chưa có thứ vẽ nào.
-  Người dùng đổi Height của khối một chút rồi đổi lại để nó vẽ lại, Ctrl+S.
-- Cách tránh lần sau: component tự thêm component khác (executeInEditMode) phải dùng \`getComponents\` và dọn bản thừa,
-  không chỉ \`getComponent ?? addComponent\`. Thấy lỗi "Can't add component" thì mở scene đếm component của node đó.
-- Bổ sung 08/11/2026: `GroundBlock` cũng bị y hệt (`Ground-002` 5 Solid, một khối khác 4, một khối 2) mà lần trước chỉ sửa
-  TutorialBlock. Đã sửa `GroundBlock.redraw` cùng cách; người dùng Ctrl+S, mỗi khối còn 1 Solid. Sửa lỗi kiểu này thì
-  tìm mọi chỗ `getComponent(X) ?? this.addComponent(X)` trong `assets/scripts` và sửa hết một lần.
-- Thêm: \`useGameFont\` trong editor không tải được font qua resources (báo lỗi vàng vô hại) → bỏ qua khi EDITOR.
-
-### Xoá Graphics rồi gắn Sprite trên cùng node: Sprite không bao giờ hiện
-- Ngày: 07/11/2026 · Nhóm: code
-- Triệu chứng: màn tải đổi hình tạm (Graphics) sang ảnh hoạ tiết (Sprite) trên cùng node: Sprite có ảnh, có màu, đúng lớp
-  mà không vẽ ra gì; không có lỗi nào trong console.
-- Nguyên nhân: \`destroy()\` component chỉ chạy ở cuối khung hình; lúc chạy, Graphics gỡ luôn "chỗ vẽ" của node,
-  kéo theo Sprite vừa gắn cùng khung.
-- Cách sửa: giữ Graphics (chỉ \`clear()\`), ảnh đặt vào **node con** riêng.
-- Cách tránh lần sau: mỗi node chỉ một thứ vẽ (Sprite / Label / Graphics). Muốn đổi loại thì dùng node con, đừng xoá-rồi-gắn trên cùng node.
-- Thêm: ảnh mới thả vào mà Type = texture thì \`resources.load(..., SpriteFrame)\` không tìm thấy — phải đổi Type = sprite-frame (Apply);
-  tên thư mục phân biệt chữ hoa thường (\`Loading_pattern\` ≠ \`loading_pattern\`).
-
-### Hiệu ứng vẽ bằng Graphics: con số "đúng" mà nhìn không thấy / quá nhạt
-- Ngày: 07/11/2026 · Nhóm: code
-- Triệu chứng: vệt sáng ngang chữ ở menu (nét 3px, quầng alpha 16) chạy đúng, đúng chỗ mà nhìn không thấy;
-  lớp tối của bảng tạm dừng alpha 205 nhưng màn hướng dẫn (tờ giấy trắng) phía sau vẫn sáng rõ.
-- Nguyên nhân: nét mảnh và mờ thì ở cỡ màn hình thật / khung xem thu nhỏ biến mất; nền trắng cần lớp tối đậm hơn nhiều so với nền rừng tối.
-- Cách sửa: vệt sáng 5px, quầng alpha 34 × 7 lớp, dài hơn chữ 200 mỗi bên; lớp tối bảng tạm dừng 240.
-- Cách tránh lần sau: hiệu ứng mờ / sáng phải **chụp màn hình xem bằng mắt** trên nền sáng nhất và tối nhất nó sẽ nằm lên,
-  chỉnh trực tiếp trên trang (gán lại hàm vẽ bằng JS) cho tới khi thấy rõ rồi mới ghi số vào code. Thử vẽ một hình đặc màu đỏ
-  để tách "không vẽ" với "vẽ mà quá nhạt".
-
-### Lớp tối vẽ bằng Graphics hiện đen kịt dù UIOpacity đang ở mức thấp
-- Ngày: 07/11/2026 · Nhóm: code
-- Triệu chứng: lật trang truyện, trang đang gập lẽ ra tối dần (UIOpacity 106/255) nhưng hiện đen đặc, che hết tranh.
-- Nguyên nhân (đoán, chưa đào tới tận engine): đổi UIOpacity liên tục trên node chỉ có Graphics không làm hình vẽ trong suốt theo ngay;
-  màu đã vẽ (đen 255) được giữ nguyên.
-- Cách sửa: vẽ lại Graphics mỗi khung với độ trong suốt nằm trong màu tô (\`fillColor\` có alpha), không dùng UIOpacity cho hình vẽ.
-- Cách tránh lần sau: hiệu ứng mờ dần trên hình vẽ bằng code thì đổi alpha trong màu rồi vẽ lại; UIOpacity dùng cho Sprite và Label.
-  Luôn chụp giữa chừng hiệu ứng (dừng game, tick tay) để thấy, đừng chỉ đọc số opacity.
-
-### Import vòng làm "Missing class", mất luôn nút ⚙
-- Ngày: 06/11/2026 · Nhóm: code
-- Triệu chứng: Console Creator đầy "Missing class ...", "Found possible circular reference ... PlayerTrigger"; Checkpoint, Goal, cá... mất script,
-  DemoLevelBuilder cũng hỏng nên không thấy nút ⚙ Cập nhật. tsc vẫn báo không lỗi.
-- Nguyên nhân: mình cho `LandingScreen` import `TutorialRoom` → `TutorialExit` (kế thừa `PlayerTrigger`) → `PlayerTrigger` import `GameManager`
-  → `GameManager` import `LandingScreen`. Creator nạp theo vòng nên lúc định nghĩa `TutorialExit` thì lớp `PlayerTrigger` chưa có.
-- Cách sửa: `TutorialRoom` tự gắn vào `GameSession.tutorial`, `LandingScreen` gọi qua đó, không import `TutorialRoom` nữa.
-- Cách tránh lần sau: thêm import giữa các file giao diện / màn chơi / GameManager thì chạy `python tools/kiem_tra_import_vong.py`
-  trước khi nhờ người dùng bấm Creator. Muốn gọi ngược lên thì đi qua một chỗ trung gian không import gì (GameSession, biến tĩnh).
-
-### Đổi ngôn ngữ báo lỗi `keyCells is not iterable` sau khi chơi lại màn
-- Ngày: 06/11/2026 · Nhóm: code
-- Triệu chứng: Chơi lại / Về menu rồi đổi ngôn ngữ trong Cài đặt thì màn hình lỗi đỏ.
-- Nguyên nhân: PauseMenu đăng ký `Lang.onChange(...)` nhưng không gỡ. Scene cũ bị xoá, component cũ bị xoá sạch dữ liệu (`keyCells` thành null)
-  mà hàm nghe vẫn nằm trong danh sách, đổi ngôn ngữ là gọi vào nó.
-- Cách sửa: hàm nghe là thuộc tính cố định (`private readonly onLang = () => ...`), `onDestroy` gọi `Lang.offChange(this.onLang)`;
-  TutorialHint gỡ `Settings.onChange` trong `onDestroy`.
-- Cách tránh lần sau: mỗi `X.onChange(...)` / `input.on(...)` / danh sách tĩnh phải có cặp gỡ trong `onDestroy`. Đừng truyền hàm mũi tên viết tại chỗ (không gỡ được).
-
-### Hiệu ứng nổ bám theo thứ đang teo đi
-- Ngày: 06/11/2026 · Nhóm: code
-- Triệu chứng: cá bị ăn, quầng sáng đáng ra nở to rồi tan thì lại co về 0 cùng con cá.
-- Nguyên nhân: cỡ quầng tính theo bề ngang cá mỗi khung, mà lúc nổ cá đang teo (tween scale → 0).
-- Cách tránh lần sau: lúc bắt đầu hiệu ứng nổ thì "chốt" vị trí / cỡ của vật gốc, đừng bám theo nữa. Đo số từng khung (scale, opacity) để thấy ngay.
-
-### Bảng gợi ý bám theo mèo đè lên hàng tim
-- Ngày: 06/11/2026 · Nhóm: code
-- Triệu chứng: mèo đứng trên bậc cao thì bảng hướng dẫn trên đầu mèo bị đẩy lên mép trên, che tim và thanh năng lượng.
-- Cách sửa: `TutorialHint.follow` kẹp mép trên bảng dưới dải HUD (250 tính từ mép trên khung); bị kẹp tới đầu mèo thì dời sang bên cạnh.
-  Đổi toạ độ: chỗ trên màn hình = toạ độ trong lớp Gameplay + `Gameplay.position` (lớp là con của Canvas, tâm khung hình).
-- Cách tránh lần sau: mọi thứ vẽ trong thế giới mà bám theo nhân vật (chữ, bảng, mũi tên) phải thử cả lúc nhân vật ở bậc cao nhất và mép màn.
-
-### Quay lại trang trước thì khung chọn nhảy về ô đầu
-- Ngày: 06/11/2026 · Nhóm: code
-- Triệu chứng: Chơi lại màn → KHÔNG → về menu, khung chọn nhảy lên "Tiếp tục"; bấm Enter tiếp là đóng menu.
-- Cách sửa: `MenuNav.open(first, keep)`; PauseMenu quay về từ trang con (Quay lại, KHÔNG, Esc) thì `keep = true`. Mở mới (Esc) vẫn chọn ô đầu.
-- Cách tránh lần sau: thử bảng hỏi lại bằng bàn phím cả hai đường KHÔNG và CÓ, mỗi đường bấm tiếp một lần sau đó.
-
-### Tải lại màn bị hỏng vì bảng vẽ lại nút lúc đang bị xoá
-- Ngày: 06/11/2026 · Nhóm: code
-- Triệu chứng: bấm Về menu / Chơi lại ở bảng kết quả thì màn không tải lại, scene trống (không còn Canvas); console báo lỗi
-  `Cannot read properties of null (reading 'r')` trong `Graphics.fill` ← `MenuNav.close` ← `PauseMenu.onDestroy`.
-- Nguyên nhân: đổi scene thì mọi component bị xoá; `onDestroy` của PauseMenu đóng các bảng, bảng tắt viền chọn của từng nút
-  → vẽ lại trên Graphics đã bị xoá → lỗi văng giữa lúc engine đang xoá scene cũ, làm hỏng luôn việc chuyển scene.
-- Cách sửa: `MenuNav.close(false)` trong `onDestroy` (không vẽ lại); nút trong `UiKit` không vẽ khi `Graphics` đã `!isValid`.
-- Cách tránh lần sau: trong `onDestroy` chỉ dọn dẹp (gỡ đăng ký, huỷ hẹn giờ), **không vẽ, không đổi hình**.
-  Viết xong bảng nào cũng thử một lần đổi scene (Chơi lại / Về menu) và xem console.
-
-### Bảng vừa mở nhận luôn chính phím vừa mở nó
-- Ngày: 06/11/2026 · Nhóm: code
-- Triệu chứng: Esc mở menu tạm dừng rồi menu đóng ngay; Enter vào "Chơi lại màn" thì bảng hỏi lại tự chọn KHÔNG.
-- Nguyên nhân: nhiều chỗ cùng nghe sự kiện phím. Bảng mở ra trong lúc xử lý một lần bấm, rồi bộ nghe của bảng (chạy sau) lại xử lý tiếp chính lần bấm đó.
-  Lần đầu không bị vì bộ nghe của MenuNav chỉ đăng ký sau lần mở đầu tiên, nên thử một lần thấy đúng, mở lần hai mới lỗi.
-- Cách sửa: `MenuNav.open` đánh dấu `justOpened`, `setTimeout(0)` mới gỡ (chạy sau khi sự kiện hiện tại xử lý xong, kể cả lúc tạm dừng).
-- Cách tránh lần sau: thử mỗi bảng **hai lần liên tiếp** (mở, đóng, mở lại) bằng đúng phím người chơi bấm.
-
-### Định dạng thời gian ra "01:010.0"
-- Ngày: 06/11/2026 · Nhóm: code
-- Nguyên nhân: kiểm tra "giây < 10 thì thêm số 0" trước khi làm tròn; 9.96 làm tròn thành "10.0" nhưng vẫn bị thêm 0.
-- Cách tránh lần sau: làm tròn trước (đổi ra số phần mười), rồi mới tách phút / giây.
-
-## Xếp màn theo ảnh demo
-
-### Đoán sai tỉ lệ ảnh demo (0.87 thay vì 1)
-- Ngày: trước 03/11/2026 · Nhóm: làm việc
-- Triệu chứng: đồ vật xếp lệch và sai cỡ so với 4 ảnh demo.
-- Nguyên nhân: tỉ lệ được đoán chứ không đo. Thực ra ảnh demo vẽ mọi thứ đúng cỡ gốc (tỉ lệ 1).
-- Cách tránh lần sau: con số nào lấy từ ảnh mẫu thì **đo và so 1-1** trước (node DemoRef, tích *Hiện ảnh demo*),
-  không đoán. Toạ độ: 1px ảnh = 1.5 đơn vị game, `FRAME_CAM = [660, 2580, 4500, 6420]`.
-
-## Build và phát hành
-
-### Zip bằng Compress-Archive làm itch.io không chạy
-- Ngày: trước 03/11/2026 · Nhóm: build
-- Nguyên nhân: Compress-Archive của PowerShell ghi dấu `\` trong đường dẫn file zip.
-- Cách sửa: `python tools/zip_build.py build/web-mobile Leo-Escape-web.zip`.
-- Cách tránh lần sau: không dùng Compress-Archive để nén bản build.
-
-### Nút QUIT trên bản web không đóng được tab
-- Ngày: 04/11/2026 · Nhóm: build
-- Nguyên nhân: trình duyệt chỉ cho `window.close()` đóng tab do chính trang đó mở bằng script. Mở game từ itch.io thì bị chặn, không báo lỗi.
-- Cách làm: bản native gọi `game.end()`. Bản web thử `window.close()`, không được thì thoát toàn màn hình, tắt nhạc,
-  hiện "THANKS FOR PLAYING!" kèm nút về menu (`LandingScreen.answerQuit`). Đây cũng là cách các game web hay làm.
-
 ### Đoán sai ảnh góc trái / phải của ô đá
-- Ngày: 06/11/2026 · Nhóm: art
-- Triệu chứng: đầu khối đá ngay trước cái hố ở khung 1 hiện `MG_tile_4`, người dùng phải chỉ ra "chỗ này phải xài tile_3".
-- Nguyên nhân: người dùng nói tile_3 và tile_4 đều là "khối lộ ra ngoài"; mình coi cả hai là góc phải và bốc ngẫu nhiên cho mọi đầu khối,
-  không mở ảnh ra xem. Thật ra tile_3 có viền liền ở mép **phải** (góc phải), tile_4 có viền liền ở mép **trái** (góc trái).
-- Cách sửa: GroundBlock có ô *Left End Frame*; đầu phải dùng tile_3, đầu trái dùng tile_4 (không lật).
-- Cách tránh lần sau: ảnh mới để ghép (ô đá, góc, mép) thì **cắt riêng mép trái và mép phải ra xem** trước khi quyết định dùng ở đâu.
+- Ngày: 06/11/2026
+- Nguyên nhân: coi `MG_tile_3` và `MG_tile_4` đều là góc phải mà không mở ảnh ra xem. Thật ra tile_3 viền liền ở mép **phải**, tile_4 ở mép **trái**
+  (GroundBlock: đầu phải dùng tile_3, ô *Left End Frame* dùng tile_4, không lật).
+- Cách tránh lần sau: ảnh mới để ghép (ô đá, góc, mép) thì cắt riêng mép trái và mép phải ra xem trước khi quyết định dùng ở đâu.
   Hai ảnh "cùng loại" thường là một cặp trái / phải.
 
 ### Tên file asset có dấu tiếng Việt
-- Ngày: trước 03/11/2026 · Nhóm: art
-- Nguyên nhân: tên như `AS_câyquất` hay `FR_cờ` có thể lỗi khi build ra Android hoặc iOS.
-- Cách tránh lần sau: đặt tên file không dấu, ví dụ `AS_cayquat` hay `FR_co`.
+- Ngày: trước 03/11/2026
+- Cách tránh lần sau: đặt tên không dấu (`AS_cayquat`, `FR_co`); tên như `AS_câyquất`, `FR_cờ` có thể lỗi khi build ra Android hoặc iOS.
 
-## Tài liệu thiết kế
+## 4. Bẫy engine
 
-### Tài liệu nhiều chữ, lại chèn asset thật của game
-- Ngày: 03/11/2026 · Nhóm: làm việc
-- Triệu chứng: người dùng yêu cầu bỏ hết ảnh asset đang có ra khỏi `docs/thiet-ke-game.html` và cắt bớt chữ.
-- Nguyên nhân: bản 0.1 chèn art thật (Leo, boss, ảnh demo) và viết đoạn văn dài, bảng nhiều chữ.
-- Cách sửa: bản 0.2 chỉ dùng hình phác hoạ tự vẽ. Mỗi mục có hình làm chính, kèm 2–4 dòng ngắn. Bảng chỉ giữ ở chỗ cần tra (phím, giai đoạn trùm).
-- Cách tránh lần sau: tài liệu thiết kế **không chèn asset của game**. Cái gì vẽ được thì vẽ, chữ chỉ làm chú thích.
-  Không tự thêm đồ nghề hay kỹ năng cho nhân vật ngoài những gì người dùng nói. Bản 0.1 tự thêm bút laser cho Angelo và bị bỏ đi:
-  Angelo chỉ có **dây len**.
+### Bước "đổi dữ liệu cũ sang mới" chạy lại mỗi lần mở game
+- Ngày: 11/11/2026
+- Triệu chứng: đổi phím Special / Lướt ở kiểu Mũi tên, lần mở game sau bị trả về mặc định.
+- Nguyên nhân: `load()` trong `core/Settings.ts` nhận ra "bộ phím mặc định cũ" bằng 6 phím chính; bộ Mũi tên mới trùng 6 phím đó nên lần nào cũng bị coi là cũ.
+- Cách sửa: lưu thêm `keysVersion`, bước đổi chỉ chạy khi cài đặt đã lưu chưa có số này.
+- Cách tránh lần sau: mọi bước tự đổi dữ liệu đã lưu (cài đặt, ô lưu) phải kèm một số bản ghi cùng dữ liệu và chỉ chạy khi số đó cũ; không nhận diện "dữ liệu cũ" bằng cách so giá trị.
 
-## Công cụ trên máy
+### Dùng một con số to làm dấu rồi để nó tự đếm ngược
+- Ngày: 11/11/2026
+- Triệu chứng: mở cửa hàng / hội thoại lâu hơn 99 giây thì đóng lại mèo vẫn bất tử khoảng 15 phút.
+- Nguyên nhân: `lockCats(true)` đặt `invincible = 999`, lúc mở chỉ trả về khi còn `> 900`; số này bị trừ dần mỗi khung nên chờ lâu là tụt dưới 900.
+- Cách sửa: dùng hằng `LOCK_INVINCIBLE = 1e9`, so với một nửa của nó.
+- Cách tránh lần sau: trạng thái "đang bị khoá" là một cờ riêng hoặc một số không thể trôi tới ngưỡng trong thời gian thật; tính năng mới dùng lại `lockCats` (cửa hàng) thì nghĩ tới trường hợp người chơi để đó rất lâu.
 
-### Máy công ty không có Python
-- Ngày: 03/11/2026 · Nhóm: build
-- Triệu chứng: chạy `python ...` báo "Python was not found" (Windows mở Microsoft Store).
-- Nguyên nhân: máy công ty chưa cài Python, chỉ có Node.js. `tools/zip_build.py` và `tools/make_sfx.py` cần Python.
-- Cách tránh lần sau: trước khi chạy script Python thì kiểm tra `python --version`. Ở máy công ty, viết script phụ bằng Node.
-  Muốn nén bản build hay sinh lại âm thanh ở máy này thì phải nhờ người dùng cài Python trước.
-- Bổ sung 05/11/2026: cần xử lý ảnh (cắt nền, đọc `.webp`) mà không có Python thì nhúng ảnh dạng data URI vào một trang HTML,
-  xử lý bằng canvas, rồi chạy Edge ngầm: `--screenshot` để xem, `--dump-dom` để lấy kết quả (`toDataURL`) ra file.
-  Ảnh phải là data URI, nếu nạp từ `file://` thì canvas bị khoá, không đọc được điểm ảnh.
-  Trang thử trên máy phải tự có `[hidden]{display:none!important}`. Thiếu dòng này thì mọi bảng có `display:grid/flex` hiện chồng lên nhau
-  (trang Artifact đã đăng thì có sẵn dòng này).
+### Mỗi node một thứ vẽ; Graphics không theo UIOpacity; chiều cung tròn
+- Ngày: 07–08/11/2026
+- Đã xảy ra: xoá Graphics rồi gắn Sprite trên cùng node thì Sprite không bao giờ hiện, không báo lỗi (`destroy()` chạy cuối khung hình, gỡ luôn
+  "chỗ vẽ" của node); lớp tối vẽ bằng Graphics hiện đen đặc dù UIOpacity 106/255 (nguyên nhân mới là đoán); cung nộ quanh nút L chạy ngược chiều.
+- Cách tránh lần sau: mỗi node chỉ một thứ vẽ (Sprite / Label / Graphics); muốn đổi loại thì dùng **node con**, giữ Graphics và chỉ `clear()`.
+  Mờ dần trên hình vẽ bằng code: đổi alpha trong `fillColor` rồi vẽ lại mỗi khung; UIOpacity chỉ dùng cho Sprite và Label.
+  Trục y hướng lên nên góc giảm dần là theo chiều kim đồng hồ: `g.arc(0, 0, r, PI/2, PI/2 - k*2PI, false)`; vẽ thử ở 40% rồi chụp xem.
 
-### Nút "Về màn hình chính" (và thua rồi chơi lại) không tải lại được màn
-- Ngày: 04/11/2026 · Nhóm: code · **Lỗi do Claude**
-- Triệu chứng: bấm "Về màn hình chính" thì không có gì xảy ra. Console báo `loadScene: Can not load the scene ''`.
-- Nguyên nhân: lúc chạy, `director.getScene().name` là chuỗi rỗng, nên `director.loadScene(scene.name)` không tải được gì.
-  Lỗi có từ trước trong GameManager (thua rồi chơi lại), và Claude chép lại y nguyên vào menu.
-- Cách sửa: hàm `reloadScene()` trong `GameSession.ts` tìm tên scene theo uuid trong danh sách scene của bundle (ra `Main`).
-- Cách tránh lần sau: muốn tải lại màn thì gọi `reloadScene()`, đừng dùng `director.getScene().name`.
-  Chép một đoạn code cũ sang chỗ mới thì kiểm tra xem đoạn cũ đã từng chạy đúng chưa.
+### Nhuộm màu ảnh có màu sẵn không ra màu muốn
+- Ngày: 08/11/2026
+- Nguyên nhân: `Sprite.color` nhân với màu ảnh (thanh `MG_energy_fill` xanh lá nhân vàng ra ô liu tối): chỉ làm tối / ngả màu.
+- Cách tránh lần sau: muốn đổi hẳn màu (loé trắng, tô vàng) thì gán `customMaterial` = shader tô một màu (`core/Silhouette.ts`), xong trả `customMaterial = null`.
 
-### Thử game ngay trong trình duyệt của app (không cần người dùng bấm)
-- Ngày: 04/11/2026 · Nhóm: làm việc
-- Cách làm: Creator đang mở thì bản chạy thử có ở `http://localhost:7456`. Mở bằng trình duyệt của app (`resize_window` 1280×760),
-  chờ khoảng 20 giây cho game tải, rồi bấm bằng toạ độ. Đọc lỗi bằng `read_console_messages`, soi trạng thái bằng
-  `javascript_tool` (`cc.director.getScene()`...).
-- Bẫy: Creator chỉ biên dịch lại script khi cửa sổ Creator được bấm vào. Sửa code xong mà trình duyệt vẫn chạy bản cũ
-  (soi bằng JS thấy chưa có thứ mới, ví dụ `cc.js.getClassByName('LeoSkills')` ra false) thì nhờ người dùng bấm vào cửa sổ Creator một cái, rồi tải lại trang.
-  Sau khi biên dịch, Creator tự tải lại trang vài lần; game có thể mất tới 1–2 phút mới hiện (khung trình duyệt bị ẩn thì chạy chậm). Cứ chờ rồi soi lại.
-- Mẹo bấm phím bằng JS: phát `KeyboardEvent` với `code` (ví dụ `'KeyJ'`, `'Space'`, `'Tab'`, `'ArrowRight'`) lên `document.getElementById('GameCanvas')`.
-  Muốn chụp đúng lúc thì gọi `cc.director.pause()` ngay sau khi bấm, chụp xong `cc.director.resume()`.
-  Đo kết quả bằng số (độ cao nhảy, máu địch, vận tốc) chứ đừng chỉ nhìn ảnh.
-- Bẫy: khung trình duyệt của app bị ẩn (`tabs_context` báo "hidden") thì trình duyệt gần như không cho game chạy khung hình nào,
-  số đo ra vô lý (vận tốc đứng yên, nhân vật không nhúc nhích). Cách đo đúng: `cc.game.pause()`, rồi tự chạy từng khung bằng
-  `cc.director.tick(1/60)` trong vòng lặp JS (phát phím trước khi tick), đo xong `cc.game.resume()`. Kết quả không phụ thuộc máy nhanh hay chậm.
-- Bẫy (05/11/2026): `HitStop` đếm bằng `Date.now()` (giờ thật). Tick dồn cả trăm khung trong một lệnh JS thì giờ thật gần như đứng yên,
-  nên sau nhát chém trúng đầu tiên mèo và địch bị "khựng" mãi: combo chỉ ra 1 nhát, tưởng code lỗi.
-  Khi thử đòn đánh trúng, chờ thật giữa các khung: `for (...) { cc.director.tick(1/60); await new Promise(r => setTimeout(r, 16)); }`.
-  Thử cạnh kẻ địch thì cho mèo bất tử (`invincible = 30`) để bị chạm không làm ngắt đòn.
-- Mẹo (05/11/2026): muốn thử một cách sửa trước khi nhờ người dùng bấm Creator, vá tạm hàm trong trang
-  (`cc.js.getClassByName('X').prototype.hàm = ...`), đo, rồi mới sửa code thật. Xong thì tải lại trang để bỏ bản vá.
-  Combo trên không: đo vị trí cả hai bên ngay lúc chém (bọc hàm `slash`) mới thấy đòn trượt vì mèo rơi nhanh hơn địch.
-- Bẫy: thử chiêu có bấm W (chém hất) cạnh bàn/ghế thì W làm mèo nhảy lên bục trước. Đặt mèo và địch ở chỗ trống không có bục phía trên.
-- Bẫy (08/11/2026): tắt `Landing` bằng JS để vào thẳng màn chơi thì mèo vẫn ở trạng thái chờ (`idle = true`): boss không coi là mục tiêu,
-  không bị đánh. Gọi `GameManager.instance.beginPlay(false)` sau khi tắt Landing.
-- Bẫy (08/11/2026): mèo giả nhảy bằng `startJump` mà không giữ phím Nhảy thì game cắt nhảy (thả phím sớm = nhảy thấp), chỉ cao ~200.
-  Muốn nhảy cao hết cỡ thì đặt `cat.jumping = false` ngay sau `startJump`.
-- Bẫy (08/11/2026): đếm số lần mèo trúng đòn thì đừng xoá `invincible` sau mỗi lần trúng: chạm thân boss sẽ tính mỗi khung, ra số ảo.
-- Bẫy (08/11/2026): dịch mèo tới cuối màn (sau x ~9000) là vào khu boss: tường chắn khu boss hiện ra, lướt bị chặn giữa chừng,
-  tưởng va chạm lỗi. Thử chỗ đó thì tắt `BossArena` (`enabled = false`) và ẩn node `Boss` trước khi dịch mèo.
-- Bẫy (06/11/2026): trước khi kết luận "phím không ăn", đo số khung hình chạy trong 0.5 giây (`cc.director.getTotalFrames()`).
-  Ra 0 thì trình duyệt đang bóp khung hình (mèo không chạy, menu đọc phím trong update không đổi): chuyển sang tự tick.
-  Ảnh chụp lúc đó có thể là khung cũ: kiểm tra bằng số (node có tồn tại, opacity...) chứ đừng chỉ nhìn ảnh.
-- Bẫy (06/11/2026): ép cửa sổ (`resize_window`) thì trang xem trước của Creator đặt khung game 1920 lệch ra ngoài (left âm),
-  hai mép bị cắt; đừng tưởng HUD đặt sai rồi sửa theo `getVisibleSize`. Letterbox luôn giữ phần chơi đúng 1920×1080,
-  thứ bám mép màn hình đặt theo khung thiết kế. Đo `GameCanvas.getBoundingClientRect()` để biết trang có cắt không.
-- Bẫy (06/11/2026): sửa file bằng `node -e '...'` dài trong bash hay vỡ dấu nháy (chữ có dấu, `${}`, nháy đơn lồng nhau).
-  Đoạn sửa dài thì ghi ra file `.js` trong scratchpad (Write) rồi `node file.js đường-dẫn`.
-- Bẫy: đếm số lần bấm ↓ để tới một nút rất dễ sai (ô ẩn bị bỏ qua). Viết hàm "bấm ↓ tới khi ô đang chọn tên X" rồi mới bấm.
-- Phím ảo: `KeyboardEvent` phải có cả `code` lẫn `keyCode` (ghi đè bằng `Object.defineProperty`) thì Enter / Esc mới tới được engine.
-- Mẹo (10/11/2026): phím giả lập (`KeyboardEvent` tự tạo) có lúc không tới được game (đo camera quay mặt ra sai). Muốn thử
-  "giữ phím" thì thay `cat.controls` bằng `new Proxy(controls, { get: (t, p) => p in held ? held[p] : Reflect.get(t, p, t) })`
-  (`held = { down, upHeld, ... }`), đặt hướng mặt bằng `cat.facing = -1`; xong nhớ trả `cat.controls` về như cũ. Phím thật thì dùng công cụ bấm phím của trình duyệt.
-- Bẫy (06/11/2026): khung trình duyệt của app bị **ẩn** thì game không chạy khung nào (`cc.director.getTotalFrames()` đứng yên),
-  dù `document.visibilityState` vẫn là `visible`. Đo bằng `cc.director.tick(1/60)` trong vòng lặp (tween, update chạy theo);
-  phần chạy theo giờ thật (`setTimeout`, như màn logo / thanh tải) thì không qua được, gọi thẳng hàm của nó (ví dụ `dropMenu()`).
-- Bẫy (06/11/2026): node `Landing` trong file scene có thể đang **tắt** mà lúc chạy vẫn được code bật lên. Đọc file scene thấy tắt,
-  mình bật thêm bằng JS → màn mở đầu chạy hai lần chồng nhau, đo ra số vô lý (logo vừa hiện đã mờ). Trước khi bật / tắt gì bằng JS,
-  đọc trạng thái **lúc chạy** (`node.active`, component đang có) trước, đừng tin file scene.
-- Bẫy (05/11/2026): `getComponentsInChildren('PlayerController')[0]` có thể ra **Angelo đang bị ẩn** (đếm giữ J mãi bằng 0). Lọc `p.node.activeInHierarchy`.
-  Trong trang, `getComponent(cc.UITransform)` có thể ra null; dùng tên chuỗi `getComponent('cc.UITransform')`.
-- Mẹo (05/11/2026): khung trình duyệt của app nhỏ, chụp màn hình không nhìn rõ chi tiết. Cắt thẳng từ canvas game:
-  `cc.game.pause(); cc.director.tick(1/60)` rồi `drawImage(GameCanvas, ...)` sang một canvas nhỏ, đặt ảnh đó (phóng to) đè lên trang bằng thẻ `<img>` rồi chụp.
-  Toạ độ canvas: `cameraComponent.worldToScreen(node.worldPosition)`, trục y lật (`canvas.height - y`). Đổi gì xong phải chờ vài khung rồi mới cắt.
-- Bẫy (05/11/2026): file ảnh mình ghi vào `assets` **sau** lúc người dùng bấm vào Creator thì chưa được nhập (`.meta` còn `"imported": false`),
-  trang chạy thử không thấy ảnh. Ghi hết file trước rồi mới nhờ người dùng bấm vào Creator.
-- Bẫy (05/11/2026): giữa hai lệnh JS game vẫn chạy thật. Thử cạnh boss mà chỉ cho Leo bất tử trong lệnh, hết lệnh boss húc Leo tới thua,
-  màn tự tải lại, các biến `window.__...` mất, lệnh sau báo lỗi `null`. Mỗi lệnh thử tự dựng lại từ đầu (tìm lại Leo, boss), và đặt Leo xa boss.
-- Bẫy (05/11/2026): hiệu ứng gắn trên đầu boss to (cao 427) mà đặt cao hơn đầu (y = chiều cao + 90) thì nằm ngoài mép trên màn hình
-  khi camera theo mèo ở dưới. Đặt quanh đầu (khoảng 0.6 lần chiều cao) và chụp thử cả màn hình để chắc thấy được.
+### Âm thanh: nhạc chồng nhau, nhạc không chuyển, nhạc nặng làm chậm tiếng
+- Ngày: 06/11/2026
+- Nguyên nhân: AudioSource (Cocos 3.8) gán `clip` mới **lúc đang phát** thì tạo trình phát mới mà không tắt cái cũ (về menu nghe 2 bài);
+  `prefetch('bgm_boss')` đang tải dở thì `music('bgm_boss')` thấy "đang tải" nên thoát, tải xong không ai bật; `resources.loadDir('sounds')` tải cả
+  thư mục một lượt nên nhạc 13 MB làm tiếng nhảy, chém kêu trễ. Đã sửa trong `core/Sound.ts`.
+- Cách tránh lần sau: đổi `clip` thì luôn `stop()` trước. Hai đường cùng tải một thứ thì đường nào xong trước cũng phải làm nốt việc của đường kia;
+  thử cả lúc file **chưa tải xong**. File lớn (nhạc "bgm*") không tải chung với thứ nhỏ cần dùng ngay.
+  Thử nhạc thì đếm số nguồn đang phát (móc `AudioBufferSourceNode.prototype.start/stop`), đừng chỉ nghe hay xem `playing`.
+
+### Slow motion: engine không có nút chỉnh tốc độ thời gian cho mọi thứ
+- Ngày: 06/11/2026
+- Đã thử: `Scheduler.setTimeScale` chỉ ảnh hưởng hẹn giờ, không ảnh hưởng `update(dt)` của component.
+- Cách làm: `core/TimeScale.ts` thay `director.tick` bằng hàm nhân `dt` với tốc độ; nhịp chậm dần / nhanh dần chạy bằng `setInterval` + `Date.now()`
+  (giờ thật). Vào màn mới gọi `TimeScale.reset()`.
+- Lưu ý: trong lúc chậm, `scheduleOnce(…, 0.6)` thành vài giây giờ thật; thứ cần hiện đúng lúc (chữ ĐÃ HẠ BOSS!) dùng `setTimeout`.
+
+### Lò xo / hiệu ứng tính theo dt văng khi một khung quá dài
+- Ngày: 08/11/2026
+- Triệu chứng: hình Leo cao gấp ~4 lần trong vài khung sau khi game giật (`PlayerVisual` tính lò xo nhún bằng một bước Euler với cả dt).
+- Cách sửa: chia dt thành bước nhỏ (≤ 1/120 giây, tối đa 0.1 giây mỗi khung), kẹp squash trong ±0.45.
+- Cách tránh lần sau: mọi lò xo / tween tự viết / rung / nảy tính theo dt phải chia bước nhỏ hoặc kẹp dt; thử bằng cách gọi `update(1)` xem có văng không.
+  Muốn giữ tốc độ rơi cố định (bám tường) thì đặt `gravityScale = 0` trong frame đó và tự cộng gia tốc nhỏ, vì `move` còn cộng trọng lực sau khi kẹp vận tốc.
+  Sửa vật lý xong thì đo vận tốc qua vài frame trong trình duyệt, đừng đoán.
+
+### Import vòng làm "Missing class", mất luôn nút ⚙
+- Ngày: 06/11/2026
+- Triệu chứng: Console Creator đầy "Missing class ...", "Found possible circular reference ... PlayerTrigger"; Checkpoint, Goal, cá mất script,
+  không thấy nút ⚙. tsc vẫn báo không lỗi.
+- Nguyên nhân: `LandingScreen` import `TutorialRoom` → `TutorialExit` (kế thừa `PlayerTrigger`) → `GameManager` → `LandingScreen`.
+- Cách tránh lần sau: thêm import giữa các file giao diện / màn chơi / GameManager thì chạy `python tools/kiem_tra_import_vong.py` trước khi nhờ bấm Creator.
+  Muốn gọi ngược lên thì đi qua một chỗ trung gian không import gì (`GameSession`, biến tĩnh), như `GameSession.tutorial`.
+
+### Tải lại màn: dùng `reloadScene()`
+- Ngày: 04/11/2026 · **lỗi do Claude**
+- Triệu chứng: bấm "Về màn hình chính" không có gì xảy ra, console báo `loadScene: Can not load the scene ''`: lúc chạy `director.getScene().name` là chuỗi rỗng.
+- Cách tránh lần sau: tải lại màn thì gọi `reloadScene()` (`GameSession.ts`). Chép một đoạn code cũ sang chỗ mới thì kiểm tra đoạn cũ đã từng chạy đúng chưa.
 
 ### Kiểm tra lỗi TypeScript khi không mở được Creator
-- Ngày: 03/11/2026 · Nhóm: code
+- Ngày: 03/11/2026
 - Cách làm: dùng tsc đi kèm Creator:
   `node "C:/ProgramData/cocos/editors/Creator/3.8.8/resources/resources/3d/engine/node_modules/typescript/bin/tsc" -p tsconfig.json --noEmit --skipLibCheck`,
   rồi bỏ các dòng bắt đầu bằng `C:/ProgramData` (lỗi của file khai báo engine, không phải của game).
 - Bẫy: project biên dịch với thư viện cũ, nên `Array.includes` báo lỗi. Dùng `indexOf(...) >= 0`.
 
-### Xem trước trang HTML trên máy
-- Ngày: 03/11/2026 · Nhóm: làm việc
-- Triệu chứng: trình duyệt trong app không mở được file `.html` trên đĩa; trang Artifact đã đăng thì bắt đăng nhập.
-- Cách tránh lần sau: chụp bằng Edge chạy ngầm (`msedge --headless=new --screenshot=... --window-size=1280,11000 file:///...`),
-  rồi cắt ảnh dài thành nhiều khúc bằng System.Drawing của PowerShell để xem. Đừng chụp theo `#mục`: ảnh ra bị trống.
+## 5. Menu và bảng
 
-## Git và làm ở 2 máy
+### Checklist khi viết hay sửa một bảng / menu
+- Ngày: 05–06/11/2026 (gộp 5 lỗi)
+- Cách tránh lần sau:
+  1. Thử mỗi bảng **hai lần liên tiếp** (mở, đóng, mở lại) bằng đúng phím người chơi bấm: bảng vừa mở từng nhận luôn chính phím vừa mở nó,
+     lần đầu không bị (`MenuNav.open` đánh dấu `justOpened`, `setTimeout(0)` mới gỡ).
+  2. Thử bảng hỏi lại bằng bàn phím cả hai đường KHÔNG và CÓ, mỗi đường bấm tiếp một lần sau đó: quay về từ trang con mà khung chọn nhảy lên ô đầu
+     thì Enter tiếp là đóng menu (`MenuNav.open(first, keep)` với `keep = true`).
+  3. Hàm nghe (`Lang.onChange`, `Settings.onChange`) là thuộc tính cố định (`private readonly onLang = () => ...`) và gỡ trong `onDestroy`,
+     đừng truyền hàm mũi tên viết tại chỗ: không gỡ thì đổi ngôn ngữ sau khi chơi lại màn báo `keyCells is not iterable`.
+  4. Trong `onDestroy` không vẽ, không đổi hình (`MenuNav.close(false)`): vẽ lại nút lúc đang bị xoá từng làm hỏng việc chuyển scene
+     (scene trống, lỗi `reading 'r'` trong `Graphics.fill`). Viết xong bảng nào cũng thử đổi scene (Chơi lại / Về menu) và xem console.
+  5. Đồ người dùng kéo trong editor để "xem thử" có thể nằm bất kỳ đâu (khung `Selection` bị kéo xuống dòng khác làm khung chọn lệch 2 dòng):
+     lấy mốc gần nhất (`setupMenu` trong `LandingScreen.ts`), đừng giả định nó ở chỗ ban đầu.
+  6. Định dạng thời gian: làm tròn trước (đổi ra số phần mười) rồi mới tách phút / giây, không thì 9.96 giây ra "01:010.0".
 
-### Sửa cùng lúc ở 2 máy
-- Ngày: trước 03/11/2026 · Nhóm: git
-- Nguyên nhân: file scene là một khối lớn, sửa song song ở 2 máy rất khó gộp.
-- Cách tránh lần sau: luôn `git pull` **trước khi** mở Creator, làm xong thì commit và push ngay.
-  Trước khi sửa, hỏi người dùng máy kia còn thay đổi nào chưa push không.
+### Font Super Bouncer thiếu chữ có dấu tiếng Việt
+- Ngày: 03/11/2026
+- Nguyên nhân: font chỉ có 442 ký tự, có À Á Â Ê nhưng thiếu các chữ có dấu kép (Ế Ụ Ặ Ề Ư Ợ...); kiểm tra bằng script node đọc bảng `cmap` của file .ttf.
+- Cách sửa: `UiKit.setText` tự chọn font: chữ không dấu dùng font game, chữ có dấu dùng font hệ thống (Arial đậm). `GameFont.keepSystemFont` chặn
+  font game tải xong muộn gắn đè lên. `useGameFont` bỏ qua khi `EDITOR` (trong editor không tải font qua resources được).
+- Cách tránh lần sau: chữ trên màn hình có dấu tiếng Việt thì luôn đi qua `setText`, đừng gọi thẳng `useGameFont`.
+  Muốn đồng bộ font thì tìm font có hỗ trợ tiếng Việt (ví dụ Baloo 2, Be Vietnam Pro).
+
+## 6. Đòn đánh, hiệu ứng, camera
+
+### Đòn boss mới viết ra mà không né được
+- Ngày: 08/11/2026
+- Triệu chứng: thử bằng mèo giả trên preview, đòn lao ngang (lượt về) và đòn nền gợn sóng (đòn này nay đã bỏ) luôn trúng.
+- Nguyên nhân: đặt số theo cảm giác. Mèo nhảy cao ~300 (1250² / 2·2600); ở trên độ cao h trong khoảng thời gian giải 1250t − 1300t² > h
+  (trên 200: từ 0.2 tới 0.76 giây). Boss lao qua chỗ mèo mất (bề ngang chạm + bề ngang mèo) / tốc độ.
+- Cách tránh lần sau: đòn nào bắt nhảy qua / chạy khỏi thì tính trước "mèo có kịp không" bằng các số trên, rồi thử bằng mèo giả
+  (vòng lặp tự tick, né như người chơi với phản xạ 0.1–0.2 giây) trước khi báo xong. Đòn nào cũng phải có báo trước rõ và có cách né.
+
+### Hiệu ứng gắn với một vật đang chuyển động hoặc đang teo đi
+- Ngày: 06–08/11/2026
+- Đã xảy ra: vệt móng đặt cố định lúc boss bắt đầu vồ, boss lao tới đè lên chính nó; quầng sáng tính cỡ theo con cá đang teo nên co về 0;
+  bóng mờ khi lướt lún nửa thân xuống đất vì node mới có gốc giữa hình (0.5 / 0.5) còn hình mèo gốc ở bàn chân (0.5 / 0).
+- Cách tránh lần sau: hiệu ứng đi cùng một thân đang di chuyển thì bám theo thân mỗi khung (`BossBrain.clawMark` + `CLAW_AHEAD`) hoặc tính chỗ thân sẽ dừng.
+  Hiệu ứng nổ thì "chốt" vị trí / cỡ của vật gốc lúc bắt đầu. Chép hình sang node mới thì chép cả anchor (`UITransform.setAnchorPoint`).
+
+### Về đích: mèo tự chạy mà không ra khỏi màn hình được (camera sát giới hạn màn)
+- Ngày: 06/11/2026
+- Nguyên nhân: cờ nằm gần cuối màn; chạy vào cờ thì camera nhìn trước nên đã chạm Max X, mép phải khung hình trùng tường, mèo kẹt
+  (đã sửa bằng ô `holdExitRoom` của CameraRig). Lần thử đầu dịch mèo tới cạnh cờ nên camera chưa kịp nhìn trước, thấy đúng và suýt bỏ sót.
+- Cách tránh lần sau: thử hiệu ứng camera thì đặt camera đúng chỗ nó sẽ đứng khi chơi thật (đang chạy, sát giới hạn màn), đừng chỉ dịch nhân vật tới rồi đo.
+
+### Chụp màn hình thật trước khi chốt số (vị trí, độ mờ, chữ trên ảnh)
+- Ngày: 05–08/11/2026 (gộp 5 lỗi)
+- Đã xảy ra: biển hướng dẫn đặt y 760 ra ngoài màn hình (camera màn hướng dẫn chỉ thấy tới khoảng y 660 dưới HUD); vệt sáng menu nét 3px alpha 16
+  chạy đúng mà không thấy; hiệu ứng trên đầu boss nằm ngoài mép trên; số cá lệch khỏi thanh nâu; bảng gợi ý che hàng tim.
+- Cách tránh lần sau:
+  1. Trước khi chốt chỗ đặt vật mới, dời thử bằng code trên bản xem trước và chụp màn hình, rồi mới ghi vào scene.
+  2. Hiệu ứng mờ / sáng: chụp trên nền sáng nhất và tối nhất nó sẽ nằm lên, chỉnh trực tiếp trên trang tới khi thấy rõ rồi mới ghi số vào code.
+     Vẽ thử một hình đặc màu đỏ để tách "không vẽ" với "vẽ mà quá nhạt". Chụp giữa chừng hiệu ứng (dừng game, tick tay), đừng chỉ đọc số opacity.
+  3. Hiệu ứng trên đầu vật to (boss cao 427): đặt quanh đầu, khoảng 0.6 lần chiều cao, và chụp cả màn hình khi camera theo mèo ở dưới.
+  4. Chữ đặt lên ảnh nền không cân (có hình thò ra): đo phần nền thật bằng điểm ảnh, đừng lấy tâm ảnh.
+  5. Thứ vẽ trong thế giới mà bám theo nhân vật (chữ, bảng, mũi tên): thử cả lúc nhân vật ở bậc cao nhất và ở mép màn.
+     Chỗ trên màn hình = toạ độ trong lớp Gameplay + `Gameplay.position`.
+
+### Đổi zoom camera thì lộ ra phần chưa có hình
+- Ngày: 11/11/2026
+- Triệu chứng: zoom 1 → 0.7, dưới mặt đường thấy trời xanh (ảnh ô đá chỉ sâu ~230), qua khe giữa hai khối đá thấy trời dưới đáy sông,
+  góc khu boss hở vì khối cao có đoạn đầu không có ô đá.
+- Cách sửa: GroundBlock ô *Fill Below* (đất tối dưới đáy ảnh, phủ cả bề ngang khối lẫn ô đá), RiverFlow ô *Deep* (nước sâu dưới dải sông).
+- Cách tránh lần sau: đổi zoom, offset hay giới hạn camera thì chụp ít nhất: đầu màn, khe / hố, bậc cao, khu boss, màn hướng dẫn,
+  màn mở đầu, và giữ Xuống để nhìn xuống; xem mép dưới, mép trái / phải và các lớp ghim mép trên.
+
+## 7. Build, git, máy
+
+### Zip bản build: không dùng Compress-Archive
+- Ngày: trước 03/11/2026
+- Nguyên nhân: Compress-Archive của PowerShell ghi dấu `\` trong đường dẫn file zip, itch.io không chạy được.
+- Cách tránh lần sau: nén bằng `python tools/zip_build.py build/web-mobile Leo-Escape-web.zip`.
+
+### Nút QUIT trên bản web không đóng được tab
+- Ngày: 04/11/2026
+- Nguyên nhân: trình duyệt chỉ cho `window.close()` đóng tab do chính trang đó mở bằng script. Mở game từ itch.io thì bị chặn, không báo lỗi.
+- Cách làm: bản native gọi `game.end()`. Bản web thử `window.close()`, không được thì thoát toàn màn hình, tắt nhạc,
+  hiện "THANKS FOR PLAYING!" kèm nút về menu (`LandingScreen.answerQuit`).
+
+### Công cụ trên máy: Python, xem trang HTML và xử lý ảnh bằng Edge chạy ngầm
+- Ngày: 03–05/11/2026, cập nhật 11/11/2026
+- Triệu chứng: `python ...` báo "Python was not found" (Windows mở Microsoft Store); trình duyệt trong app không mở được file `.html` trên đĩa.
+- Cách tránh lần sau: trước khi chạy script Python thì kiểm tra `python --version` (máy đang dùng đã có Python 3.14, gọi bằng lệnh `python`).
+  Máy nào chưa có thì viết script phụ bằng Node, hoặc nhờ người dùng cài Python.
+- Xem trang HTML: `msedge --headless=new --screenshot=... --window-size=1280,11000 file:///...`, rồi cắt ảnh dài thành nhiều khúc bằng System.Drawing.
+  Đừng chụp theo `#mục` (ảnh ra trống). Trang thử trên máy phải tự có `[hidden]{display:none!important}`, thiếu thì bảng `display:grid/flex` hiện chồng nhau.
+- Xử lý ảnh khi không có Python: nhúng ảnh dạng data URI vào trang HTML, xử lý bằng canvas, chạy Edge ngầm (`--dump-dom` để lấy `toDataURL`).
+  Ảnh nạp từ `file://` thì canvas bị khoá, không đọc được điểm ảnh.
+
+### Tài liệu thiết kế: ít chữ, không chèn asset thật
+- Ngày: 03/11/2026
+- Cách tránh lần sau: `docs/thiet-ke-game.html` **không chèn asset của game**; cái gì vẽ được thì vẽ phác hoạ, chữ chỉ làm chú thích (2–4 dòng mỗi mục).
+  Không tự thêm đồ nghề hay kỹ năng cho nhân vật ngoài những gì người dùng nói (bản 0.1 tự thêm bút laser cho Angelo và bị bỏ: Angelo chỉ có **dây len**).

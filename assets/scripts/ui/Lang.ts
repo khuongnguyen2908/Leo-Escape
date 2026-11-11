@@ -1,6 +1,6 @@
 import { Label } from 'cc';
 import { Action, LangCode, Settings } from '../core/Settings';
-import { setText, toggleText } from './UiKit';
+import { setText } from './UiKit';
 
 /**
  * Mọi chữ hiện trong game, mỗi chữ có tiếng Việt (vi) và tiếng Anh (en). Chọn ngôn ngữ trong Cài đặt.
@@ -18,9 +18,6 @@ const TEXT = {
     'menu.soon': ['SẮP CÓ', 'COMING SOON'],
     // Mở game: logo, banner, chờ bấm
     'boot.loading': ['ĐANG TẢI {0}%', 'LOADING {0}%'],
-    'boot.press': ['NHẤN PHÍM BẤT KỲ', 'PRESS ANY BUTTON'],
-    'boot.tap': ['CHẠM ĐỂ BẮT ĐẦU', 'TAP TO START'],
-    'boot.wait': ['ĐANG TẢI...', 'LOADING...'],
     'load.text': ['Đang tải...', 'Loading...'],
     'save.saving': ['Đang lưu...', 'Saving...'],
     'save.saved': ['Đã lưu', 'Saved'],
@@ -35,8 +32,6 @@ const TEXT = {
     'slots.time': ['Thời gian: {0}', 'Time: {0}'],
     'slots.fish': ['Cá: {0}', 'Fish: {0}'],
     'slots.delete': ['XOÁ Ô LƯU NÀY?', 'DELETE THIS SAVE?'],
-    'slots.hChoose': ['Chọn', 'Choose'],
-    'slots.hPlay': ['Vào', 'Play'],
     'slots.hErase': ['Xoá', 'Erase'],
     'slots.hBack': ['Quay lại', 'Back'],
     'slots.hConfirm': ['Xác nhận', 'Confirm'],
@@ -88,7 +83,6 @@ const TEXT = {
     'tsign.hold': ['(giữ)', '(hold)'],
     // Hội thoại kiểu visual novel (chữ tạm, sửa ở đây)
     'dialog.name': ['Leo', 'Leo'],
-    'dialog.speaking': ['ĐANG NÓI', 'SPEAKING'],
     'dialog.1': ['Đây... là đâu vậy?', 'Where... where am I?'],
     'dialog.2': ['Có mùi cá... lẫn mùi rắc rối.', 'Smells like fish... and trouble.'],
     'dialog.3': ['Được rồi, tìm đường ra thôi!', "Alright, let's find a way out!"],
@@ -130,7 +124,6 @@ const TEXT = {
     // Thành tích
     'ach.title': ['THÀNH TÍCH', 'ACHIEVEMENTS'],
     'ach.unlocked': ['Đạt thành tích!', 'Achievement unlocked!'],
-    'ach.locked': ['Chưa mở khoá', 'Locked'],
     'ach.tutorial': ['Bước đầu', 'First Steps'],
     'ach.tutorial.d': ['Hoàn thành màn hướng dẫn.', 'Finish the tutorial.'],
     'ach.boss': ['Hạ Chihuahua Độc', 'Toxic Takedown'],
@@ -149,12 +142,7 @@ const TEXT = {
     'ach.hunter.d': ['Hạ 20 con chim ({0}/20).', 'Defeat 20 birds ({0}/20).'],
     'pause.title': ['TẠM DỪNG', 'PAUSED'],
     'pause.resume': ['Tiếp tục', 'Resume'],
-    'pause.restart': ['Chơi lại màn', 'Restart level'],
     'pause.settings': ['Cài đặt', 'Options'],
-    'pause.home': ['Về màn hình chính', 'Main menu'],
-    'confirm.restart': ['Chơi lại từ đầu màn?', 'Restart this level?'],
-    'confirm.home': ['Về màn hình chính?', 'Back to main menu?'],
-    'confirm.lost': ['Tiến độ màn này sẽ mất.', 'Progress in this level will be lost.'],
 
     // Cài đặt
     'settings.title': ['CÀI ĐẶT', 'OPTIONS'],
@@ -164,24 +152,14 @@ const TEXT = {
     'settings.shake': ['Rung màn hình', 'Screen shake'],
     'settings.lang': ['Ngôn ngữ', 'Language'],
     'settings.langName': ['Tiếng Việt', 'English'],
-    'settings.keys': ['Bàn phím', 'Controls'],
-    'settings.tabSystem': ['Hệ thống', 'System'],
-    'settings.tabControls': ['Điều khiển', 'Controls'],
-    'settings.save': ['Lưu', 'Save'],
-    'settings.saved': ['Đã lưu!', 'Saved!'],
-    'confirm.discard': ['Bỏ thay đổi?', 'Discard changes?'],
-    'confirm.discardSub': ['Các cài đặt chưa lưu sẽ trả về như cũ.', 'Unsaved settings will go back to how they were.'],
     'credits.title': ['TÁC GIẢ', 'CREDITS'],
-    'close': ['Đóng', 'Close'],
 
     // Bàn phím
-    'keys.title': ['BÀN PHÍM', 'CONTROLS'],
     'keys.player': ['Người {0}', 'Player {0}'],
     'keys.layout': ['Kiểu phím', 'Key layout'],
     'keys.wasd': ['WASD', 'WASD'],
     'keys.arrows': ['Mũi tên', 'Arrows'],
     'keys.custom': ['Tuỳ chỉnh', 'Custom'],
-    'keys.reset': ['Trả về mặc định', 'Reset to default'],
     'keys.press': ['Bấm phím...', 'Press a key...'],
     'keys.prompt': ['Bấm phím mới cho Người {0} · {1} (Esc để huỷ)', 'Press a new key for Player {0} · {1} (Esc to cancel)'],
     'keys.cancelled': ['Đã huỷ.', 'Cancelled.'],
@@ -201,7 +179,6 @@ const TEXT = {
     'action.dash': ['Lướt', 'Dash'],
 
     // Trong màn
-    'hud.tryAgain': ['Thử lại nào!', 'Try again!'],
     'gameover.title': ['GAME OVER', 'GAME OVER'],
     'gameover.retry': ['Chơi lại', 'Retry'],
     'gameover.menu': ['Về menu', 'Quit to menu'],
@@ -258,16 +235,6 @@ const TEXT = {
     'boss.chapter': ['Chương 1', 'Chapter 1'],
     'boss.bark': ['GÂU!!', 'WOOF!!'],
     'boss.defeated': ['ĐÃ HẠ BOSS!', 'BOSS DEFEATED!'],
-
-    // Hướng dẫn
-    'tut.run': ['Chạy', 'Run'],
-    'tut.jump': ['Nhảy (giữ lâu nhảy cao)', 'Jump (hold to jump higher)'],
-    'tut.doubleJump': ['Đang bay bấm lần nữa: nhảy 2 lần', 'Press again in the air: double jump'],
-    'tut.attack': ['Chém, bấm liên tục ra combo', 'Attack, keep pressing for a combo'],
-    'tut.dash': ['Bấm Lướt: lướt né', 'Press Dash: dodge'],
-    'tut.wave': ['Giữ rồi thả: sóng kiếm', 'Hold then release: sword wave'],
-    'tut.sweep': ['Quét chân, địch té ngã', 'Leg sweep, knocks enemies down'],
-    'tut.launch': ['Chém hất địch lên trời', 'Launch enemies into the air'],
 } as const;
 
 export type TextKey = keyof typeof TEXT;
@@ -307,16 +274,9 @@ function refreshAll() {
     }
 }
 
-function syncToggleText() {
-    toggleText.on = T('on');
-    toggleText.off = T('off');
-}
-syncToggleText();
-
 Settings.onChange(() => {
     if (Settings.lang === lastLang) return;
     lastLang = Settings.lang;
-    syncToggleText();
     refreshAll();
     for (const cb of Lang.listeners.slice()) cb();
 });
@@ -338,8 +298,10 @@ export const Lang = {
 
     /** Như bind nhưng chữ do hàm make tạo (ghép nhiều chữ, có tên phím...). */
     bindFn(label: Label, make: () => string, gameFont = true) {
-        const old = bound.findIndex((b) => b.label === label);
-        if (old >= 0) bound.splice(old, 1);
+        // Bỏ chữ cũ của chính label này và mọi label đã bị xoá (tải lại màn nhiều lần thì danh sách không phình ra)
+        for (let i = bound.length - 1; i >= 0; i--) {
+            if (bound[i].label === label || !bound[i].label.isValid) bound.splice(i, 1);
+        }
         bound.push({ label, make, gameFont });
         setText(label, make(), gameFont);
     },

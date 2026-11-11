@@ -12,3 +12,11 @@ native/
 .DS_Store
 Thumbs.db
 node_modules/
+__pycache__/
+*.pyc
+
+# Bản nén của bản build (tạo lại được bằng tools/zip_build.py)
+*.zip
+
+# File nguồn hiệu ứng không công cụ nào dùng (để ngoài repo)
+art-nguon/khong-dung/

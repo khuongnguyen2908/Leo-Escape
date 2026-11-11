@@ -22,6 +22,7 @@ export class CoinPickup extends PlayerTrigger {
     private baseY = NaN;
     private time = 0;
     private sparkle: Node | null = null;
+    private sparkleOp: UIOpacity | null = null;
 
     start() {
         if (EDITOR) return;
@@ -36,7 +37,7 @@ export class CoinPickup extends PlayerTrigger {
             sp.sizeMode = Sprite.SizeMode.RAW;
             sp.trim = false;
             sp.spriteFrame = sf;
-            n.addComponent(UIOpacity);
+            this.sparkleOp = n.addComponent(UIOpacity);
             const ut = this.getComponent(UITransform);
             if (ut) n.setPosition((0.5 - ut.anchorX) * ut.width, (0.5 - ut.anchorY) * ut.height, 0);
             this.sparkle = n;
@@ -60,7 +61,7 @@ export class CoinPickup extends PlayerTrigger {
             s.angle = -((this.time % IDLE) / IDLE) * 15;
             const k = 1 + 0.06 * Math.sin(this.time * 5.2);
             s.setScale(k, k, 1);
-            s.getComponent(UIOpacity)!.opacity = Math.round(255 * (0.65 + 0.35 * Math.sin(this.time * 7.85)));
+            if (this.sparkleOp) this.sparkleOp.opacity = Math.round(255 * (0.65 + 0.35 * Math.sin(this.time * 7.85)));
         }
     }
 
@@ -83,7 +84,7 @@ export class CoinPickup extends PlayerTrigger {
         if (sp) {
             // Đốm là con của cá nên bị teo theo: phóng bù cho bung ra to
             tween(sp).to(0.35, { scale: new Vec3(4, 4, 1), angle: sp.angle - 70 }, { easing: 'quadOut' }).start();
-            const op = sp.getComponent(UIOpacity);
+            const op = this.sparkleOp;
             if (op) tween(op).to(0.4, { opacity: 0 }).start();
         }
         this.scheduleOnce(() => this.node.destroy(), 0.45);

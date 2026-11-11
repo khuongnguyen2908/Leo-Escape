@@ -1,4 +1,4 @@
-import { EventKeyboard, Input, input } from 'cc';
+import { EventKeyboard, Game, game, Input, input } from 'cc';
 import { Action, ACTIONS, Settings } from '../core/Settings';
 
 export type TouchButton = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'swap' | 'skill' | 'interact';
@@ -95,7 +95,7 @@ const none = new PlayerControls([]);
 
 /**
  * Gom bàn phím và nút cảm ứng, chia theo người chơi. Phím của từng người đặt trong Settings (menu → Cài đặt → Bàn phím).
- * Chơi 1 người thì con mèo đang điều khiển nhận phím của cả hai người (merged), nên bấm bộ phím nào cũng được.
+ * Chơi 1 người thì mèo chỉ nhận bộ phím Người 1 (GameManager gán PlayerInput.player(0)).
  */
 export const PlayerInput = {
     init() {
@@ -103,6 +103,11 @@ export const PlayerInput = {
         listening = true;
         input.on(Input.EventType.KEY_DOWN, onKeyDown);
         input.on(Input.EventType.KEY_UP, onKeyUp);
+        // Cửa sổ mất tiêu điểm / tab bị ẩn (Alt+Tab, bấm ra ngoài): trình duyệt không báo lúc nhả phím,
+        // nên coi như nhả hết, khỏi cảnh mèo tự chạy tiếp tới khi bấm lại phím đó
+        const releaseAll = () => { keys.clear(); touch.clear(); };
+        game.on(Game.EVENT_HIDE, releaseAll);
+        if (typeof window !== 'undefined') window.addEventListener('blur', releaseAll);
     },
 
     reset() {

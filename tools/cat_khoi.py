@@ -24,12 +24,7 @@ JOBS = [
     ('FX_land_', SMOKE.format('4A-1'), 252, 'giua'),     # đáp đất mạnh: vòng bụi lớn
     ('FX_airjump_', SMOKE.format('3A-5'), 64, 'giua'),   # nhảy lần 2 trên không: vòng nổ trắng
     # Vệt chém của Leo (SlashFx, LeoSkills, SwordWave)
-    ('FX_cut1_', SLASH.format('SimpleSmall Combo3'), 128, 'o'),  # combo nhát 1: vòng qua đầu
-    ('FX_cut2_', SLASH.format('SimpleSmall Combo1'), 128, 'o'),  # combo nhát 2 + chém hất: quét từ dưới lên
     ('FX_cut3_', SLASH.format('SimpleCombo3'), 128, 'o'),        # combo nhát 3: quét ngang rộng
-    ('FX_spin_', SLASH.format('SimpleCombo1'), 128, 'o'),        # combo nhát 4: chém xoay 360°
-    ('FX_finish_', SLASH.format('Combo1'), 128, 'o'),            # combo nhát 5: kết liễu
-    ('FX_airspin_', SLASH.format('SimpleCombo2'), 128, 'o'),     # J trên không: chém xoay nhỏ
     ('FX_sweep_', SLASH.format('Combo3'), 128, 'o'),             # S + J: quét sát đất
     ('FX_wave_', SLASH.format('Combo2'), 128, 'o'),              # giữ J rồi thả: sóng kiếm
     # Gồng sóng kiếm (ChargeFx): dải 8 ô 96×96, chấm → vòng → ngôi sao → vòng toả ra

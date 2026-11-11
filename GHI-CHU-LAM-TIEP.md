@@ -1,4 +1,4 @@
-# Ghi chú làm tiếp (cập nhật 03/11/2026)
+# Ghi chú làm tiếp (cập nhật 11/11/2026)
 
 File này để mở project ở máy khác (máy nhà) là hiểu ngay đang ở đâu và làm tiếp được.
 Hướng dẫn dùng game và các nút trong editor nằm ở [README.md](README.md).
@@ -15,11 +15,14 @@ Hướng dẫn dùng game và các nút trong editor nằm ở [README.md](READM
 
 ## Đang ở đâu
 
+**Angelo và chế độ 2 người đang TẠM TẮT:** node Angelo đã xoá khỏi scene (nút ⚙ xoá nếu còn), code còn giữ; chưa quyết bỏ hẳn hay làm lại.
+Hai dòng "bước 1", "bước 2" ngay dưới là việc đã làm trước khi tắt.
+
 **Đã xong trong đợt này**
 - **Chương 1 · bước 1 (đang thử):** hai con mèo Leo + Angelo (Angelo tạm là Leo nhuộm xám), chọn 1 người / 2 người sau START,
   màn chọn mèo cho 2 người, mỗi con một dãy tim, gục và kéo dậy, camera giữ khung và chặn hai con đi xa nhau,
   menu Esc (Tiếp tục, Cài đặt, Về màn hình chính) với âm lượng, toàn màn hình, rung, đổi phím (lưu trên máy).
-  Kế hoạch bước 2–5 (kỹ năng Angelo/Leo, 3 câu đố, Chihuahua 3 giai đoạn, mọt con) xem `docs/thiet-ke-game.html` mục 11.
+  Kế hoạch bước 2–5 (kỹ năng Angelo/Leo, 3 câu đố, Chihuahua 3 giai đoạn, mọt con) xem `docs/thiet-ke-game.html` mục 12.
 - **Bước 2 (đang thử):** kỹ năng hai mèo (README mục "Kỹ năng hai con mèo"). Còn chừa: đu dây qua hố, sàn yếu để đập vỡ (bước 3).
 - DemoLevelBuilder giờ chỉ còn 3 nút: **⚙ Cập nhật** (dùng hằng ngày, không dời gì), **📐 Xếp lại theo ảnh demo**,
   **⟳ Dựng màn từ đầu** (có khoá an toàn). Chi tiết ở README mục 4.
@@ -29,35 +32,53 @@ Hướng dẫn dùng game và các nút trong editor nằm ở [README.md](READM
 - Màn chơi đã xếp lại khớp 4 ảnh demo (nút **📐**, đã bấm và đã lưu scene). Ngày 03/11/2026 đã dựng lại 4 khung từ scene
   để so với demo (`tools/so-sanh-demo/`): thứ tự lớp khớp hết.
   Phát hiện quan trọng: ảnh demo vẽ mọi thứ **đúng cỡ gốc (tỉ lệ 1)**, không phải 0.87 như trước.
-- Node **DemoRef** (con cuối của Canvas): tích *Hiện ảnh demo*, kéo *Khung* 1–4 để so 1-1. Ảnh ở `assets/ref/`, chỉ hiện trong editor, không vào bản build.
+- Node **DemoRef** (con của Canvas): tích *Hiện ảnh demo*, kéo *Khung* 1–4 để so 1-1. Ảnh ở `assets/ref/`, chỉ hiện trong editor, không vào bản build.
 - Nền đá lát từng ô chồng mép (hết khe giữa các ô, 2 đầu khối không bị cắt). Ô *Overlap* trong GroundBlock.
-- Camera `Offset Y = 46` để mặt đường khớp demo (dưới đáy có dải tường tối giống demo).
+- Camera `Offset Y = 33` để mặt đường khớp demo (dưới đáy có dải tường tối giống demo).
 - Chim và boss quay mặt đúng hướng (`artFacesRight = false`), chim dưới đất khung 3 dùng ảnh `MG_enermy_2`.
-- Đánh: chém combo 3 nhát, giữ J để lướt chém; nhảy/chém/lướt tốn năng lượng (thanh xanh). W đi lên bục, S xuống bục.
+- Đánh: chém combo 5 nhát; giữ J rồi thả là sóng kiếm (phải mua ở cửa hàng trước). Lướt có phím riêng (Space, kiểu Mũi tên là Shift phải, điện thoại là nút »).
+  Thanh xanh là thanh nộ: đánh trúng thì đầy dần, chỉ Special (L) và Mèo Nổ dùng tới; nhảy, chém, lướt đều miễn phí. W đi lên bục, S S xuống bục.
+- Camera kiểu Hollow Knight (CameraRig nhóm *Kiểu Hollow Knight*), khu boss rộng 1640 vừa một khung hình và khoá camera.
+- Camera **zoom 0.7** (11/11, bước ⚙ 34, theo bản thử `camera-demo.html`). Phần dưới mặt đất lộ ra được tô **đất tối tạm**
+  (GroundBlock ô *Fill Below*) và **nước sâu** dưới dòng sông (RiverFlow ô *Deep*). Cần art: thân đất / tường dưới mặt đường để thay đất tối.
+- Chưa xử lý (có từ trước, không do zoom): trên bậc cao quanh x 7300 các ô đá có khe hở lộ sông và gai nhọn, nhưng khung va chạm
+  của khối vẫn liền nên mèo đi ngang qua khe như đứng trên không. Chờ người dùng nói là hố gai cố ý hay cần lấp.
+- Cửa hàng: NPC tạm `ShopNPC` sau checkpoint 1, cây kỹ năng trong `game/Upgrades.ts`, cá bự `BigFishPickup` (README mục *Cửa hàng và cá bự*).
+  Ô lưu đã qua màn mà chơi lại thì bắt đầu từ đầu màn nhưng **giữ cá vàng, cá bự và kỹ năng đã mua** (cá bự đã nhặt không hiện lại).
+- Boss: máu 150. `BossBrain` và `BossArena` giờ gắn sẵn trên node Boss trong scene (bước ⚙ 33), chỉnh các ô trong Inspector là có tác dụng;
+  vì vậy muốn đổi số của boss bằng code thì phải viết thêm bước ⚙ (giá trị lưu trong scene đè lên mặc định trong code).
+- `art-nguon/` chỉ còn 9 dải ảnh gốc mà `tools/cat_khoi.py` dùng; phần còn lại nằm ở `art-nguon/khong-dung/` (không đưa vào git).
 - Ánh sáng vẽ bằng code (tia nắng, sương, bụi, hào quang cá), âm thanh tạm, font Super Bouncer, nút cảm ứng.
 
 **Còn thiếu so với demo (cần vẽ thêm ảnh)**
-- Tiệm "Lợi Kỳ" và lá cờ đỏ ở khung 4.
-- Tán lá tối che 2 góc trên màn hình.
+- Lá cờ đỏ ở khung 4.
 - Cột bê tông bên phải + hàng rào sau lưng boss (khung 4), tủ điện góc phải dưới khung 3.
-- Bàn xanh ở khung 2 (ảnh `MG_ban` đang màu hồng), biển "Phố Tạ Hiện" khung 4 có 2 tấm biển đổi chỗ, biển hình mèo khung 4.
-- Mây trắng trên trời (demo có ở cả 4 khung).
+- Biển "Phố Tạ Hiện" khung 4 có 2 tấm biển đổi chỗ, biển hình mèo khung 4.
 - Bụi cây dày sau hàng rào trên bậc đá khung 3 (lớp MG có vài bụi nhưng chưa phủ chỗ này).
-- Băng rôn cờ ở khung 1, 3, 4 trong demo treo thấp hơn khoảng 100px. Hiện đang ghim sát mép trên vì chưa có tán lá che;
-  có tán lá rồi thì bỏ ghim (tắt PinToScreenTop) và hạ xuống như demo.
+- Băng rôn cờ ở khung 1, 3, 4 trong demo treo thấp hơn khoảng 100px. Hiện đang ghim sát mép trên;
+  đã có tán lá tối che rồi, muốn giống demo thì bỏ ghim (tắt PinToScreenTop) và hạ xuống.
 
 **Việc nên làm tiếp**
-- Chơi thử từ đầu tới boss: chim, boss, mèo to hơn trước nhưng khung va chạm (PlatformerBody) giữ cỡ cũ → chỉnh *Size* nếu chém hụt / bị đụng sai.
+- Chơi thử từ đầu tới boss: thấy chém hụt / bị đụng sai thì chỉnh *Size* của khung va chạm (PlatformerBody).
 - Các con cá, chai nước bạn tự thêm (không có trong demo) vẫn để nguyên, xem có giữ không.
 - Đoạn nối giữa các khung (demo không liền nhau) cần tự sắp cho đẹp.
 - Thay âm thanh tạm trong `assets/resources/sounds/` (giữ đúng tên file), thay art nút cảm ứng.
-- Trước khi build: tắt *Debug Colliders*, *Touch On Desktop*, node `image 1465` (ảnh tham khảo cũ).
+- Trước khi build: tắt *Debug Colliders*, *Touch On Desktop*; kiểm tra node `Landing` (màn mở đầu) đang **bật**. Node `image 1465` (ảnh tham khảo cũ) đã tắt sẵn.
 - Font Super Bouncer: kiểm tra giấy phép trước khi phát hành công khai.
 
-## Map 1 ngoài phố và cây kỹ năng (đã chốt 10/11/2026)
+## Map 1 ngoài phố và cây kỹ năng
 
-Thiết kế đầy đủ (bản đồ, các khu, giá từng ô): `docs/thiet-ke-game.html` mục 10 và 11.
-- Mọi kỹ năng có từ đầu, riêng **Sóng kiếm** mua ở **tiệm Lợi Ký**. Đường bị khoá bằng **chìa khoá**, không bằng kỹ năng.
+**Đã chốt (10/11/2026):** cách khoá đường (2 chìa, cổng 2 ổ khoá) và cây kỹ năng.
+**CHƯA chốt:** bố cục các khu. Người dùng muốn bàn kỹ và thử ở `docs/camera-demo.html` trước; **chưa dựng khu nào vào `Main.scene` khi chưa được đồng ý**.
+
+- `docs/camera-demo.html`: bản chơi thử Map 1 chạy thẳng trong trình duyệt (không cần Cocos), dựng trên khối va chạm thật của phố.
+  Phím riêng của bản thử (Space nhảy), có nút đổi zoom, kiểu Cống (liền dưới phố / phòng riêng), wall jump. Sửa cho ưng ở đây rồi mới đưa sang game.
+- Bố cục đang thử (11/11): đầu map là **Nhà Leo** (không có khu Chợ); **Bờ sông nằm dưới đầu phố**, khe x 933–998 sau Nhà Leo là chỗ thấy nước,
+  vào bằng ống cống ở đầu trái Cống. Chưa quyết: Cống liền dưới phố hay phòng riêng, zoom 0.8 hay 1.0.
+- Sơ đồ trong `docs/thiet-ke-game.html` mục 10 là **bản nháp cũ** (Bờ sông còn vẽ ở cuối phố).
+
+Thiết kế (các khu, giá từng ô): `docs/thiet-ke-game.html` mục 10 và 11.
+- Mọi kỹ năng có từ đầu, riêng **Sóng kiếm** mua ở **cửa hàng** (hiện là NPC tạm `ShopNPC`). Đường bị khoá bằng **chìa khoá**, không bằng kỹ năng.
 - Boss Chihuahua sau **cổng nhà lớn** cuối Phố (2 ổ khoá): chìa 1 trên Mái nhà (tổ Chim đầu đàn), chìa 2 dưới Hang chó-gián (Chó-gián chúa).
   Hạ boss → cửa nhà mở sang **Map 2 (trong nhà)**.
 - **Cá bự** (nguyên liệu mở kỹ năng, Map 1 có 4 con trong phòng bí mật) + **cá vàng** (tiền). Cây kỹ năng 3 nhánh: Kiếm, Thân, Chiêu.
@@ -71,13 +92,25 @@ Các đợt làm:
 5. Dựng từng khu: Mái nhà, Cống, Hang, Bờ sông (cần vẽ thêm asset: mái ngói, dây điện, bể nước, tường cống, ống, nước bẩn, kè đá, thuyền, Chim đầu đàn, Chó-gián chúa).
 6. Map 2 trong nhà.
 
-## Build và gửi cho bạn bè
+## Mô-đun engine đã tắt (Project → Project Settings → Feature Cropping, 11/11/2026)
 
-1. Creator: **Project → Build**, nền tảng **Web Mobile**, bật *MD5 Cache*, *Orientation* Landscape, tắt *Debug* → Build.
-2. Nén: `python tools/zip_build.py build/web-mobile Leo-Escape-web.zip`
-   (đừng dùng Compress-Archive của PowerShell: nó ghi dấu `\` trong đường dẫn, itch.io không chạy được).
-3. itch.io: *Kind of project* = **HTML**, tải zip lên, tích *played in the browser*, khung 1280×720,
-   *Visibility* = **Draft** rồi gửi *Secret URL* cho bạn (hoặc Restricted + mật khẩu).
+Đã bỏ tick: **Physics 3D** (cả Cannon, PhysX, Builtin), **WebGL 2.0**, **WebGPU**, **Video Player**, **WebView**, **Terrain**, **XR**,
+Spine 4.2 (Spine 3.8 vẫn bật), Meshopt, Sorting 2D, Occlusion Query, Geometry / Debug Renderer, Procedural Animation, Legacy Pipeline, Post Process.
+Vẫn bật: 2D, UI, Graphics, Audio, Tween, Particle 2D / 3D, Physics 2D, Tiled Map, Spine 3.8, DragonBones, Animation.
+Muốn dùng thứ đã tắt (video, webview, vật lý 3D...): **bật lại trong Feature Cropping trước**, không thì component không có hoặc build lỗi.
+
+## Build và đưa lên web (GitHub Pages)
+
+Bản chơi thử đang ở https://khuongnguyen2908.github.io/Leo-Escape/ (nhánh `gh-pages` của repo, tách riêng với `main`).
+
+1. Trước khi build: node `Landing` đang **bật**, *Debug Colliders* tắt, Ctrl+S.
+2. Creator: **Project → Build**, nền tảng **Web Mobile**, bật *MD5 Cache*, *Orientation* Landscape, tắt *Debug* → Build. Kết quả ở `build/web-mobile` (không nằm trong git).
+3. Chép `build/web-mobile` ra một thư mục tạm ngoài repo, thêm file rỗng `.nojekyll`, rồi trong thư mục đó:
+   `git init -b gh-pages`, `git add -A`, `git commit`, `git push -f <địa chỉ repo> gh-pages`.
+4. Chờ 1–2 phút, mở link kèm `?v=<gì đó>` để trình duyệt không lấy bản cũ đã nhớ.
+
+itch.io để dành, chưa làm (các bước ở cuối README). Nếu cần nén zip: `python tools/zip_build.py build/web-mobile <tên>.zip`,
+đừng dùng Compress-Archive của PowerShell (nó ghi dấu `\` trong đường dẫn, itch.io không chạy được).
 
 ## Quy tắc khi sửa (cho cả Claude ở máy nhà)
 
@@ -89,4 +122,4 @@ Các đợt làm:
 - Trong editor không dùng `resources.load` được: hỏi `asset-db` rồi `assetManager.loadAny(uuid)` (xem `loadArtInEditor`).
 - Toạ độ demo: ảnh 1280×720, 1px = 1.5 đơn vị game; camera ứng với 4 khung: `FRAME_CAM = [660, 2580, 4500, 6420]`.
   Số liệu xếp màn nằm trong `assets/scripts/level/DemoLayout.ts` (tìm node theo uuid).
-- `tools/make_sfx.py` sinh lại âm thanh tạm; `tools/zip_build.py` nén bản build.
+- `tools/zip_build.py` nén bản build. Công cụ sinh âm thanh tạm `make_sfx.py` đã xoá (11/11): âm thanh giờ là file thật.

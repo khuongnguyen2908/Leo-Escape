@@ -973,6 +973,8 @@ export class LandingScreen extends Component {
                     GameManager.instance?.applySave(data);
                     this.revealMap(false);
                 } else {
+                    // Ô đã qua màn: chơi lại từ đầu nhưng mang theo cá vàng, cá bự, kỹ năng đã mua
+                    if (data) GameManager.instance?.applySave(data);
                     this.playStory();
                 }
             }), LOADING_TIME);

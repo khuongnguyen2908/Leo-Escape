@@ -5,6 +5,9 @@ import { PlatformerBody } from '../core/PlatformerBody';
 import { Settings } from '../core/Settings';
 import { Solid } from '../core/Solid';
 
+/** Phần của PlayerController mà camera cần đọc */
+interface CatLike { facing?: number; controls?: { down: boolean; upHeld: boolean } }
+
 const _probe = new Rect();
 const _solidRect = new Rect();
 import { ParallaxLayer } from './ParallaxLayer';
@@ -141,6 +144,8 @@ export class CameraRig extends Component {
     private anchorY = 0;
     private snapped = false;
     private targetBody: PlatformerBody | null = null;
+    /** PlayerController của mèo đang bám (lấy theo tên để khỏi import vòng), tìm một lần khi đổi mục tiêu */
+    private targetCtl: CatLike | null = null;
     private targets: Node[] = [];
     private readonly bodies = new Map<Node, PlatformerBody | null>();
     private shakeAmount = 0;
@@ -180,7 +185,10 @@ export class CameraRig extends Component {
         // Bám một con (chơi 1 người) hoặc điểm giữa hai con (chơi 2 người)
         const list = this.targets.length > 0 ? this.targets : (this.target ? [this.target] : []);
         if (list.length === 0) return;
-        if (!this.targetBody || this.targetBody.node !== list[0]) this.targetBody = list[0].getComponent(PlatformerBody);
+        if (!this.targetBody || this.targetBody.node !== list[0]) {
+            this.targetBody = list[0].getComponent(PlatformerBody);
+            this.targetCtl = list[0].getComponent('PlayerController') as unknown as CatLike | null;
+        }
 
         let cx = 0, vx = 0;
         for (const n of list) {
@@ -198,7 +206,7 @@ export class CameraRig extends Component {
         let desiredX: number, desiredY: number;
         if (this.hkStyle) {
             // Ngang: lệch về hướng quay mặt, quay đầu thì trôi dần sang hướng mới
-            const ctl = list[0].getComponent('PlayerController') as unknown as { facing?: number; controls?: { down: boolean; upHeld: boolean } } | null;
+            const ctl = this.targetCtl;
             const facing = ctl?.facing ?? 1;
             this.face += (facing * this.faceShift - this.face) * (1 - Math.exp(-dt * 3 / Math.max(0.05, this.faceTime)));
             desiredX = this.maxX - this.minX > halfW * 2
@@ -259,6 +267,7 @@ export class CameraRig extends Component {
     setTargets(nodes: Node[]) {
         this.targets = nodes.slice();
         this.targetBody = null;
+        this.targetCtl = null;
     }
 
     private bodyOf(n: Node): PlatformerBody | null {

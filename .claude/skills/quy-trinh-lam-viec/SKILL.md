@@ -17,7 +17,8 @@ Người dùng đặt quy tắc này: **chưa đồng ý thì chưa làm.**
 ## Các bước
 
 ### 1. Tìm hiểu (chỉ đọc, chưa sửa gì)
-- Đọc [BAI-HOC.md](../../../BAI-HOC.md) và tìm những bài học liên quan tới việc sắp làm (scene, editor, build, art, va chạm...).
+- Đọc phần **Luôn nhớ** và mục lục ở đầu [BAI-HOC.md](../../../BAI-HOC.md), rồi chỉ đọc nhóm bài liên quan tới việc sắp làm
+  (scene, va chạm, ảnh và âm thanh, menu, build...). Không cần đọc cả file.
   Bài nào liên quan thì phải nói rõ ở bước 3 là mình sẽ tránh lỗi đó bằng cách nào.
 - Đọc [GHI-CHU-LAM-TIEP.md](../../../GHI-CHU-LAM-TIEP.md) để biết trạng thái hiện tại và quy tắc sửa.
 - Đọc phần code và scene liên quan để hiểu bản đang có thật sự hoạt động thế nào. Đừng đoán.
@@ -34,7 +35,8 @@ Tự trả lời các câu sau trước khi hỏi người dùng:
 - Chỉ hỏi những điểm **người dùng phải quyết**. Điều gì đọc code hoặc thử là biết thì tự tìm, không hỏi.
 - Dùng tiếng Việt, câu ngắn, nói theo những gì người dùng thấy trong game và editor. Người dùng mới làm quen
   Cocos Creator, nên tránh thuật ngữ, hoặc giải thích ngay nếu buộc phải dùng.
-- Mỗi câu hỏi kèm các lựa chọn, đưa lựa chọn mình đề xuất lên đầu và nói vì sao (dùng `AskUserQuestion`, tối đa 4 câu một lần).
+- Mỗi câu hỏi kèm các lựa chọn, đưa lựa chọn mình đề xuất lên đầu và nói vì sao
+  (có công cụ hỏi nhiều lựa chọn thì dùng, tối đa 4 câu một lần; không có thì hỏi bằng danh sách đánh số).
 - Nói luôn những bài học cũ có liên quan và những rủi ro đã thấy.
 
 ### 4. Thảo luận tới phương án cuối
@@ -49,7 +51,9 @@ Người dùng còn thắc mắc hoặc muốn đổi gì thì quay lại bướ
 ### 5. Chờ đồng ý
 - Chỉ bắt tay làm khi người dùng **đồng ý rõ ràng** với phương án cuối, ví dụ "ok", "đồng ý", "làm đi", hoặc chọn nút đồng ý.
 - Đồng ý chỉ có giá trị cho đúng phương án đó. Việc nào nằm ngoài phương án thì phải hỏi lại.
-- Nếu người dùng đã trả lời đủ mọi điểm cần chốt trong cùng lượt thì coi các câu trả lời đó là đồng ý, không hỏi lặp lại.
+- Nếu mỗi lựa chọn trong câu hỏi đã nói rõ sẽ đổi file hay node nào, và người dùng chọn đủ mọi điểm cần chốt,
+  thì coi các câu trả lời đó là đồng ý, không hỏi lặp lại.
+- Nếu trả lời xong mình mới viết ra phương án cuối (có thêm việc mà câu hỏi chưa nói tới) thì chờ thêm một lần "ok".
 
 ### 6. Làm
 - Làm đúng phương án đã chốt.
@@ -60,6 +64,8 @@ Người dùng còn thắc mắc hoặc muốn đổi gì thì quay lại bướ
 ### 7. Kiểm tra và báo cáo trung thực
 - Tự kiểm tra được gì thì kiểm tra, ví dụ biên dịch TypeScript hay đọc lại file.
 - Nói rõ đã làm gì, chưa kiểm tra được gì, và người dùng cần thử gì trong editor. Không nói "xong rồi" khi chưa chắc.
+- Việc vừa làm đổi cách chơi, phím, nút trong editor, tên file hay cách build: sửa luôn đúng đoạn đó trong README.md
+  và mục "Đang ở đâu" của GHI-CHU-LAM-TIEP.md (đổi ngày ở dòng đầu). Sửa đè lên câu cũ, không viết thêm "trước đây...".
 - Chỉ commit hoặc push khi người dùng bảo.
 
 ### 8. Ghi bài học
@@ -71,5 +77,8 @@ Ghi vào [BAI-HOC.md](../../../BAI-HOC.md) **ngay** khi có một trong các tr�
 Cách ghi:
 - Dùng đúng mẫu ở đầu BAI-HOC.md. Ghi **cách tránh lần sau** cụ thể tới mức làm theo được ngay.
 - Nếu đã có bài cùng chủ đề thì bổ sung vào bài đó, đừng tạo bài trùng.
+- Một bài tối đa khoảng 8 dòng, đặt vào đúng nhóm và thêm tên bài vào mục lục. Quy tắc dùng cho mọi việc thì thêm một dòng vào **Luôn nhớ**.
+- Mẹo thao tác (thử game trong trình duyệt, cắt ảnh, lệnh máy) ghi vào `docs/meo-thu-game.md`, không ghi vào BAI-HOC.md.
+- Code liên quan tới một bài đã bị bỏ thì xoá bài đó.
 - Cuối lượt báo cho người dùng một dòng: "Đã ghi bài học: …".
 - Bài học nằm trong repo, nên nhắc người dùng commit để máy nhà cũng có, trừ khi họ đang chuẩn bị commit.

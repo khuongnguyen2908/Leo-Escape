@@ -6,9 +6,9 @@ Va chạm do code tự tính, **không dùng Box2D**, nên không cần bật mo
 
 ## 1. Mở project
 
-1. Cài **Cocos Dashboard**, rồi cài **Cocos Creator 3.8.x** (bản 3.8 nào cũng được, Creator sẽ tự nâng cấp project).
+1. Cài **Cocos Dashboard**, rồi cài **Cocos Creator 3.8.8** (đúng bản này; project ghi 3.8.8 trong `package.json`).
 2. Trong Dashboard chọn **Add / Import** rồi trỏ tới thư mục này (`D:\Game\Cocos game`).
-3. Mở lần đầu Creator sẽ tự sinh `library/`, `temp/`, `settings/` và các file `.meta`.
+3. Mở lần đầu Creator sẽ tự sinh `library/`, `temp/` (hơi lâu, bình thường). `settings/` và các file `.meta` đã nằm sẵn trong repo.
 
 ## 2. Thả asset vào
 
@@ -20,79 +20,58 @@ Copy toàn bộ ảnh PNG vào **`assets/resources/art/`** và giữ nguyên tê
 - Ảnh nào chưa có thì game hiện khối màu kèm tên, nên chạy được ngay cả khi chưa có ảnh nào.
   Danh sách ảnh còn thiếu được in ra trong Console.
 
-## 3. Tạo scene và chạy
+## 3. Mở scene và chạy
 
-1. Vào **Project → Project Settings → Project Data**, đặt Design Resolution là **1920 × 1080**, chọn **Fit Height**.
-2. Ở cửa sổ Assets, chuột phải vào `assets/scenes` → **Create → Scene**, đặt tên `Main`, rồi mở scene đó.
-3. Trong Hierarchy, xoá `Main Light`. Chuột phải → **Create → UI Component → Canvas**.
-4. Chọn node **Canvas** → **Add Component** → tìm **DemoLevelBuilder**.
-5. Lưu scene (Ctrl+S) rồi bấm **Play** ▶.
+1. Mở `assets/scenes/Main.scene`. Màn đã có sẵn trong repo và **scene là bản chính**: không cần tạo scene mới.
+2. Bấm **Play** ▶. Design Resolution của project là 1920 × 1080, Fit Height (đã đặt sẵn trong `settings/`); khung 16:9 do code giữ (`Letterbox.ts`, ô *Lock Aspect* của DemoLevelBuilder).
 
-Tuỳ chọn trên DemoLevelBuilder:
+Tuỳ chọn trên DemoLevelBuilder (node Canvas):
 - `Debug Colliders`: vẽ khung va chạm. Xanh lá là bục đặc, xanh dương là bục một chiều, hồng là nhân vật.
 - `Touch On Desktop`: hiện nút cảm ứng trên máy tính để thử.
 
-## 4. Đưa màn vào editor để tự sắp xếp
+## 4. Sắp xếp màn trong editor
 
-1. Chọn node **Canvas**, ở ô DemoLevelBuilder **tích vào "⟳ Dựng màn từ đầu"** (scene còn trống thì dựng ngay).
-2. Hierarchy sẽ hiện các node `Sky`, `BG`, `MG`, `Gameplay`, `FR`, `HUD`, `TouchControls`. Mở ra là thấy từng món đồ.
-3. Kéo thả, đổi kích thước, xoá hoặc nhân bản (Ctrl+D) tuỳ ý. **Nhấn Ctrl+S** để lưu.
-4. Lần sau bấm Play, game dùng đúng màn bạn đã xếp và không dựng lại nữa.
+Trong Hierarchy, dưới Canvas là các lớp `Sky`, `BG`, `MG`, `Gameplay`, `FR`, `FR_Top`, `HUD`... (danh sách đủ ở mục "Quy ước quan trọng"). Mở ra là thấy từng món đồ.
+Kéo thả, đổi kích thước, xoá hoặc nhân bản (Ctrl+D) tuỳ ý, rồi **Ctrl+S**. Bấm Play là game dùng đúng màn bạn đã xếp.
 
 Lưu ý khi sắp xếp:
 - Khối nền đá (`Ground`) có component **GroundBlock**: đổi `Width` để dài ngắn, kéo node để đổi chỗ và độ cao.
-  **Không còn màu nền bên dưới ô đá.** Các ô đá lấy **ngẫu nhiên** từ *Tile Frame* + *Variants* (hai ô liền nhau không trùng ảnh;
+  Nhóm **Đất tối bên dưới** (hình tạm cho zoom 0.7): ô *Fill Below* tô màu đất tối liền dưới đáy ảnh ô đá, sâu chừng đó (⚙ đặt 1400, 0 = tắt),
+  phủ cả bề ngang khối và các ô đá; ô *Fill Color* là màu (mặc định lấy theo dải đá sát đáy ảnh). Kéo ô đá trong editor thì đất tối tự chạy theo.
+  Có ảnh thân đất / cống thật thì đặt *Fill Below* về 0.
+  Các ô đá lấy **ngẫu nhiên** từ *Tile Frame* + *Variants* (hai ô liền nhau không trùng ảnh;
   đổi ô *Seed* để xếp kiểu khác). Chỗ hai ô giáp nhau cắt bỏ viền tối (ô *Edge Cut*, px ảnh gốc, mặc định 16) rồi chồng nhẹ (*Overlap*),
   nên viền tối chỉ còn ở hai đầu khối. Ô *Extend*: kéo dài phần đá tối ở đáy ô xuống (nền thấp 60, để lúc rung màn hình khỏi hở đáy).
   Ô *Bleed Left / Bleed Right*: hình ô đá lấn sang hai bên (khung va chạm giữ nguyên). Khối thấp sát khối cao lấn 40 để **đè lên mép khối cao**
   (khối cao phải nằm trên khối thấp trong Hierarchy, tức vẽ trước; nút ⚙ tự dời).
-  **Xếp tay (ô *Manual*, đang bật cho mọi khối):** các ô đá là node con thật `Tile_1`, `Tile_2`... của từng `Ground` (⚙ bước 30 tạo sẵn: ảnh nguyên, cỡ gốc,
+  **Xếp tay (ô *Manual*, đang bật cho cả 7 khối):** các ô đá là node con thật `Tile_1`, `Tile_2`... của từng `Ground` (⚙ bước 30 tạo sẵn: ảnh nguyên, cỡ gốc,
   không cắt viền, không giãn). Kéo, đổi ảnh (ô Sprite Frame), xoá, Ctrl+D từng ô tuỳ ý; ô nằm dưới trong Hierarchy thì vẽ đè lên ô trên.
-  Khung va chạm (viền xanh lá) vẫn theo *Width* / *Depth* của GroundBlock, đổi ô thì tự chỉnh Width nếu cần. Bỏ tích *Manual* thì code xếp lại như cũ
-  (các ô Tile_ vẫn còn, xoá tay nếu không dùng). Các mục dưới đây chỉ có tác dụng khi *Manual* tắt.
+  Khung va chạm (viền xanh lá) vẫn theo *Width* / *Depth* của GroundBlock, đổi ô thì tự chỉnh Width nếu cần. Bỏ tích *Manual* thì code tự xếp lại ô đá mỗi lần mở scene / chạy game
+  (không lưu vào scene, không hiện trong Hierarchy; các ô Tile_ vẫn còn, xoá tay nếu không dùng). Các mục dưới đây chỉ có tác dụng khi *Manual* tắt.
   **Góc ngoài**: đầu khối lộ ra ngoài (tích *Cap Left* / *Cap Right*) dùng ảnh góc,
   giữ nguyên viền ngoài: đầu phải dùng *End Frames* (`MG_tile_3`), đầu trái dùng *Left End Frame* (`MG_tile_4`, mép trái nét liền; để trống thì lật ngang ảnh góc phải, ô *Flip Left Cap*). Giữa khối thấp chỉ xếp `MG_tile_1/2`.
   Nút ⚙ đặt ảnh, góc, Sink cho mỗi khối **một lần** (ô *Auto Tiled* khác 0), sau đó để yên phần bạn chỉnh; đặt *Auto Tiled* về 0 thì ⚙ đặt lại.
   Vệt nắng `MG_nắng` (node `mg_nang` trong Gameplay, ⚙ đặt ở thân đá trước cái hố khung 1): kéo để dời, Ctrl+D để thêm chỗ khác.
 - **Dòng sông** (lớp `River`, trôi 0.9, nằm sau lớp chơi nên chỉ lộ ra ở hố và khe giữa các khối đá): node `RiverStrip` chứa 8 ảnh `BG_river`
-  nối liền (ảnh chẵn lật ngang cho mối nối khớp), đáy sát đáy khung hình. Component **RiverFlow** trên `RiverStrip`: nước trôi ngang (*Speed*,
+  nối liền (ảnh chẵn lật ngang cho mối nối khớp). Component **RiverFlow** trên `RiverStrip`: nước trôi ngang (*Speed*,
   âm = sang trái), nhún nhẹ (*Bob*, *Bob Period*), chỉ khi chơi. Muốn sông cao / thấp hơn thì kéo `RiverStrip` lên xuống.
-  Ô đá do code dựng lại mỗi lần mở scene / chạy game, **không lưu vào scene và không hiện trong Hierarchy** (muốn đổi thì chỉnh trên GroundBlock).
+  Khi chơi RiverFlow tô thêm nước sâu dần bên dưới dải ảnh (ô *Deep* = 1500, màu *Deep Top* → *Deep Bottom*): ở zoom 0.7 đáy dải ảnh
+  không còn sát đáy khung hình, nhìn qua khe giữa hai khối đá vẫn thấy nước chứ không thấy trời.
 - Đồ đứng lên được có component **Solid**. Kích thước vùng va chạm (`Size`) không tự đổi theo khi bạn scale hình, nhớ chỉnh lại Size.
   Bật `Debug Colliders` rồi Play để thấy khung va chạm.
 - Lớp `MG`, `BG`, `FR` trôi theo parallax nên trong editor nhìn lệch so với lúc chơi. Đó là bình thường.
 - **Scene là bản chính.** DemoLevelBuilder có 3 nút:
-  - **"⚙ Cập nhật (giữ phần bạn xếp)"**: nút dùng hằng ngày. Áp bản sửa mới của code và thêm những gì còn thiếu,
-    không dời, không xoá gì bạn đã xếp. Bấm bao nhiêu lần cũng vậy. Danh sách việc đã làm hiện trong Console. Nút này lo:
-    - ánh sáng: lớp `Light_Far` (sương sáng nền xa), lớp `Light` (tia nắng `TiaNang`, bụi sáng `BuiSang`), node `HaoQuang` sau mỗi con cá mới;
-    - xoá hào quang của cá đã bị xoá;
-    - ghim băng rôn, cờ mới thêm vào `FR_Top` sát mép trên;
-    - màn mở đầu (node `Landing`) nếu chưa có, và menu chính trong đó nếu chưa có (xem mục "Vào game");
-    - ảnh thanh năng lượng, nút nhảy, nút đánh nếu ô ảnh còn trống;
-    - độ lún mép đá theo số đo ảnh demo, chai nước đứng trên mặt đường, chim/boss/cá vẽ trên đồ vật;
-    - **xoá Angelo** và HUD của Angelo nếu còn (game không còn Angelo); **xoá các vùng hướng dẫn `TutorialHint`** (dấu !) trong màn chính;
-    - mặt đá: **nền thấp xếp ngẫu nhiên `MG_tile_1/2/3`**, **bậc đá cao xếp ngẫu nhiên `MG_tile_high_1/2/3`** (ảnh cao có cả thân tường),
-      không trộn thấp với cao; bỏ chỗ nắng cố định cũ (`SUNLIT_X`, *Lit Frame* để trống). Chưa có ảnh mới thì dùng `MG_tile_2` như cũ;
-    - **lớp BG trôi chậm theo đường** (hệ số 0.0622 → 0.3, chỉ đổi khi còn đúng 0.0622) và rải khắp màn: 7 đám mây, 5 cây, 1 cổng thành
-      ở giữa màn, 3 nhà nền (dùng lại node bạn đã đặt làm bản đầu, thiếu thì nhân bản; bố cục đã ghép thử với 4 khung demo).
-      `bg_filter` sang lớp mới `Filter` (hệ số 0, đứng yên theo màn hình, nằm ngay trên MG) nếu đang ở MG.
-      Bụi `bg_bui` sang lớp `Light_Far` (đứng yên theo màn hình) với anim trôi lững lờ + sáng mờ (**DustDrift**: *Sway X/Y*, *Period*,
-      *Fade Min/Max*, *Twinkle*, *Breathe*); tắt bụi sáng `BuiSang` (trông như đom đóm, hợp ban đêm hơn; tích lại ô active nếu muốn);
-    - **ảnh mới theo 4 ảnh demo** (chỉ đổi khi node còn đúng ảnh cũ ở chỗ cũ, chỉ thêm khi chưa có node cùng tên):
-      bàn hồng khung 2 → `MG_ban_xanh`, ghế vàng cạnh đó → `MG_ghe_do`, nhà đầu màn → `MG_nhao_3` (bản vẽ lại),
-      nhà ở cuối khung 3 / đầu khung 4 → **quán Lợi Ký `MG_nhao_4`** (dời tới (5630, 22) như ảnh demo 4);
-      thêm 2 đám mây `BG_mây_1/2`, lớp lọc màu `BG_filter`, bụi `BG_bui` (lớp BG), nhà nền `BG_nha` (lớp chơi, chỉ hiện ở khung 3),
-      4 tán lá tối `FR_bush_1/2` (FR_Top, sau dây cờ; bị ghim mép trên như dây cờ nên ⚙ đặt ô *Overlap* riêng cho từng tán để mép trên nhô ra ngoài khung như demo);
-    - máu kẻ địch gấp 4 (chim 3 → 12, boss 10 → 40; chỉ đổi khi còn đúng số cũ, số trong `ENEMY_HP`);
-    - thân va chạm của Leo rộng 85 → 150 để hình mèo không lấn vào tường;
-    - kẻ địch (boss) mà bạn kéo riêng hình (node con `Visual`): dời cả node tới chỗ hình, chân đặt lên mặt đá ngay dưới, `Visual` về (0, 0)
-      (khi chơi hình luôn bám node, nên muốn dời con địch thì kéo node cha `Boss`, đừng kéo `Visual`);
-    - máu boss → 100 (chỉ đổi khi còn đúng 40 hoặc 150 của bản trước);
-    - màn hướng dẫn (node `Tutorial` + `Tut_...`), chỉ tạo khi chưa có node `Tutorial`;
-    - màn dài thêm (khối nền vượt quá tường cuối): dời tường tàng hình `Wall` cuối màn tới hết khối nền xa nhất (+30) và tăng *Max X* của camera;
-    - thùng giấy + viên gạch + cây gỗ (`mg_up`) và thùng rác chặn cả hai bên (không đi xuyên, phải nhảy lên), khung va chạm ôm đúng hình.
-      Cây gỗ nghiêng là 5 khung nhỏ xếp bậc thang theo đường chéo (khung va chạm chỉ là hình chữ nhật thẳng, không xoay được).
-      Viên gạch có Solid thứ hai trên cùng node. Số đo nằm trong `SOLID_PROPS` (DemoLevelBuilder.ts); muốn thêm đồ khác thì thêm vào đó.
+  - **"⚙ Cập nhật (giữ phần bạn xếp)"**: nút dùng hằng ngày. Thêm những gì còn thiếu và áp bản sửa mới của code,
+    không dời, không xoá gì bạn đã xếp; bấm bao nhiêu lần cũng ra cùng kết quả. **Những gì nó vừa đổi được in ra Console**
+    (các bước nằm trong hàm `applyFixesInEditor` của `DemoLevelBuilder.ts`). Bạn cần bấm ⚙ khi:
+    - thêm cá mới (⚙ gắn hào quang `HaoQuang` sau cá) hoặc xoá cá (⚙ xoá hào quang thừa);
+    - thêm băng rôn, cờ, tán lá vào `FR_Top` (⚙ ghim sát mép trên; cao thấp chỉnh ô *Overlap* của PinToScreenTop);
+    - kéo dài màn (khối nền vượt quá tường cuối): ⚙ dời tường tàng hình `Wall` cuối màn tới hết khối nền xa nhất và tăng *Max X* của camera;
+    - lỡ kéo riêng hình của kẻ địch (node con `Visual`): ⚙ dời cả node tới chỗ hình. Khi chơi hình luôn bám node, nên muốn dời con địch thì kéo node cha (`Boss`...), đừng kéo `Visual`;
+    - muốn ⚙ đặt lại ảnh, góc, Sink của một khối đá: đặt ô *Auto Tiled* của khối đó về 0 rồi bấm;
+    - muốn một món đồ chặn cả hai bên (không đi xuyên, phải nhảy lên): thêm số đo vào bảng `SOLID_PROPS` trong `DemoLevelBuilder.ts` rồi bấm (đã có thùng giấy `mg_up`, thùng rác).
+
+    ⚙ cũng tạo lại những thứ bị thiếu hẳn: các lớp ánh sáng, màn mở đầu `Landing` và menu chính, màn hướng dẫn `Tutorial`, NPC cửa hàng và cá bự (chỉ khi chưa có node đó).
   - **"📐 Xếp lại theo ảnh demo"**: đặt lại vị trí, kích thước của đồ vật, cây, chim, boss, mèo, nền đá và độ cao camera
     cho khớp 4 ảnh demo. **Phần bạn đã tự kéo sẽ mất.** Số liệu nằm trong `DemoLayout.ts`, đo bằng cách dò từng ảnh gốc
     trên ảnh demo (ảnh demo vẽ mọi thứ đúng cỡ gốc, tỉ lệ 1). Băng rôn đã ghim thì giữ độ cao của ghim.
@@ -102,6 +81,7 @@ Lưu ý khi sắp xếp:
 
   Ánh sáng vẽ hoàn toàn bằng code, không dùng ảnh. Tia nắng chỉnh trong component **LightRays**: Length, Angle, Spread, Shafts, Color (alpha là độ sáng).
   Sương và hào quang chỉnh trong **SoftGlow**: Size, Color. Bụi sáng chỉnh trong **DustMotes**.
+  Bụi `bg_bui` (lớp `Light_Far`) trôi lững lờ nhờ **DustDrift**: *Sway X/Y*, *Period*, *Fade Min/Max*, *Twinkle*, *Breathe*. Bụi sáng `BuiSang` (DustMotes) đang tắt, tích lại ô active nếu muốn.
 - Vị trí đồ vật trong màn mẫu đo theo 4 ảnh demo 1280×720 (1px = 1.5 đơn vị game), xem hàm `demoX` trong `DemoLevelBuilder.ts`.
 - **So với ảnh demo:** chọn node `DemoRef`, tích **Hiện ảnh demo**, kéo **Khung** 1–4 (camera xem trước tự nhảy tới đúng chỗ),
   chỉnh **Độ đậm**. Ảnh nằm ở `assets/ref/`, chỉ hiện trong editor và không vào bản build.
@@ -111,38 +91,31 @@ Lưu ý khi sắp xếp:
   Lần đầu phải bật: menu Extension → Extension Manager → tab Project → bật `duplicate-in-place`.
   Phím có sẵn của Hierarchy: `[` / `]` dời node lên / xuống một bậc, Ctrl+[ / Ctrl+] lên đầu / xuống cuối, Ctrl+Alt+V dán thành node con.
 
-## Vào game: 1 người hay 2 người
+## Vào game
 
-> **Game không còn Angelo.** Nút ⚙ Cập nhật xoá node `Angelo` và `HUD_Angelo` khỏi scene. NEW GAME vào thẳng với Leo,
-> trang phím chỉ có cột Người 1. Phần nói về Angelo, chơi 2 người, đổi mèo bên dưới là mô tả bản cũ, để tham khảo.
+> **Angelo và chế độ 2 người đang TẠM TẮT: node đã xoá khỏi scene, code còn giữ, chưa quyết bỏ hẳn hay làm lại.**
+> Hiện game chỉ có Leo: NEW GAME vào thẳng với Leo, trang phím chỉ có cột Người 1.
+> Code còn giữ: `AngeloSkills.ts`, `FollowerAI.ts`, `CharacterSelect.ts`, `SoulWisp.ts`, `YarnRope.ts`.
 
-**Mở game** (lần đầu trong một lần mở): **Logo 1** → **Logo 2** (màn đen, mỗi logo hiện 1s · giữ 1s · mờ 1s; không bấm bỏ qua được) →
-**thông báo tự lưu** (nền giống màn tải; chân mèo `Icon_paw` tô trắng viền nâu, quầng sáng phồng xẹp giữa màn + "game tự lưu ở một số điểm, đừng tắt khi biểu tượng này hiện"; ~4 giây, không bấm qua nhanh được) →
-**banner** (nền + logo game) kèm **thanh tải** (tải trước ảnh hiệu ứng `art/fx`) → thanh tải đổi thành **nút START** phập phồng
-(nhân bản node `Landing/Start` trong scene: ảnh nút + chữ START 90, viền 7 `#3b7113`; sửa nút trong scene là màn này đổi theo) →
-bấm nút, hoặc Enter / Space / Nhảy / Đánh (phím khác không tính) thì **các dòng menu hiện dần** tại chỗ trong 0.25 giây (`BootScreen.ts`).
-Về màn hình chính từ trong game thì bỏ qua logo, menu hiện luôn.
-**Bụi menu** (`MenuDust.ts`, bụi trong nắng): ~70 hạt tròn mềm màu kem (xa nhỏ mờ chậm, gần to rõ), mỗi hạt lượn lờ chậm theo hướng riêng,
-cả đám hơi nghiêng xuống phải, sống 4–10 giây hiện dần rồi tắt tại chỗ, thỉnh thoảng loé sáng. Nằm ngay trên ảnh nền `MenuBg`,
-thấy ở menu, trang ô lưu, trang độ khó, cả khi mở Cài đặt (số chỉnh ở đầu file: `COUNT`, `SIZE`, `SPEED`, `ALPHA`, `LIFE`...).
-**Logo** (`LogoShine.ts`, tự gắn vào `Logo/Pic` khi chơi): vệt sáng trắng chéo lướt qua phần chữ và hình mỗi 4 giây (*Period*, *Sweep*, *Band Width*, *Strength*),
-ngôi sao nhỏ trên chữ O nhấp nháy ~2.2 giây một lần (*Star X/Y* là vị trí px trên ảnh logo, *Star Size*, *Twinkle*). Tạo lúc chạy, không lưu vào scene.
-Ảnh logo: `boot_logo1`, `boot_logo2` trong `assets/resources/art` (chưa có thì hiện khung chữ LOGO 1 / LOGO 2).
+**Mở game** (lần đầu trong một lần mở, `BootScreen.ts`): **Logo 1** → **Logo 2** (mỗi logo hiện 1s · giữ 1s · mờ 1s, không bấm bỏ qua được;
+ảnh `boot_logo1`, `boot_logo2` trong `assets/resources/art`, chưa có thì hiện khung chữ LOGO 1 / LOGO 2) → **thông báo tự lưu** (~4 giây, không bấm qua nhanh được) →
+**banner** kèm **thanh tải** (tải trước ảnh hiệu ứng `art/fx`) → thanh tải đổi thành **nút START** (nhân bản node `Landing/Start` trong scene: sửa nút trong scene là màn này đổi theo) →
+bấm nút, hoặc Enter / Space / Nhảy / Đánh (phím khác không tính) thì các dòng menu hiện dần. Về màn hình chính từ trong game thì bỏ qua logo, menu hiện luôn.
+Trang trí menu, tạo lúc chạy, không lưu vào scene: **bụi menu** (`MenuDust.ts`, ~70 hạt ngay trên ảnh nền `MenuBg`; số chỉnh ở đầu file: `COUNT`, `SIZE`, `SPEED`, `ALPHA`, `LIFE`...)
+và **logo lướt sáng** (`LogoShine.ts`, tự gắn vào `Logo/Pic`: vệt sáng mỗi 4 giây, ô *Period*, *Sweep*, *Band Width*, *Strength*; ngôi sao nhấp nháy, ô *Star X/Y*, *Star Size*, *Twinkle*).
 
-Màn mở đầu là **menu chính**: logo, NEW GAME, OPTIONS, ACHIEVEMENTS, CREDITS, QUIT, dòng bản quyền ở đáy. Bấm chọn một dòng thì **vệt sáng ngang chữ** loé rất nhẹ một lần (chỉ khi bấm, không hiện lúc rê / dời chọn).
-**Dấu tự lưu** (`SaveIcon.ts`): mỗi lần ghi ô lưu (đi ngang checkpoint, qua màn) góc phải trên cùng (đè lên nút bánh răng, nút nằm ngay góc phải trên: ô *Gear Right* / *Gear Top* = 70 của PauseMenu) hiện chân mèo `Icon_paw` (trắng viền nâu, `PawIcon.ts`) + chữ:
-"Đang lưu..." (chân mèo nhún, chữ nhấp nháy) → "Đã lưu" (chân mèo nảy lên, loé sáng) → mờ đi, tổng ~2.5 giây. Chân mèo tô một màu bằng shader `resources/effects/sprite-silhouette.effect`.
+Màn mở đầu là **menu chính**: logo, NEW GAME, OPTIONS, ACHIEVEMENTS, CREDITS, QUIT, dòng bản quyền ở đáy.
 W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter, Nhảy, Đánh hoặc chạm để chọn.
-- **NEW GAME** → **chọn 1 trong 3 ô lưu** (`SaveSlotPage.ts`, dữ liệu `game/SaveSlots.ts`, lưu trên máy). 3 thẻ kiểu menu mới: nền tối trong mờ viền kem,
-  tên ô + đường hoa văn; thẻ đang chọn sáng hơn, có hoa văn `selection_left` / `selection_right` hai bên. Ô trống ghi **NEW**; ô có tiến độ ghi
-  chương, checkpoint (hoặc Đã qua màn), thời gian chơi, số cá, **nhãn màu độ khó** ở mép dưới, kèm nút **X** xoá (hỏi lại, mặc định KHÔNG).
+**Dấu tự lưu** (`SaveIcon.ts`, `PawIcon.ts`): mỗi lần ghi ô lưu (đi ngang checkpoint, qua màn), góc phải trên cùng hiện chân mèo `Icon_paw` + chữ "Đang lưu..." → "Đã lưu", tổng ~2.5 giây.
+Nó đè lên nút bánh răng (nút nằm ngay góc phải trên: ô *Gear Right* / *Gear Top* = 70 của PauseMenu). Chân mèo tô một màu bằng shader `resources/effects/sprite-silhouette.effect`.
+- **NEW GAME** → **chọn 1 trong 3 ô lưu** (`SaveSlotPage.ts`, dữ liệu `game/SaveSlots.ts`, lưu trên máy). Ô trống ghi **NEW**; ô có tiến độ ghi
+  chương, checkpoint (hoặc Đã qua màn), thời gian chơi, số cá, nhãn màu độ khó, kèm nút **X** xoá (hỏi lại, mặc định KHÔNG).
   Trái / phải hoặc rê chuột để chọn, Enter / Nhảy / Đánh / chạm để vào, Delete để xoá, Esc về menu (điện thoại: nút ← tròn góc trên trái).
-  Dàn phím gợi ý ở **góc phải dưới**: ENTER Xác nhận · DEL Xoá · ESC Quay lại. Trang này giấu dòng bản quyền.
   Chạm checkpoint xa hơn chỗ đã lưu, hoặc qua màn, là ghi đè ô đang chơi.
-- **Ô mới → chọn độ khó** (`DifficultyPage.ts`, số liệu `core/Difficulty.ts`): 3 dải ngang kiểu CASUAL / NORMAL / MANIAC (tiếng Việt THƯ GIÃN /
-  BÌNH THƯỜNG / ĐỊA NGỤC), mỗi dải có **biểu tượng trôi nhấp nhô** (ảnh `art/MG_icon_boss` phóng ×1.4: mức 1 một cái, mức 2 hai cái, mức 3 ba cái, xếp ngang sát bên trái tên; chưa có ảnh thì vẽ tạm), tên và mô tả.
+- **Ô mới → chọn độ khó** (`DifficultyPage.ts`, số liệu `core/Difficulty.ts`): 3 dải CASUAL / NORMAL / MANIAC (tiếng Việt THƯ GIÃN / BÌNH THƯỜNG / ĐỊA NGỤC),
+  mỗi dải có biểu tượng (ảnh `art/MG_icon_boss`: mức 1 một cái, mức 2 hai cái, mức 3 ba cái; chưa có ảnh thì vẽ tạm), tên và mô tả.
   ↑/↓ hoặc rê chuột để chọn, Enter / Nhảy / Đánh / chạm để vào, Esc về trang ô lưu. Ô đã lưu giữ độ khó cũ, không hỏi lại (ô lưu cũ chưa có = CASUAL).
-  Số tim và sát thương mèo nhận giữ nguyên ở mọi mức; CASUAL là game như cũ:
+  Số tim và sát thương mèo nhận giữ nguyên ở mọi mức:
 
   | | CASUAL | NORMAL | MANIAC |
   |---|---|---|---|
@@ -151,13 +124,12 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
   | Nghỉ giữa các đòn (địch, boss) | ×1 | ×0.8 | ×0.65 |
   | Boss báo trước (mọi đòn: dáng lấy đà, dấu đỏ, cột lửa...) | ×1 | ×0.85 | ×0.7 |
 
-  Chọn xong → màn đen **zoom vào** (lỗ tròn thu lại, `IrisWipe.ts`) + **màn tải** (`LoadingScreen.ts`, đứng 2 giây: nền `PatternBackdrop.ts` (dùng chung với màn thông báo tự lưu) gồm ảnh `BG_loading`, hoạ tiết trong `art/Loading_pattern/`
-  (Type = sprite-frame) rải ngẫu nhiên trôi chéo chậm, trộn kiểu **Screen** (shader `resources/effects/sprite-screen.effect`, độ đậm `PATTERN_SCREEN`), trên cùng lớp hạt nhiễu `art/Loading_filter`; mèo giữa màn — khung hình `loading_cat_1`, `_2`... chạy flip-book 12 hình/giây,
-  chưa có thì đầu mèo tạm; chữ Loading... nhún từng chữ) →
-  - **ô mới**: **3 trang truyện** (`StoryPages.ts`; ảnh `story_1..3` trong `art`, chưa có thì khung PAGE 1...; chữ `story.1..3` trong `Lang.ts`),
-    **lật như sách**: trang gập quanh gáy trái, tối dần, đổ bóng lên trang dưới. → / Enter / phím khác / chạm: lật tới; ← (hoặc chạm phía trái): lật lại;
-    Esc: bỏ qua truyện → màn đen + **màn tải** 2 giây → **màn hướng dẫn** (xem dưới) → ra cửa EXIT → màn đen →
-    **zoom ra bản đồ** từ chỗ Leo đứng → **hội thoại kiểu visual novel** (`DialogueBox.ts`: avatar tròn `MG_avatar` đè góc trên bên trái hộp, bảng tên ngay bên phải, câu hiện dần; bấm để qua; 3 câu `dialog.1..3` trong `Lang.ts`) → vào chơi;
+  Chọn xong → màn đen **zoom vào** (lỗ tròn thu lại, `IrisWipe.ts`) + **màn tải** (`LoadingScreen.ts`, đứng 2 giây; nền `PatternBackdrop.ts` dùng chung với màn thông báo tự lưu:
+  ảnh `BG_loading`, hoạ tiết trong `art/Loading_pattern/` (Type = sprite-frame) trộn kiểu **Screen** bằng shader `resources/effects/sprite-screen.effect` (độ đậm `PATTERN_SCREEN`),
+  lớp hạt nhiễu `art/Loading_filter`; mèo giữa màn là flip-book `loading_cat_1`, `_2`... 12 hình/giây, chưa có thì đầu mèo tạm) →
+  - **ô mới**: **3 trang truyện** (`StoryPages.ts`; ảnh `story_1..3` trong `art`, chưa có thì khung PAGE 1...; chữ `story.1..3` trong `Lang.ts`), lật như sách:
+    → / Enter / phím khác / chạm: lật tới; ← (hoặc chạm phía trái): lật lại; Esc: bỏ qua truyện → màn đen + **màn tải** 2 giây → **màn hướng dẫn** (xem dưới) → ra cửa EXIT → màn đen →
+    **zoom ra bản đồ** từ chỗ Leo đứng → **hội thoại kiểu visual novel** (`DialogueBox.ts`: avatar `MG_avatar`, bảng tên, câu hiện dần; bấm để qua; 3 câu `dialog.1..3` trong `Lang.ts`) → vào chơi;
   - **ô đã lưu**: zoom ra bản đồ ngay tại checkpoint đã lưu (thời gian, cá, số lần gục giữ nguyên; cá đã ăn không còn) → vào chơi.
     Ô đã qua màn thì chơi lại từ đầu màn.
 - **Màn hướng dẫn** (`TutorialRoom.ts`, nút ⚙ tạo node `Tutorial` và các `Tut_...` bên trái đầu màn, x -9200 → -800, kéo chỉnh được):
@@ -167,64 +139,49 @@ W/S hoặc ↑/↓ (rê chuột cũng được) để dời khung chọn; Enter,
   **Bùng nổ** (phím L / C, biển `Tut_Sign_special` trên hình nộm thứ 2; trong màn hướng dẫn mỗi nhát trúng được +25 nộ, ô *Tutorial Rage On Hit*
   của PlayerController, nên 4 nhát là đầy), Cá (3 con), **cửa EXIT** (`TutorialExit.ts`: đứng ở cửa bấm Lên). Khối vẽ phác thảo: `TutorialBlock.ts` (Box / Pillar / Platform, tự gắn Solid).
   Trong màn hướng dẫn camera chỉ chạy trong khu đó, giấu lớp tiền cảnh `FR`; cá ăn và thời gian chơi ở đây không tính. Chỉ dạy kỹ năng đang mở
-  (đập bụng, Mèo Nổ đang khoá nên chưa có biển). Chỉ ô mới đi qua màn hướng dẫn.
+  (đập bụng, Mèo Nổ phải mua ở cửa hàng nên chưa có biển). Chỉ ô mới đi qua màn hướng dẫn.
 - **Nhạc**: nhạc menu `bgm` bật khi thanh tải chạy xong (và khi về menu), chạy tiếp qua ô lưu, truyện;
   **màn hướng dẫn có nhạc riêng `bgm_tutorial`** (ô *Music* của TutorialRoom; chưa có file thì nhạc menu chạy tiếp);
   tắt lúc hội thoại mở đầu; **nhạc rừng `bgm_forest` chỉ bật khi xong hội thoại** (ô đã lưu: bật lúc vào chơi).
-  Có Angelo thì vẫn chọn **1 NGƯỜI** / **2 NGƯỜI** sau khi chọn ô (điện thoại vào thẳng 1 người).
-- **CREDITS** và **QUIT** cùng kiểu menu mới (tiêu đề + hoa văn, chữ trắng, khung chọn; QUIT có YES / NO hai hàng, mặc định NO); lúc mở thì menu chính tạm ẩn.
-- **OPTIONS** mở trang Cài đặt (âm lượng, toàn màn hình, rung, bàn phím). Quay lại / Esc là về menu.
+- **OPTIONS** mở trang Cài đặt (xem mục Menu). Quay lại / Esc là về menu.
 - **ACHIEVEMENTS** mở trang **Thành tích** (`AchievementsPage.ts`, dữ liệu `game/Achievements.ts`, lưu trên máy, chung mọi ô lưu): danh sách cuộn
   (W/S, lăn chuột), mỗi dòng ô biểu tượng (ảnh `ach_<id>` trong `art`, chưa có thì ngôi sao tạm; chưa đạt thì ổ khoá) + tên + mô tả, thanh cuộn bên phải.
   8 thành tích: Bước đầu (xong hướng dẫn) · Hạ Chihuahua Độc · Về nhà (qua chương 1) · Mèo tham ăn (đủ cá) · Không một vết xước (không gục) ·
   Nhanh như mèo (dưới 5 phút) · Liều mạng (qua ở MANIAC) · Thợ săn chim (hạ 20 chim, cộng dồn). Đạt cái mới thì **thông báo nhỏ góc dưới phải** (`AchievementToast.ts`).
-- **CREDITS / TÁC GIẢ**: bảng nổi với hai ô logo và tên **Laris**, **Flynt**, nút Đóng (Esc, Enter, Nhảy cũng đóng).
+- **CREDITS / TÁC GIẢ**: bảng với hai ô logo và tên **Laris**, **Flynt**, nút Đóng (Esc, Enter, Nhảy cũng đóng).
   Thả ảnh `credit_laris.png`, `credit_flynt.png` vào `assets/resources/art` là tự thay khung LOGO tạm.
-- Dòng đang chọn: chữ phóng lên 1.15 lần rồi thu về; khung chọn tính theo cỡ chữ lúc to nhất nên chữ không tràn khung.
-- **QUIT** hỏi lại YES / NO. Bản build ra máy tính, điện thoại thì thoát thật. Bản web: trình duyệt không cho game tự đóng tab
-  mở từ itch.io, nên game thoát toàn màn hình, tắt nhạc, hiện "THANKS FOR PLAYING!" kèm nút BACK TO MENU.
+- **QUIT** hỏi lại YES / NO (hai hàng, mặc định NO). Bản build ra máy tính, điện thoại thì thoát thật. Bản web: trình duyệt không cho game tự đóng tab,
+  nên game thoát toàn màn hình, tắt nhạc, hiện "THANKS FOR PLAYING!" kèm nút BACK TO MENU. Lúc mở CREDITS / QUIT thì menu chính tạm ẩn.
 - Node trong `Landing` (nút ⚙ tạo, kéo chỉnh thoải mái): `MenuBg` (ảnh `Background`), `Logo/Pic` (ảnh `logo`),
   `Menu` gồm `Selection` (ảnh `selection`) và 5 dòng `NewGame`, `Options`, `Achievements`, `Credits`, `Quit`, rồi `Copyright`.
   Khung chọn giữ đúng khoảng lệch với dòng gần nó nhất như bạn đặt (đặt ở dòng nào cũng được). Tắt một dòng (bỏ tích node) là menu bỏ qua dòng đó.
   Chữ dài hơn khung (ACHIEVEMENTS) thì lúc chạy khung tự giãn **phần đệm vuông ở giữa**, hai hoa văn hai đầu giữ nguyên
   (kiểu cắt 9 mảnh, mỗi đầu 70px; số trong `SELECTION_*` của `LandingScreen.ts`). Trong editor khung vẫn hiện cỡ gốc.
   Ở menu chính không có nút bánh răng, cài đặt mở bằng OPTIONS.
-  Chữ trắng cỡ 60 viền 4px #462c22; chữ nâu nhỏ #968787 cỡ 30 viền 3px #2c1d17. Node `Start` (nút START cũ) chỉ bị tắt, không xoá.
-- **1 người:** điều khiển Leo. Bấm **Đổi mèo** (Tab, hoặc nút hai mũi tên trên điện thoại) để chuyển sang Angelo: một linh hồn
-  phát sáng (màu của con được chọn) bay vòng từ con cũ sang con mới (`SoulWisp.ts`). Bấm bộ phím của Người 1 hay Người 2 đều được.
-  Con không được điều khiển **tự đi theo** sau lưng, tự nhảy lên bục / qua hố, tự chém địch ở gần, nhưng không lướt, không dùng kỹ năng,
-  không kéo dậy (`FollowerAI.ts`). Nó bị đánh nhưng luôn còn ít nhất 1 tim; kẹt, rơi vực hoặc tụt lại quá xa thì hoá linh hồn bay tới.
-- **2 người:** màn chọn mèo. Mỗi người bấm trái/phải để đưa thẻ (N1, N2) tới dưới con mèo muốn chơi, bấm **Nhảy** để chốt, **Xuống** để bỏ chọn.
-  Hai người chốt xong thì đếm 3-2-1 rồi vào game. Hai con không đi xa nhau quá một màn hình (`Max Gap` trên GameManager).
-- Mỗi con một dãy tim và một thanh năng lượng (Leo góc trên trái, Angelo góc trên phải). Hết tim thì **gục**;
-  (không còn vòng kéo dậy). Gục hết (chơi 1 người: Leo gục) thì 1.2 giây sau hiện màn **GAME OVER** (`GameOverScreen.ts`, kiểu menu tạm dừng: màn tối, tiêu đề + hoa văn,
-  2 mục **Chơi lại** / **Về menu**, ↑ ↓ + Enter hoặc chạm; lúc này không mở được menu tạm dừng). **Chơi lại**: màn tối lại rồi **hồi sinh ở checkpoint** gần nhất đã chạm
+  Chữ trắng cỡ 60 viền 4px #462c22; chữ nâu nhỏ #968787 cỡ 30 viền 3px #2c1d17. Node `Start` đang tắt nhưng là mẫu cho nút START của màn mở game: đừng xoá.
+- **Tim và gục**: dãy tim và thanh nộ của Leo ở góc trên trái. Hết tim thì **gục**; 1.2 giây sau hiện màn **GAME OVER** (`GameOverScreen.ts`, kiểu menu tạm dừng):
+  2 mục **Chơi lại** / **Về menu**, ↑ ↓ + Enter hoặc chạm; lúc này không mở được menu tạm dừng. **Chơi lại**: màn tối lại rồi **hồi sinh ở checkpoint** gần nhất đã chạm
   (chưa chạm thì đầu màn), đủ tim, bất tử 1.5 giây; trận boss đánh lại từ đầu, quái đã hạ và cá đã ăn giữ nguyên. **Về menu**: về màn hình chính.
-- Không có thua hẳn: chọn Chơi lại là sống lại ở checkpoint, không giới hạn, nhưng **mỗi lần gục được đếm** (bảng kết quả, sao thứ 3).
+  Không có thua hẳn, không giới hạn số lần chơi lại, nhưng **mỗi lần gục được đếm** (bảng kết quả, sao thứ 3).
 - **Về đích** (chạm cờ khi đã hạ boss): người chơi thôi điều khiển, đồng hồ dừng, camera đứng yên
   (sát mép phải màn quá thì trượt nhẹ sang trái cho mèo có chỗ chạy khuất: ô *Hold Exit Room* của CameraRig); mèo nảy mừng một nhịp
   rồi tự chạy sang phải ra khỏi khung hình (ô nhóm *Về đích* của GameManager: Win Hop = độ nảy, Win Walk Max = kẹt quá chừng này giây thì vẫn sang tiếp),
   khuất hẳn thì màn tối mờ dần, hiện bảng **KẾT QUẢ** (`ResultsScreen.ts`): thời gian (không tính lúc tạm dừng),
   số cá x/8, số lần gục, **3 sao** (★ về đích · ★ nhặt đủ cá · ★ không gục lần nào), kỷ lục (thời gian nhanh nhất, số sao cao nhất, lưu trên máy:
   `Records.ts`, phá kỷ lục thì hiện KỶ LỤC MỚI!). Nút **Chơi lại** · **Về menu** · **Màn tiếp theo** (chưa có, hiện "Sắp có"). Chọn bằng A/D hoặc ←/→, Enter / Space.
-- Chơi lại giữ nguyên số người và mèo đã chọn. **Về menu** thì chọn lại từ đầu.
-- **Angelo tạm** là Leo nhuộm xám xanh, bóp gầy (ô *Tint*, *Width Scale* trên PlayerVisual của node `Angelo`).
 
-## Kỹ năng hai con mèo
+## Kỹ năng của Leo
 
-| | Leo (`LeoSkills.ts`) | Angelo (`AngeloSkills.ts`) |
-|---|---|---|
-| Nhảy | **Nhảy thêm 1 lần** trên không (miễn phí, cao 85%; LeoSkills nhóm *Nhảy 2 lần*) | **Nhảy thêm 1 lần** trên không. Đang bay đẩy vào tường thì **bám tường** trượt chậm, Nhảy để **bật tường** |
-| Đánh (J) | Bấm liên tục: **combo 5 nhát**, vệt `art/fx/Character/Normal Atk`: nhát 1–4 luân phiên vệt **A** (`Slash_color1` khung 1–5, quét ngang) / **B** (khung 6–9, hất lên), nhát 5 **kết liễu** vòng cung lớn `Slash3` ôm trên đầu mèo; đang bật special thì vệt **màu đỏ** (`Character/Special/…_color2`) (bảng số trong `SlashFx.ts`, `COMBO_SLASH`) (dưới đất **đứng yên tại chỗ một nhịp ngắn mỗi nhát**, không lao tới, giữ A/D cũng không đi; ô *Slash Stop* = 0.12 giây; trúng địch thì địch **loé trắng** và khựng hình ngắn) (không còn chém xoay; nhát 5 **kết liễu** trừ 2 máu, văng xa). Đang bay: combo **3 nhát đầu** như dưới đất, mỗi nhát khựng lại một nhịp. Giữ J đủ 0.8 giây (quả cầu năng lượng xanh gom ở giữa thân, đủ lực thì quả cầu chớp chờ phóng) rồi thả: **sóng kiếm** (**phải mua ở cửa hàng trước**, chưa mua thì giữ J không gồng) bay thẳng ~1000, trừ 2 máu, trúng địch đầu tiên là tan (mua *Sóng kiếm xuyên* thì bay xuyên mọi địch), đụng tường thì tan (**không tốn gì**; PlayerController nhóm *Sóng kiếm*). Thả sớm thì quả cầu **xì hơi** tan mất, không tốn gì. **Giữ Xuống + J** trên nền cứng: **quét chân** về phía đang quay mặt, địch nhỏ (gà, chim...) **té nằm** 1.2 giây, không đánh mèo, vẫn chém tiếp được; **boss không bị quét** (không mất máu) (LeoSkills nhóm *Quét chân*, ô *Sweep Trip*). **Giữ Lên + J** dưới đất: **chém hất**, vệt `Slash2` vút từ sát đất trước mặt lên qua đầu (special: màu đỏ), hất địch bay lên; nhảy theo chém tiếp thì địch lơ lửng (chém trúng trên không thì Leo cũng nảy nhẹ lên, ô *Air Hit Lift*), đang bay thì địch không đánh mèo, rơi xuống choáng 0.4 giây. Boss không bị hất. Đứng ngay dưới bục một chiều thì bấm W sẽ nhảy lên bục trước | **Quất dây len**, tầm xa gấp đôi Leo |
-| Đập bụng (giữ Xuống + J khi đang bay) | **Tạm khoá** (ô *Pound Unlocked* của LeoSkills, để dành cho cửa hàng nâng cấp; khoá thì Xuống + J trên không là chém thường). Mở khoá: **Đập bụng** lao xuống, sóng chấn đánh địch xung quanh và làm chúng **choáng** 1.5 giây; rơi càng cao sóng càng rộng (tối đa ×1.6 khi rơi từ cao 600). Phím Kỹ năng giờ là **special** (xem dòng dưới) | Bấm: **trói chân** địch gần nhất 2 giây (boss ngắn hơn), địch đứng yên và không đánh ai. Giữ: **nằm lì** / đứng dậy |
-| Special (L; bộ phím mũi tên: C) | **Thanh nộ đầy** (thanh năng lượng nhấp nháy vàng) thì bấm **L**: hào quang nằm dưới đất quanh chân; trên đầu mèo hiện **kiếm +** (`Character/Atk_up`) chạy 1 lượt rồi tới **khiên +** (`Character/Def_up`); **8 giây** hào quang `art/fx/Character/Special` lặp quanh mèo, sát thương **×1.5**, đánh nhanh **×1.5**, trúng đòn chỉ mất **nửa tim**; thanh tụt dần về 0, hết thì tắt. Chưa đầy mà bấm thì thanh nháy đỏ. Điện thoại: nút ngôi sao cạnh nút đánh, **cùng cỡ nút đánh**: chưa đầy nộ thì xám mờ, chạm không ra gì, vành có cung vàng dài dần theo nộ; đầy nộ thì **lửa cháy quanh nút** (vẽ bằng code; thả bộ ảnh vào `art/fx/UI/SkillFire` thì dùng ảnh) và phồng nhấp nháy; đang bật thì lửa nhỏ lại, cung vàng rút dần theo thời gian còn lại (`TouchControls.ts`; số liệu ở PlayerController nhóm *Thanh nộ, special (L)*) | — |
-| Tuyệt chiêu (giữ Xuống + L) | **Tạm khoá** (ô *Burst Unlocked*; khoá thì Xuống + L là lướt). Mở khoá: **Mèo Nổ**: cần đầy thanh nộ, tốn hết. Gồng 0.6 giây (bất tử) rồi nổ: mọi kẻ địch đang thấy trên màn hình mất 3 máu, văng ra, choáng 1 giây. Chỉ dùng trên nền cứng (trên bàn, thùng... bấm Xuống là rơi xuống) | — |
-| Lướt / Tương tác (L) | **Lướt né** (không tốn năng lượng, không gây sát thương, **bất tử** suốt lúc lướt + 0.1 giây sau): bấm **phím Lướt** (WASD: **Space**, Mũi tên: **Shift phải**; đổi được trong Cài đặt, dòng *Lướt*); điện thoại: **nút Lướt** (hai mũi tên », cùng cỡ nút đánh, ngay trên nút nhảy; ô *Dash Pos* của TouchControls). **Không còn lướt bằng bấm đúp trái / phải** hay đẩy đúp joystick. Phím Lướt dùng ô hành động Tương tác (không còn Angelo); máy đã lưu cài đặt cũ thì tự gán Space / Shift phải nếu phím đó chưa bị dùng. Lướt **cúi thấp, ngả người tới, thân kéo dài**, bóng mờ nối đuôi, đường gió trắng sau lưng, bụi tung lúc đạp đi và lúc phanh. Tốc độ phóng nhanh lúc đầu rồi chậm dần về tốc độ chạy, hết lướt **nối đà chạy** luôn (thả phím thì tự chậm lại); đâm tường thì dừng. Đang chém **lướt được ngay** (huỷ nhịp chém); đang lướt **bấm J thì chém liền**. Trên không mỗi lần bay lướt 1 lần; lướt xong chờ 0.3 giây mới lướt tiếp (PlayerController nhóm *Lướt né*: *Dodge Distance* 480, *Dodge Time* 0.26, *Dodge Grace*, *Dodge Cooldown*). Đang lướt trên đất mà bấm Nhảy: **dash jump**, bay ngang nhanh gấp 1.7 lần chạy tới khi chạm đất (ô *Dash Jump Speed*). Có Angelo: cạnh Angelo **bê** lên đầu, L lần nữa để **ném** | Ở mép bục cao, quay mặt ra ngoài: **thả dây len** xuống. L / Nhảy / đi để kéo dây lên |
-| Leo dây | **Giữ Lên** cạnh dây để leo, thả thì đu, Xuống để tụt, Nhảy để buông | — |
-| Bị bê / ném | — | Bị bê: bấm Nhảy để thoát. Bị ném: cuộn tròn bay, Nhảy giữa chừng để nhảy tiếp |
+| | Leo (`LeoSkills.ts`) |
+|---|---|
+| Nhảy | **Nhảy thêm 1 lần** trên không (miễn phí, cao 85%; LeoSkills nhóm *Nhảy 2 lần*) |
+| Đánh (J) | Bấm liên tục: **combo 5 nhát**, vệt `art/fx/Character/Normal Atk`: nhát 1–4 luân phiên vệt **A** (`Slash_color1` khung 1–5, quét ngang) / **B** (khung 6–9, hất lên), nhát 5 **kết liễu** vòng cung lớn `Slash3` ôm trên đầu mèo; đang bật special thì vệt **màu đỏ** (`Character/Special/…_color2`) (bảng số trong `SlashFx.ts`, `COMBO_SLASH`) (dưới đất **đứng yên tại chỗ một nhịp ngắn mỗi nhát**, không lao tới, giữ A/D cũng không đi; ô *Slash Stop* = 0.12 giây; trúng địch thì địch **loé trắng** và khựng hình ngắn) (nhát 5 **kết liễu** trừ 2 máu, văng xa). Đang bay: combo **3 nhát đầu** như dưới đất, mỗi nhát khựng lại một nhịp. Giữ J đủ 0.8 giây (quả cầu năng lượng xanh gom ở giữa thân, đủ lực thì quả cầu chớp chờ phóng) rồi thả: **sóng kiếm** (**phải mua ở cửa hàng trước**, chưa mua thì giữ J không gồng) bay thẳng ~1000, trừ 2 máu, trúng địch đầu tiên là tan (mua *Sóng kiếm xuyên* thì bay xuyên mọi địch), đụng tường thì tan (**không tốn gì**; PlayerController nhóm *Sóng kiếm*). Thả sớm thì quả cầu **xì hơi** tan mất, không tốn gì. **Giữ Xuống + J** trên nền cứng: **quét chân** về phía đang quay mặt, địch nhỏ (gà, chim...) **té nằm** 1.2 giây, không đánh mèo, vẫn chém tiếp được; **boss không bị quét** (không mất máu) (LeoSkills nhóm *Quét chân*, ô *Sweep Trip*). **Giữ Lên + J** dưới đất: **chém hất**, vệt `Slash2` vút từ sát đất trước mặt lên qua đầu (special: màu đỏ), hất địch bay lên; nhảy theo chém tiếp thì địch lơ lửng (chém trúng trên không thì Leo cũng nảy nhẹ lên, ô *Air Hit Lift*), đang bay thì địch không đánh mèo, rơi xuống choáng 0.4 giây. Boss không bị hất. Đứng ngay dưới bục một chiều thì bấm W sẽ nhảy lên bục trước |
+| Đập bụng (giữ Xuống + J khi đang bay) | **Mua ở cửa hàng** (ô *Đập bụng*; game tự đặt ô *Pound Unlocked* theo ô lưu, tick tay không có tác dụng; chưa mua thì Xuống + J trên không là chém thường). Có rồi: **Đập bụng** lao xuống, sóng chấn đánh địch xung quanh và làm chúng **choáng** 1.5 giây; rơi càng cao sóng càng rộng (tối đa ×1.6 khi rơi từ cao 600). Phím Kỹ năng giờ là **special** (xem dòng dưới) |
+| Special (L; bộ phím mũi tên: C) | **Thanh nộ đầy** (thanh năng lượng nhấp nháy vàng) thì bấm **L**: hào quang nằm dưới đất quanh chân; trên đầu mèo hiện **kiếm +** (`Character/Atk_up`) chạy 1 lượt rồi tới **khiên +** (`Character/Def_up`); **8 giây** hào quang `art/fx/Character/Special` lặp quanh mèo, sát thương **×1.5**, đánh nhanh **×1.5**, trúng đòn chỉ mất **nửa tim**; thanh tụt dần về 0, hết thì tắt. Chưa đầy mà bấm thì thanh nháy đỏ. Điện thoại: nút ngôi sao cạnh nút đánh, **cùng cỡ nút đánh**: chưa đầy nộ thì xám mờ, chạm không ra gì, vành có cung vàng dài dần theo nộ; đầy nộ thì **lửa cháy quanh nút** (vẽ bằng code; thả bộ ảnh vào `art/fx/UI/SkillFire` thì dùng ảnh) và phồng nhấp nháy; đang bật thì lửa nhỏ lại, cung vàng rút dần theo thời gian còn lại (`TouchControls.ts`; số liệu ở PlayerController nhóm *Thanh nộ, special (L)*) |
+| Tuyệt chiêu (giữ Xuống + phím Lướt) | **Mua ở cửa hàng** (ô *Mèo Nổ*; chưa mua thì Xuống + Lướt là lướt thường). Có rồi: **Mèo Nổ**: cần đầy thanh nộ, tốn hết. Gồng 0.6 giây (bất tử) rồi nổ: mọi kẻ địch đang thấy trên màn hình mất 3 máu, văng ra, choáng 1 giây. Chỉ dùng trên nền cứng (trên bàn, thùng... bấm Xuống là rơi xuống) |
+| Lướt (Space / Shift phải / nút ») | **Lướt né** (không tốn năng lượng, không gây sát thương, **bất tử** suốt lúc lướt + 0.1 giây sau): bấm **phím Lướt** (WASD: **Space**, Mũi tên: **Shift phải**; đổi được trong Cài đặt, dòng *Lướt*); điện thoại: **nút Lướt** (hai mũi tên », cùng cỡ nút đánh, ngay trên nút nhảy; ô *Dash Pos* của TouchControls). **Không còn lướt bằng bấm đúp trái / phải** hay đẩy đúp joystick. Phím Lướt dùng ô hành động Tương tác; máy đã lưu cài đặt cũ thì tự gán Space / Shift phải nếu phím đó chưa bị dùng. Lướt **cúi thấp, ngả người tới, thân kéo dài**, bóng mờ nối đuôi, đường gió trắng sau lưng, bụi tung lúc đạp đi và lúc phanh. Tốc độ phóng nhanh lúc đầu rồi chậm dần về tốc độ chạy, hết lướt **nối đà chạy** luôn (thả phím thì tự chậm lại); đâm tường thì dừng. Đang chém **lướt được ngay** (huỷ nhịp chém); đang lướt **bấm J thì chém liền**. Trên không mỗi lần bay lướt 1 lần; lướt xong chờ 0.3 giây mới lướt tiếp (PlayerController nhóm *Lướt né*: *Dodge Distance* 480, *Dodge Time* 0.26, *Dodge Grace*, *Dodge Cooldown*). Đang lướt trên đất mà bấm Nhảy: **dash jump**, bay ngang nhanh gấp 1.7 lần chạy tới khi chạm đất (ô *Dash Jump Speed*). |
 
-Con đang nằm (Leo nằm làm đệm, Angelo nằm lì) hoặc đang giữ dây thì khi đổi mèo sẽ ở lại tại chỗ, con đi theo không tự đi.
-Hiệu ứng dây len, dây thả vẽ tạm bằng code (`SkillFx.ts`, `YarnRope.ts`); hiệu ứng chém và đập bụng của Leo dùng ảnh (xem mục Animation). Số liệu kỹ năng chỉnh ngay trong hai file kỹ năng.
+Hiệu ứng chém và đập bụng của Leo dùng ảnh (xem mục Animation). Số liệu kỹ năng chỉnh trong `LeoSkills.ts` và các nhóm ô của PlayerController.
 Đập bụng chạm đất sẽ báo cho `LeoSkills.poundListeners` (để dành cho sàn yếu ở bước câu đố).
 
 ## Kẻ địch
@@ -246,7 +203,8 @@ cá nhấp nhô và nghiêng nhẹ, đốm `MG_coin_sparkle` trên cá nhấp nh
   Leo đứng gần (ô *Range* = 200) thì hiện bong bóng có phím **Lên** (W / ↑), bấm Lên hoặc chạm bong bóng để mở cửa hàng. Trong lúc mở, mèo đứng yên, không bị đánh.
 - **Bảng cửa hàng** (`ShopPage.ts`): trên cùng là số cá bự, cá vàng đang có; giữa là cây kỹ năng 3 hàng. Mũi tên / WASD chọn ô (hoặc rê chuột),
   Enter / Nhảy / Đánh / chạm để mua, Esc (điện thoại: nút ←) để thoát. Ô xanh = đã có, kem = mua được, kem nhạt = chưa đủ cá, xám tối = phải mua ô bên trái trước.
-  Mua xong ghi ngay vào ô lưu; mua thêm tim thì hồi đầy tim.
+  Mua xong ghi ngay vào ô lưu; mua thêm tim thì hồi đầy tim. Ô lưu đã qua màn mà chơi lại thì bắt đầu từ đầu màn nhưng
+  **giữ cá vàng, cá bự và kỹ năng đã mua** (cá bự đã nhặt không hiện lại, cá vàng thì hiện lại).
 
 | Hàng | Ô 1 | Ô 2 | Ô 3 |
 |---|---|---|---|
@@ -255,12 +213,12 @@ cá nhấp nhô và nghiêng nhẹ, đốm `MG_coin_sparkle` trên cá nhấp nh
 | Chiêu | Đập bụng: 1 + 1200 | Mèo Nổ: 2 + 3000 | |
 
 Đổi giá, thứ tự: sửa bảng `UPGRADES` trong `game/Upgrades.ts`. Chữ tên / mô tả: `up.<tên>` trong `ui/Lang.ts`.
-Ô lưu cũ (trước khi có cửa hàng) vào lại thì chưa mua gì, 0 cá bự. Biển và bảng hướng dẫn **Sóng kiếm** tự ẩn tới khi mua.
+Ô lưu cũ (trước khi có cửa hàng) vào lại thì chưa mua gì, 0 cá bự. Biển hướng dẫn **Sóng kiếm** tự ẩn tới khi mua.
 NPC và cá bự do bước ⚙ 32 tạo (chỉ khi cả màn chưa có); hiện chỉ có 1 cá bự để thử.
 
 ## Boss
 
-Boss **Chihuahua Độc** (`EnemyPatrol` + `BossBrain.ts` + `BossArena.ts`, DemoLevelBuilder tự gắn khi chơi). **150 máu** (ô *Boss Hp* của BossBrain, đặt lúc vào trận rồi nhân theo độ khó).
+Boss **Chihuahua Độc** (`EnemyPatrol` + `BossBrain.ts` + `BossArena.ts`, bước ⚙ 33 gắn sẵn cả hai vào node `Boss` trong scene nên chỉnh các ô trong Inspector là có tác dụng). **150 máu** (ô *Boss Hp* của BossBrain, đặt lúc vào trận rồi nhân theo độ khó).
 Đánh **kiểu Cuphead**: mỗi phase một **flow đòn cố định** (không random), đòn nào cũng báo trước bằng **dáng riêng của đòn** (boss không nháy đỏ),
 đòn nhắm vào chỗ mèo thì thêm **dấu dưới đất**; càng về sau càng dồn dập.
 **Chạm thân boss không mất tim**; chỉ trúng đòn mới mất (thân boss chỉ gây đòn lúc đang lao ngang hoặc đang bay khi nhảy đè).
@@ -339,7 +297,7 @@ Thứ tự đòn là bảng `FLOWS` đầu file `BossBrain.ts` (muốn đổi th
 - Boss chết: đầu lâu nổ `Boss/Death` (×10.5). Quái nhỏ chết: tia nổ `Enemy death` (×3.9).
 - **Đích (`Goal`) khoá tới khi boss bị hạ**: cờ mờ, chạm vào không thắng; boss chết thì cờ sáng lại và nảy lên. Tắt bằng ô *Need Boss Defeated* của Goal.
 - Số liệu (mốc máu, nhịp đòn, khoảng cách bom, độ dồn cột) là ô của `BossBrain`, nhóm *Phase*, *Nhịp đòn*, *Axit 1/2/3*.
-  BossBrain chỉ gắn lúc chơi; muốn chỉnh số trong editor thì kéo component BossBrain vào node `Boss` (đã có thì không gắn thêm).
+  BossBrain và BossArena nằm sẵn trên node `Boss` (bấm ⚙ một lần nếu chưa thấy): chỉnh số ngay trong Inspector rồi Ctrl+S.
 
 ## Điều khiển
 
@@ -353,17 +311,17 @@ Phím mặc định (đổi được trong menu **Esc → Cài đặt → Bàn p
 | Xuống khỏi bục một chiều: **bấm Xuống 2 lần nhanh** (ô *Down Tap Time* 0.3 giây) | S S | ↓ ↓ |
 | Nhảy (giữ lâu nhảy cao, nhả sớm nhảy thấp). Leo nhảy miễn phí | **K** | Num 0 |
 | Chém: bấm liên tục ra combo 5 nhát. Giữ đủ 0.8 giây rồi thả: **sóng kiếm** | J | Num 1 |
-| **Lướt né** (nút » trên điện thoại, ngay trên nút nhảy) | **Space** | **Shift phải** |
+| **Lướt né** (nút » trên điện thoại, ngay trên nút nhảy) | **Space** (kiểu Mũi tên: Shift phải) | Num 3 |
 | **Special** (đầy thanh nộ; kiểu Mũi tên: C) | **L** | Num 2 |
 
-**Game có 3 nút: Đánh (J), Nhảy (K) và Special (L)** (kiểu Mũi tên: X đánh, Z nhảy, C special); mọi đòn kết hợp đều từ Đánh / Nhảy với hướng.
-Không còn Angelo, nên Tương tác / Đổi mèo không gán phím. Máy nào đã lưu cài đặt mà chưa có phím Special thì tự gán L (hoặc C). Máy nào còn lưu bộ phím cũ (Space nhảy, K kỹ năng, L tương tác)
+**Game có 4 nút: Đánh (J), Nhảy (K), Lướt (Space) và Special (L)** (kiểu Mũi tên: X đánh, Z nhảy, Shift phải lướt, C special); mọi đòn kết hợp đều từ Đánh / Nhảy với hướng.
+Angelo đang tạm tắt, nên Đổi mèo không gán phím; phím Tương tác cũ giờ là phím Lướt. Máy nào đã lưu cài đặt mà chưa có phím Special thì tự gán L (hoặc C). Máy nào còn lưu bộ phím cũ (Space nhảy, K kỹ năng, L tương tác)
 thì tự đổi sang bộ mới khi mở game.
 | Menu tạm dừng | Esc | Esc |
 
 Cảm ứng: joystick trái/phải để chạy, đẩy lên để đi lên bục, kéo xuống để xuống bục (đế `MG_joystick_base` đứng yên, nút chân mèo
-`MG_joystick_knob` chạy theo ngón tay, xa nhất *Knob Travel* = 85; hai ảnh tách từ `MG_joystick`); nút J để chém (giữ để gồng sóng kiếm), nút SPACE để nhảy,
-nút ngôi sao (K) để dùng kỹ năng, nút bàn tay (L) để tương tác, nút hai mũi tên để đổi mèo. Trên máy tính bật **Touch On Desktop** (Canvas) để thấy nút, nút có ghi phím tương ứng **theo phím Người 1 đang cài** (đổi phím trong Cài đặt thì chữ trên nút đổi theo).
+`MG_joystick_knob` chạy theo ngón tay, xa nhất *Knob Travel* = 85; hai ảnh tách từ `MG_joystick`); nút đánh để chém (giữ để gồng sóng kiếm), nút nhảy,
+nút » ngay trên nút nhảy để lướt, nút ngôi sao để bật Special. Trên máy tính bật **Touch On Desktop** (Canvas) để thấy nút, nút có ghi phím tương ứng **theo phím Người 1 đang cài** (đổi phím trong Cài đặt thì chữ trên nút đổi theo).
 
 ## Menu (Esc hoặc nút bánh răng góc trên phải)
 
@@ -386,39 +344,30 @@ Rê chuột lên ô cũng chọn ô đó.
 **Chữ hai ngôn ngữ**: mọi chữ trong game nằm ở `ui/Lang.ts` (mỗi dòng có tiếng Việt và tiếng Anh). Đổi ngôn ngữ thì chữ đổi ngay.
 Menu và màn chọn vẽ tạm bằng code (`UiKit.ts`). Chữ có dấu tiếng Việt dùng font hệ thống vì font Super Bouncer thiếu nhiều chữ có dấu.
 
-**Hướng dẫn trong màn** (`TutorialHint.ts`): **đã bỏ khỏi màn chính** (nút ⚙ xoá các vùng này; giờ dạy chơi ở màn hướng dẫn riêng). Mô tả cũ để tham khảo:
-mỗi điểm hướng dẫn có **dấu ! vàng** nhấp nhô trên mặt đất. Mèo vào vùng thì bảng gợi ý bật ra
-**phía trên dấu !** và đứng yên (tên phím theo phím đang cài); làm được đòn nào thì dòng đó tích xanh. **Nút X** góc bảng để tắt, đi ra khỏi vùng
-thì tự tắt; quay lại thì hiện lại (bấm X thì phải ra khỏi vùng rồi vào lại). Làm đủ các đòn thì dấu ! mờ đi.
-Nút ⚙ Cập nhật tạo sẵn 3 vùng (chưa có vùng nào mới tạo): **Hint_CoBan** x=600 (chạy, nhảy, nhảy 2 lần), **Hint_Chem** x=3050 (chém, lướt bằng bấm đúp),
-**Hint_NangCao** x=4750 (sóng kiếm, quét chân, chém hất). Kéo node để dời, tích ô nhóm *Dạy đòn* để đổi đòn, Size / Offset là cỡ vùng.
-
 **Thanh nộ** (thanh xanh dưới hàng tim, tối đa 100): **bắt đầu màn rỗng, không tự hồi**; mỗi nhát chém / sóng kiếm / chém hất / quét chân **trúng địch +5**
 (~20 nhát là đầy; ô *Rage On Hit*). Đầy thì thanh **nhấp nháy vàng, phồng nhẹ** và kêu một tiếng: bấm **L** (mũi tên: C) bật special 8 giây (thanh vàng cam, tụt dần),
 lúc đang bật không nạp thêm. Mọi thứ khác (chạy, nhảy, lướt, combo, sóng kiếm, chiêu) đều **miễn phí**.
 
 ## Animation (ảnh nhiều khung)
 
-- **Hiệu ứng bật ra rồi tự biến mất** (khói, bụi, tia...): flip-book bằng code. Ví dụ khói chạy:
-  ảnh `assets/resources/art/fx/FX_dust_1.png`, `FX_dust_2.png`... (`DustPuff.ts`), đổi khung 20 lần/giây rồi tự xoá.
-  3 khung đầu là khói đang tung lên, các khung sau là khói tan.
-  Muốn đổi khói thì chép ảnh mới đè đúng tên; thêm hay bớt khung cũng được, code tự đếm theo số trong tên.
+- **Hiệu ứng bật ra rồi tự biến mất** (khói, bụi, tia...): flip-book bằng code (`DustPuff.ts`). Ảnh đánh số trong `assets/resources/art/fx`,
+  ví dụ `FX_run_1.png`, `FX_run_2.png`..., đổi khung 20 lần/giây rồi tự xoá.
+  Muốn đổi thì chép ảnh mới đè đúng tên; thêm hay bớt khung cũng được, code tự đếm theo số trong tên.
   Ảnh pixel art được giữ sắc nét khi phóng to (lọc NEAREST, không gộp atlas).
-- **Khói của mèo** (`RunDust.ts`, game tự gắn vào Leo và Angelo), bộ khói pixel *SmokeFX Lite*:
+- **Khói của mèo** (`RunDust.ts`, game tự gắn vào Leo), bộ khói pixel *SmokeFX Lite*:
   - chạy nhanh ít nhất 0.18 giây thì cứ 0.22 giây (ô **Run Interval**) tung một đám bụi nâu sau gót (`FX_run_`);
   - đang chạy mà thả phím hay quay đầu thì một đám bụi tròn ở mũi chân (`FX_skid_`);
   - nhảy lên từ mặt đất: vòng bụi nhỏ ở chỗ chân vừa rời đất (`FX_takeoff_`); bước hụt khỏi mép thì không có;
   - đáp đất thường (nhảy 1 lần, rơi thấp, đủ mạnh theo ô **Land Impact**): cũng vòng bụi nhỏ (`FX_takeoff_`);
   - đáp đất sau khi nhảy 2 lần, sau khi đập bụng, hoặc rơi từ cao 500 trở lên tính từ đỉnh cú nhảy (ô **Big Fall Height**): vòng bụi lớn (`FX_land_`);
   - Leo nhảy lần 2 trên không: vòng nổ trắng dưới chân (`FX_airjump_`).
-  Ô **Scale** (bụi chạy, bụi trượt; Leo 4.5, Angelo 70%) và **Jump Scale** (các vòng bụi; Leo 3.5, Angelo 70%).
-  Ảnh khói cũ `FX_dust_`, `FX_jump_` vẫn để trong thư mục nhưng không dùng nữa.
-- **File gốc bộ khói** nằm ở `art-nguon/SmokeFX` (ngoài `assets` để không vào bản build; file `.ase` mở bằng Aseprite).
+  Ô **Scale** (bụi chạy, bụi trượt; Leo 4.5) và **Jump Scale** (các vòng bụi; Leo 3.5).
+- **File gốc bộ khói** nằm ở `art-nguon/SmokeFX` (ngoài `assets` để không vào bản build; file nguồn không dùng tới nằm ở `art-nguon/khong-dung`).
   Mỗi file PNG ở đó là một dải nhiều ô. Muốn đổi dải nào dùng cho việc nào: sửa bảng `JOBS` trong `tools/cat_khoi.py`, chạy
   `python tools/cat_khoi.py` để đo thử, rồi `python tools/cat_khoi.py --ghi` để cắt ra `art/fx` (ghi đè ảnh cũ cùng tên).
 - **Vệt chém của Leo**: combo J và chém hất dùng bộ *Pixel Art Animations - Slashes* (128×128) trong `art/fx/Character/Normal Atk` (`Slash_color1` A/B, `Slash3_color1` kết liễu, `Slash2_color1` chém hất),
-  lúc special dùng bản màu đỏ trong `art/fx/Character/Special` (`…_color2`). Bộ cũ *SlashFX Combos* (`FX_cut1_`…`FX_finish_`, file gốc `art-nguon/SlashFX`)
-  chỉ còn dùng vệt `FX_cut3_` lúc phóng sóng kiếm; `FX_sweep_` quét chân;
+  lúc special dùng bản màu đỏ trong `art/fx/Character/Special` (`…_color2`). Bộ *SlashFX Combos* (file gốc `art-nguon/SlashFX`)
+  chỉ dùng vệt `FX_cut3_` lúc phóng sóng kiếm; `FX_sweep_` quét chân;
   Lướt: dáng cúi người (`PlayerVisual.setDash`) + bóng mờ nối đuôi + đường gió trắng vẽ bằng code + bụi `FX_run_` lúc đạp đi và lúc phanh.
   `FX_wave_` sóng kiếm (`SwordWave.ts`, phóng ra cách mèo 220, ngang ngực).
   `FX_charge_` gồng sóng kiếm ở giữa thân mèo, phóng to ×2.5 (`ChargeFx.ts`, cắt từ `art-nguon/ChargeFX`): giữ J quá 0.15 giây thì khung 1 → 4 lớn dần,
@@ -427,14 +376,11 @@ lúc đang bật không nạp thêm. Mọi thứ khác (chạy, nhảy, lướt,
 - **Ảnh để trong thư mục con của `art/fx`** (tên `frame0, frame1...`, đánh số từ 0): code gọi bằng tên thư mục, ví dụ `Boss/Axit 2/frame`.
   `Boss/Axit` (vũng axit nổ), `Boss/Axit 2` (bom đầu lâu), `Boss/Axit 3` (cột lửa xanh), `Boss/Dance` (nốt nhạc chuyển phase),
   `Boss/Death` (đầu lâu nổ khi boss chết), `Boss/Poison` (bọt độc quanh mèo), `Enemy death` (tia nổ khi quái nhỏ chết), `Hold` (giữ J).
-  `Boss/Gowth` để dành, chưa dùng (ảnh đang nhập dạng texture; khi dùng phải đổi Type sang sprite-frame).
   Vị trí, độ phóng to, lật ngang, vẽ sau lưng mèo của từng nhát: bảng `IMAGE_STYLES` trong `SlashFx.ts`
   (nhát 1 và 5 lật ngang; nhát 1, 3 và 5 vẽ sau mèo, trên node `SlashBack` nằm dưới hình mèo).
-  Ảnh vệt cam cũ `FX_slash_` và cơn lốc `FX_tornado_` vẫn để trong thư mục nhưng không dùng nữa.
-- **Hiệu ứng kỹ năng khác của Leo** (cắt từ tấm sprite sheet, mỗi ô 64×64): `FX_slash_` vệt chém cũ (nhát 1 và 3 lật dọc thành chém xuống,
-  nhát 3 to hơn; `SlashFx.ts`), `FX_hit_` / `FX_hitbig_` trúng đòn thường / nhát mạnh (`HitSpark.ts`),
+- **Hiệu ứng kỹ năng khác của Leo** (cắt từ tấm sprite sheet, mỗi ô 64×64): `FX_hit_` / `FX_hitbig_` trúng đòn thường / nhát mạnh (`HitSpark.ts`),
   `FX_ring_` vòng sóng + `FX_spike_` gai đất hai bên khi đập bụng (`LeoSkills.ts`), `FX_stun_` sao xoay trên đầu địch bị choáng (`EnemyPatrol.ts`),
-  `FX_tornado_` cơn lốc chém hất (cũ), `FX_swirl_` lá xoáy lúc gồng + `FX_burst_` vụ nổ + `FX_shock_` vòng sóng của Mèo Nổ (`LeoSkills.ts`).
+  `FX_swirl_` lá xoáy lúc gồng + `FX_burst_` vụ nổ + `FX_shock_` vòng sóng của Mèo Nổ (`LeoSkills.ts`).
   Số liệu hai đòn mới ở LeoSkills, nhóm *Chém hất* và *Mèo Nổ*.
   Thiếu ảnh bộ nào thì bộ đó tự quay về hình vẽ bằng code như cũ.
 - **Nhân vật**: PlayerVisual có ô *Run Frames* (nhiều khung chạy thì tự thành flip-book), *Jump Frame*, *Fall Frame*.
@@ -453,7 +399,7 @@ Mọi tiếng nằm trong `assets/resources/sounds`. Một phần là tiếng th
 | `ui_click` / `ui_back` | Bấm nút / quay lại, huỷ (mọi nút vẽ bằng `uiButton`, phím Esc trong bảng) |
 | `ui_deny` | Không được (chạm cờ đích khi boss còn sống, hỏi xoá ô lưu) |
 | `ui_delete` / `ui_saved` | Xoá ô lưu / đạt thành tích |
-| `ui_start` / `ui_drop` | Bấm nút START / (không dùng nữa: menu không rơi) |
+| `ui_start` | Bấm nút START |
 | `ui_zoom_in` / `ui_zoom_out` | Màn đen thu lại / nở ra |
 | `ui_page` / `ui_text` | Lật trang truyện / chữ thoại hiện dần |
 | `ui_door` | Ra cửa EXIT màn hướng dẫn |
@@ -472,66 +418,21 @@ Mọi tiếng nằm trong `assets/resources/sounds`. Một phần là tiếng th
 
 ## Cấu trúc code
 
-```
-assets/scripts/
-├─ core/
-│  ├─ Box.ts              hàm tính hộp va chạm và tiện ích toán
-│  ├─ Solid.ts            vật cản (nền, thùng, bàn...), bật oneWay để thành bục một chiều
-│  ├─ PlatformerBody.ts   thân vật lý: trọng lực, va chạm quét tách trục X/Y
-│  ├─ ColliderDebug.ts    vẽ khung va chạm
-│  ├─ Hittable.ts         danh sách thứ chém trúng được
-│  ├─ Sound.ts            phát tiếng hiệu ứng và nhạc nền (assets/resources/sounds)
-│  ├─ HitStop.ts          khựng hình ngắn khi chém trúng
-│  └─ Silhouette.ts       vật liệu tô một màu (chân mèo dấu lưu, địch loé trắng khi trúng đòn)
-├─ player/
-│  ├─ PlayerInput.ts      gom bàn phím và cảm ứng
-│  ├─ PlayerController.ts chạy, nhảy, combo chém 5 nhát, chém trên không, lướt né + dash jump, sóng kiếm (giữ J), bị đánh
-│  ├─ SwordWave.ts        sóng kiếm bay thẳng (giữ J rồi thả)
-│  ├─ PlayerVisual.ts     hoạt ảnh tween (nhún, nghiêng, bẹp khi đáp, dãn khi nhảy)
-│  ├─ SlashFx.ts          vệt chém lưỡi liềm vẽ bằng code
-│  └─ HitSpark.ts         tia lửa khi chém trúng
-├─ enemy/
-│  ├─ EnemyPatrol.ts      kẻ địch đi tuần, bị chém thì văng lùi, dùng cho cả boss (dáng ra đòn)
-│  ├─ BossBrain.ts        bộ não boss: phase, chọn đòn, 12 đòn
-│  ├─ BossArena.ts        khu boss: tường chặn vô hình, cảnh mở màn, hạ boss
-│  └─ BossHazard.ts       vật của đòn boss vẽ bằng code (sóng âm, gai, hàm răng, sấm, khối đá, chó con)
-├─ camera/
-│  ├─ CameraRig.ts        bám nhân vật (kiểu Hollow Knight: theo chiều dọc, lệch theo mặt, nhìn xuống mép vực), giới hạn mép màn, rung màn hình
-│  └─ ParallaxLayer.ts    lớp cảnh trôi theo hệ số
-├─ game/GameManager.ts    máu, hồi sinh, thắng/thua, chơi lại, cá bự, mua kỹ năng
-├─ game/Upgrades.ts       cây kỹ năng ở cửa hàng: giá, thứ tự, đã mua gì
-├─ ui/
-│  ├─ HeartsHUD.ts        trái tim (MG_heart, MG_heart_empty) và avatar (MG_avatar)
-│  ├─ GameFont.ts         font chung cho mọi chữ (assets/resources/fonts/SuperBouncer.ttf)
-│  ├─ CoinCounter.ts      bộ đếm cá vàng (MG_coin_backing; ô Text Offset X / Y canh chữ số vào giữa thanh nâu)
-│  ├─ BossHealthBar.ts    thanh máu boss (MG_boss_hpgauge, MG_boss_hp, MG_icon_boss)
-│  ├─ ShopPage.ts         bảng cửa hàng: số cá bự / cá vàng, cây kỹ năng, mua
-│  └─ TouchControls.ts    joystick (đế MG_joystick_base + nút MG_joystick_knob) + nút nhảy
-└─ level/
-   ├─ GroundBlock.ts      khối nền đá (ô đá xếp ngẫu nhiên, cắt viền chỗ giáp nhau + va chạm)
-   ├─ PlaceholderBox.ts   khối màu thay cho ảnh còn thiếu
-   ├─ SkyGradient.ts      nền trời chuyển màu
-   ├─ PlayerTrigger.ts    nền chung cho các vùng chạm bên dưới
-   ├─ HealPickup.ts       vật phẩm hồi máu
-   ├─ CoinPickup.ts       cá vàng để nhặt (MG_coin + đốm MG_coin_sparkle): nhấp nhô, nghiêng; bị ăn thì nổ biến mất
-   ├─ BigFishPickup.ts    cá bự (nguyên liệu mở kỹ năng), không hiện trên HUD
-   ├─ ShopNPC.ts          người bán hàng: đứng gần bấm Lên mở cửa hàng
-   ├─ Hazard.ts           vật gây sát thương
-   ├─ Checkpoint.ts       điểm hồi sinh
-   ├─ Goal.ts             đích
-   ├─ LightRays.ts        tia nắng xiên vẽ bằng code
-   ├─ SoftGlow.ts         quầng sáng mềm (sương sáng, hào quang cá)
-   ├─ CoinGlow.ts         hào quang bám theo cá vàng: MG_coin_glow_1/2 kiểu bokeh (quầng trôi, đốm sáng trôi lên)
-   ├─ DustMotes.ts        bụi sáng lấp lánh (đang tắt, trông như đom đóm)
-   ├─ DustDrift.ts        anim cho ảnh bụi BG_bui: trôi lững lờ, sáng mờ
-   └─ DemoLevelBuilder.ts dựng màn mẫu bằng code
-```
+`assets/scripts/` có 7 thư mục; mỗi file nhiều nhất một component, tên file trùng tên class:
+
+- `camera/`: `CameraRig` (bám nhân vật, kiểu Hollow Knight, giới hạn màn, rung màn hình), `ParallaxLayer` (lớp cảnh trôi theo hệ số).
+- `core/`: va chạm tự viết (`Box`, `Solid`, `PlatformerBody`, `ColliderDebug`), `Hittable` (thứ chém trúng được), `HitStop`, `TimeScale` (slow motion), `Sound`, `Settings` (cài đặt và phím), `Difficulty`, `Silhouette` (vật liệu tô một màu).
+- `enemy/`: `EnemyPatrol` (địch đi tuần, cũng là thân boss), `BossBrain` (phase, flow đòn), `BossArena` (khu boss, cảnh mở màn, hạ boss), vật của đòn boss (`BossHazard`, `AcidGlob`, `AcidHazard`, `AcidWarning`).
+- `game/`: `GameManager` (máu, hồi sinh, thắng / thua, cá bự, mua kỹ năng), `GameSession`, `SaveSlots`, `Upgrades` (cây kỹ năng), `Achievements`, `Records`.
+- `level/`: dựng và sửa màn (`DemoLevelBuilder`, `DemoLayout`, `DemoReference`); nền và cảnh (`GroundBlock`, `PlaceholderBox`, `SkyGradient`, `RiverFlow`, `PinToScreenTop`, `LeafCanopy`); ánh sáng (`LightRays`, `SoftGlow`, `CoinGlow`, `DustMotes`, `DustDrift`); vật phẩm và vùng chạm (`PlayerTrigger`, `CoinPickup`, `BigFishPickup`, `HealPickup`, `Hazard`, `Checkpoint`, `Goal`, `ShopNPC`); màn hướng dẫn (`TutorialRoom`, `TutorialSign`, `TutorialBlock`, `TutorialExit`, `TrainingDummy`).
+- `player/`: `PlayerInput`, `PlayerController` (chạy, nhảy, combo, lướt, sóng kiếm, thanh nộ), `LeoSkills` (qua giao diện `CatSkills`), `PlayerVisual`, `PoisonStatus`; hiệu ứng (`SlashFx`, `SwordWave`, `ChargeFx`, `HitSpark`, `DustPuff`, `RunDust`, `SkillFx`); phần Angelo đang tạm tắt (`AngeloSkills`, `FollowerAI`, `SoulWisp`, `YarnRope`).
+- `ui/`: HUD (`HeartsHUD`, `EnergyBar`, `CoinCounter`, `BossHealthBar`, `TouchControls`, `KeyCap`); mở game và menu chính (`BootScreen`, `LandingScreen`, `SaveSlotPage`, `DifficultyPage`, `CharacterSelect`, `StoryPages`, `DialogueBox`, `LoadingScreen`, `PatternBackdrop`, `IrisWipe`, `ScreenFade`, `Letterbox`, `LogoShine`, `MenuDust`); bảng trong game (`PauseMenu`, `ShopPage`, `GameOverScreen`, `ResultsScreen`, `AchievementsPage`, `AchievementToast`, `SaveIcon`, `PawIcon`); dùng chung (`UiKit`, `MenuNav`, `MenuStyle`, `GameFont`, `Lang`).
 
 ## Quy ước quan trọng
 
 - **Mỗi file script chỉ chứa một component** (`@ccclass` kế thừa Component). Đây là quy định của Cocos.
 
-- **Cấu trúc lớp** dưới Canvas: `BG` (0.12) → `MG` (0.5) → `Gameplay` (1) → `FR` (1.35) → `FR_Top` → `HUD`.
+- **Cấu trúc lớp** dưới Canvas (số trong ngoặc là hệ số trôi ngang): `Sky` → `BG` (0.3) → `Light_Far` (0) → `MG` (0.8) → `Filter` (0) → `River` (0.9) → `Light` (0.9) → `Gameplay` (1) → `FR` (1.35) → `FR_Top` (1.35) → `HUD`.
   `FR_Top` chứa đồ treo trên cao (băng rôn): Factor là (1.35, 0), tức trôi ngang nhưng đứng yên theo chiều dọc,
   để mép trên không bị hở khi camera lên xuống. Đồ nào cần dính mép trên màn hình thì đặt vào lớp này.
   Băng rôn, cờ trong lớp này có component **PinToScreenTop**: mép trên luôn sát mép khung hình, kéo ngang được còn độ cao do component giữ.
@@ -574,7 +475,7 @@ và game cũng không dùng nó để bám nhân vật. Hãy chỉnh component *
 
 | Thông số | Ý nghĩa |
 |---|---|
-| Zoom | lớn hơn 1 là gần hơn, nhỏ hơn 1 là thấy rộng hơn (HUD không bị phóng theo) |
+| Zoom | lớn hơn 1 là gần hơn, nhỏ hơn 1 là thấy rộng hơn (HUD không bị phóng theo). **Đang dùng 0.7** (khung hình ~2740 × 1540 đơn vị game, bước ⚙ 34), cả màn mở đầu, màn hướng dẫn và khu boss |
 | Offset | x dương: nhìn về phải nhiều hơn. y dương: nhìn cao hơn, mặt đất thấp xuống. **Offset Y = 33**: mép dưới khung hình khớp đúng mép dưới tile đất (nút 📐 đặt số này, `DEMO_CAMERA_OFFSET_Y` trong `DemoLayout.ts`) |
 | Look Ahead | nhìn trước theo hướng chạy |
 | Damping X / Y | độ bám (lớn thì bám sát, nhỏ thì trễ và mượt) |
@@ -608,16 +509,6 @@ Muốn kéo cả một lớp (`BG`, `MG`, `Gameplay`, `FR`...) lên xuống thì
 **HUD (avatar + trái tim) không đi theo camera.** HUD được neo vào góc trên trái bằng component **Widget**
 (Top, Left = 30; UITransform Anchor = (0, 1)). Muốn dời HUD thì chỉnh Top/Left của Widget, không chỉnh camera.
 
-## Làm màn thật trong editor
-
-Màn mẫu được dựng bằng code để thử nhanh. Khi làm màn thật:
-
-1. Tạo các node `BG`, `MG`, `Gameplay`, `FR` dưới Canvas, mỗi node gắn **ParallaxLayer** với hệ số như trên.
-2. Kéo ảnh vào lớp tương ứng. Đồ vật đứng lên được thì thêm **Solid** và bật `One Way` nếu muốn.
-3. Biến mỗi đồ vật thành **prefab** để tái sử dụng.
-4. Player gồm `PlatformerBody`, `PlayerController` và node con `Visual` (Sprite + `PlayerVisual`).
-5. Gắn **GameManager** và **CameraRig** lên Canvas, rồi kéo Player vào các ô tham chiếu.
-
 ## Đăng bản chơi thử lên itch.io (để dành, chưa làm)
 
 1. **Dọn scene:** Canvas → DemoLevelBuilder → bỏ tích **Debug Colliders**. Tắt node **`image 1465`** (ảnh demo tham khảo). Ctrl+S.
@@ -632,7 +523,4 @@ Không gửi zip để mở `index.html` trực tiếp từ ổ đĩa, vì game 
 
 ## Việc nên làm tiếp
 
-- Vẽ thêm 4–6 frame chạy, kéo vào `Run Frames` của PlayerVisual (flip-book tự chạy).
-- Vẽ hình trái tim cho HUD (`Heart Frame`, `Heart Empty Frame`).
-- Thêm âm thanh: nhảy, đáp, chém, chém trúng, nhặt đồ.
-- Thêm hành vi riêng cho boss (lao tới, nhảy).
+Xem [GHI-CHU-LAM-TIEP.md](GHI-CHU-LAM-TIEP.md): trạng thái hiện tại, việc còn lại và quy tắc khi sửa.

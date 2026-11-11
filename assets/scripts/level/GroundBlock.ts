@@ -1,8 +1,13 @@
 import { _decorator, CCObject, Color, Component, Graphics, Node, Rect, Size, Sprite, SpriteFrame, UITransform, Vec2 } from 'cc';
+import { EDITOR } from 'cc/env';
 import { Solid } from '../core/Solid';
 const { ccclass, property, executeInEditMode, requireComponent } = _decorator;
 
 const LIP = new Color(176, 168, 156, 255);
+/** Màu đất tối dưới đáy ô đá: lấy trung bình dải đá sát đáy các ảnh MG_tile (≈ 83, 77, 83) để nối liền với ảnh */
+const UNDER = new Color(83, 77, 83, 255);
+/** Phần đất tối chui lên sau đáy ảnh ô đá bao nhiêu (ảnh nằm trên che đi), để không hở khe */
+const UNDER_OVERLAP = 12;
 /** Ô đá do code dựng lại mỗi lần mở: không ghi vào scene, không hiện trong Hierarchy */
 const GENERATED = CCObject.Flags.DontSave | CCObject.Flags.HideInHierarchy;
 
@@ -127,6 +132,12 @@ export class GroundBlock extends Component {
     @property
     _bakeVersion = 0;
 
+    @property
+    _fillBelow = 0;
+
+    @property
+    _fillColor = new Color(UNDER.r, UNDER.g, UNDER.b, 255);
+
     @property({ tooltip: 'Xếp tay: code không tự xếp ô đá nữa, các ô là node con thật (Tile_...) để bạn tự kéo, đổi ảnh, xoá, Ctrl+D. Khung va chạm vẫn theo Width / Depth' })
     get manual() { return this._manual; }
     set manual(v: boolean) { this._manual = v; this.redraw(); }
@@ -182,6 +193,14 @@ export class GroundBlock extends Component {
     @property({ tooltip: 'Kéo dài phần đá tối ở đáy ô xuống thêm bao nhiêu (0 = không)' })
     get extend() { return this._extend; }
     set extend(v: number) { this._extend = Math.max(0, v); this.redraw(); }
+
+    @property({ group: 'Đất tối bên dưới', tooltip: 'Tô đất tối liền bên dưới đáy ảnh ô đá, sâu chừng này (0 = tắt). Hình tạm cho camera zoom nhỏ thấy được phần dưới mặt đất; có ảnh thân đất / cống thì đặt về 0' })
+    get fillBelow() { return this._fillBelow; }
+    set fillBelow(v: number) { this._fillBelow = Math.max(0, v); this.redraw(); }
+
+    @property({ group: 'Đất tối bên dưới', tooltip: 'Màu đất tối (mặc định lấy theo dải đá sát đáy ảnh ô đá)' })
+    get fillColor() { return this._fillColor; }
+    set fillColor(v: Color) { this._fillColor = v.clone(); this.redraw(); }
 
     @property({ tooltip: 'Đổi số này để xếp ngẫu nhiên kiểu khác (0 = theo node)' })
     get seed() { return this._seed; }
@@ -297,6 +316,7 @@ export class GroundBlock extends Component {
             g.rect(0, -40, w, 40 + this._sink);
             g.fill();
         }
+        this.drawFillBelow(g);
 
         // Chỉ giữ một Solid: nhân bản / Undo từng để lại nhiều cái chồng nhau (cái thừa giữ cỡ cũ, vẫn chặn mèo)
         const solids = this.getComponents(Solid);
@@ -304,6 +324,63 @@ export class GroundBlock extends Component {
         const solid = solids[0] ?? this.addComponent(Solid);
         solid.size = new Size(w, d);
         solid.offset = new Vec2(w / 2, -d / 2);
+    }
+
+    /**
+     * Đất tối bên dưới (Fill Below > 0): một khối màu nằm ngay dưới đáy ảnh ô đá, sau các ô (Graphics của chính node khối,
+     * vẽ trước node con). Đáy ảnh: xếp tay thì lấy ô Tile_ thấp nhất, tự xếp thì theo Sink, Tile Height, Extend.
+     * Bề ngang: cả khung va chạm (kể cả phần lấn hai bên) và mọi ô đá, lấy rộng nhất.
+     */
+    private drawFillBelow(g: Graphics) {
+        this.fillSig = this.tileSignature();
+        if (this._fillBelow <= 0) return;
+        let bottom = this._sink - this._tileHeight - this._extend;
+        let left = -this._bleedLeft, right = this._width + this._bleedRight;
+        if (this._manual) {
+            let found = false;
+            for (const t of this.node.children) {
+                if (!t.name.startsWith('Tile_') || !t.active) continue;
+                const ut = t.getComponent(UITransform);
+                if (!ut) continue;
+                const sx = Math.abs(t.scale.x), sy = Math.abs(t.scale.y);
+                // Ô bị lật (scale âm) thì điểm neo nằm ở phía bên kia
+                const ax = t.scale.x < 0 ? 1 - ut.anchorX : ut.anchorX;
+                const ay = t.scale.y < 0 ? 1 - ut.anchorY : ut.anchorY;
+                const b = t.position.y - ay * ut.height * sy;
+                const l = t.position.x - ax * ut.width * sx;
+                bottom = found ? Math.min(bottom, b) : b;
+                left = Math.min(left, l);
+                right = Math.max(right, l + ut.width * sx);
+                found = true;
+            }
+        }
+        g.fillColor = this._fillColor;
+        g.rect(left, bottom - this._fillBelow, right - left, this._fillBelow + UNDER_OVERLAP);
+        g.fill();
+    }
+
+    /** Dấu vị trí / cỡ các ô Tile_ (trong editor: kéo ô đá thì vẽ lại đất tối theo). */
+    private tileSignature(): string {
+        if (!this._manual || this._fillBelow <= 0) return '';
+        let s = '';
+        for (const t of this.node.children) {
+            if (!t.name.startsWith('Tile_')) continue;
+            const p = t.position, k = t.scale;
+            s += `${t.active ? 1 : 0}${Math.round(p.x)},${Math.round(p.y)},${k.x.toFixed(3)},${k.y.toFixed(3)};`;
+        }
+        return s;
+    }
+
+    private fillSig = '';
+    private fillCheck = 0;
+
+    update(dt: number) {
+        // Chỉ trong editor: bạn kéo / xoá / thêm ô đá thì vẽ lại phần đất tối cho khớp (kiểm tra 4 lần mỗi giây)
+        if (!EDITOR || this._fillBelow <= 0 || !this._manual) return;
+        this.fillCheck += dt;
+        if (this.fillCheck < 0.25) return;
+        this.fillCheck = 0;
+        if (this.tileSignature() !== this.fillSig) this.redraw();
     }
 
     /**

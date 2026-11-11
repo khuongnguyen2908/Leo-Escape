@@ -49,8 +49,6 @@ const COMBO: [number, number, number, number, number, number][] = [
     [1.2, 1, 1.1, 1, 75, 8],        // nhát 4: B (không còn chém xoay)
     [2, 1.3, 2.2, 2, 130, 18],      // nhát 5: kết liễu, vòng cung lớn (Slash3)
 ];
-/** Không còn nhát chém xoay (trúng cả sau lưng); để -1 */
-const SPIN_STEP = -1;
 /** Bụi nâu tung lúc đạp đi và lúc phanh khi lướt trên mặt đất */
 const DASH_DUST = 'FX_run_';
 const _self = new Rect();
@@ -60,11 +58,11 @@ const _other = new Rect();
 /**
  * Điều khiển một con mèo (Leo hoặc Angelo): chạy có tăng/giảm tốc, nhảy (coyote time, jump buffer, nhả sớm thì nhảy thấp),
  * đi lên bục một chiều ngay phía trên, xuống khỏi bục.
- * Đánh: bấm liên tục ra combo 5 nhát (nhát 4 chém xoay trúng cả sau lưng, nhát 5 kết liễu). Đang bay thì combo 3 nhát đầu.
- * Giữ nút đánh đủ Charge Time rồi thả: phóng sóng kiếm.
- * Lướt chém (kiểu Mega Man X): bấm đúp trái/phải (điện thoại: đẩy đúp joystick). Không còn phím Lướt riêng.
+ * Đánh: bấm liên tục ra combo 5 nhát (nhát 5 kết liễu). Đang bay thì combo 3 nhát đầu.
+ * Giữ nút đánh đủ Charge Time rồi thả: phóng sóng kiếm (phải mua ở cửa hàng trước, xem game/Upgrades.ts).
+ * Lướt né: phím Lướt riêng (hành động interact: Space / Shift phải / nút » trên điện thoại), LeoSkills gọi tryDash.
  * Đang lướt trên mặt đất mà bấm Nhảy: nhảy giữ đà lướt (bay nhanh hơn chạy) tới khi chạm đất.
- * Chạy, nhảy, chém thường miễn phí; chỉ kỹ năng (lướt, sóng kiếm, chém hất, quét chân, đập bụng, Mèo Nổ) tốn năng lượng.
+ * Mọi đòn đều miễn phí. Thanh energy là thanh nộ: đánh trúng thì đầy dần, đầy thì bật Special (trySpecial); Mèo Nổ cũng cần đầy thanh.
  * Phím nào điều khiển con mèo này do GameManager gán (controls), theo lựa chọn 1 người / 2 người.
  */
 @ccclass('PlayerController')
@@ -121,7 +119,7 @@ export class PlayerController extends Component {
     @property({ group: 'Tấn công', tooltip: 'Nghỉ thêm sau nhát cuối của combo (giây)' })
     finisherPause = 0.2;
 
-    @property({ group: 'Tấn công', tooltip: 'Combo dài mấy nhát (1–5). Nhát 4 chém xoay, nhát 5 kết liễu' })
+    @property({ group: 'Tấn công', tooltip: 'Combo dài mấy nhát (1–5). Nhát 5 kết liễu' })
     comboLength = 5;
 
     @property({ group: 'Tấn công', tooltip: 'Bấm tiếp trong khoảng này sau một nhát thì ra nhát kế của combo' })
@@ -132,9 +130,6 @@ export class PlayerController extends Component {
 
     @property({ group: 'Tấn công', tooltip: 'Chém trên mặt đất thì đứng yên chừng này giây mỗi nhát (giữ A/D cũng không đi). 0 = vừa chém vừa đi được' })
     slashStop = 0.12;
-
-    @property({ group: 'Lướt né', tooltip: 'Bấm đúp trái/phải trong khoảng này (giây) thì lướt. 0 = tắt bấm đúp' })
-    doubleTapTime = 0.25;
 
     @property({ group: 'Lướt né', tooltip: 'Nhảy khi đang lướt: bay ngang nhanh gấp bao nhiêu lần tốc độ chạy (tới khi chạm đất)' })
     dashJumpSpeed = 1.7;
@@ -239,9 +234,6 @@ export class PlayerController extends Component {
     private holdFx: DustPuff | null = null;
     private chargeFxTried = false;
     private charged = false;
-    private prevDir = 0;
-    private lastTapDir = 0;
-    private lastTapAge = 99;
     private dashFromGround = false;
     private dashJump = false;
     /** Còn > 0: đang bật special (giây còn lại) */
@@ -324,8 +316,7 @@ export class PlayerController extends Component {
         }
         if (dir !== 0) this.facing = dir;
 
-        // Lướt giờ có phím / nút riêng (phím Tương tác = Lướt, xem LeoSkills); không còn lướt bằng bấm đúp trái / phải
-        this.prevDir = dir;
+        // Lướt có phím / nút riêng (phím Tương tác = Lướt, xem LeoSkills); không còn lướt bằng bấm đúp trái / phải
 
         // Bấm Xuống 2 lần nhanh khi đang đứng trên bục một chiều (bàn, thùng, ghế...) thì rơi xuyên xuống
         // (giữ Xuống một lần là ngồi)
@@ -492,7 +483,7 @@ export class PlayerController extends Component {
     }
 
     /**
-     * Chém: ra nhát kế của combo (nhát 4 chém xoay trúng cả hai bên, nhát 5 kết liễu).
+     * Chém: ra nhát kế của combo (nhát 5 kết liễu).
      * Đang bay thì combo chỉ có 3 nhát đầu, mỗi nhát khựng lại một nhịp trên không.
      * Trúng kẻ địch nào trong tầm thì nó mất máu và bị đẩy lùi.
      */
@@ -522,28 +513,19 @@ export class PlayerController extends Component {
 
         const [rangeK, heightK, power, damage, stop, shake] = COMBO[step];
         const big = step >= 2;
-        const spin = step === SPIN_STEP;
         const r = this.body.getRect(_self);
         const cx = r.x + r.width / 2;
         const height = this.attackHeight * heightK;
         const y = r.y - (height - this.attackHeight) / 2;
-        if (spin) {
-            // Chém xoay: trúng cả trước mặt lẫn sau lưng
-            const range = this.attackRange * rangeK;
-            _hit.set(cx - range, y, range * 2, height);
-        } else {
-            const range = this.attackRange * rangeK;
-            const back = 30; // trúng cả thứ sát sau lưng một chút
-            _hit.set(this.facing > 0 ? cx - back : cx - range, y, range + back, height);
-        }
+        const range = this.attackRange * rangeK;
+        const back = 30; // trúng cả thứ sát sau lưng một chút
+        _hit.set(this.facing > 0 ? cx - back : cx - range, y, range + back, height);
 
         let hits = 0;
         for (const h of Hittables.slice()) {
             if (!h.canBeHit || !overlaps(_hit, h.getHitRect(_other))) continue;
             const ox = _other.x + _other.width / 2;
-            // Chém xoay: đẩy địch ra xa khỏi mèo (đứng phía nào văng phía đó)
-            const from = spin ? (ox >= cx ? cx - 1 : cx + 1) : this.node.position.x;
-            h.takeHit(from, power, damage * this.damageMult);
+            h.takeHit(this.node.position.x, power, damage * this.damageMult);
             hits++;
             // Tia lửa ở chỗ lưỡi chém chạm vào kẻ địch
             const sx = clamp(ox, _hit.x, _hit.x + _hit.width);
@@ -565,7 +547,7 @@ export class PlayerController extends Component {
         if (!parent) return;
         const p = this.node.position;
         this.visual?.playAttack();
-        this.fx().playLegacy(this.facing, 2);
+        this.fx().playLegacy(this.facing);
         Sound.play('slash3', 1);
         // Sóng phóng ra trước mặt (ảnh rộng ~300, mép sau vừa chạm thân mèo), ngang ngực
         SwordWave.fire(parent, p.x + this.facing * 220, p.y + 95, this.facing,

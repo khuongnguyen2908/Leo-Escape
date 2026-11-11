@@ -98,8 +98,6 @@ for i, f in enumerate([523, 659, 784, 1047]):
     o = int(SR * 0.06 * i)
     start[o:o + len(p)] += p
 save('ui_start', start, 0.7)
-# Dòng menu rơi xuống chạm chỗ: tiếng bụp mềm
-save('ui_drop', mix(tone([180, 90], 0.09, 'sine', curve=3), noise(0.05, 300, 2000, curve=4) * 0.25), 0.55)
 # Zoom vào màn đen: vút xuống
 save('ui_zoom_in', noise(0.6, 200, 6000, curve=1.2, attack=0.15, sweep=(3500, 400)), 0.55)
 # Zoom ra: vút lên

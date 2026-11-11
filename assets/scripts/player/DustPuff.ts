@@ -3,8 +3,6 @@ const { ccclass } = _decorator;
 
 const FOLDER = 'art/fx';
 const MAX_FRAMES = 30;
-/** Bao nhiêu khung đầu là khói đang tung lên (lặp khi giữ khói); các khung sau là khói tan. */
-const RISE_FRAMES = 3;
 
 /** Một bộ khung ảnh cùng tên đầu (FX_dust_1, FX_dust_2...). */
 interface FrameSet {
@@ -29,8 +27,6 @@ export interface FxOptions {
     fps?: number;
     /** true: neo ở giữa hình (nổ, vòng tròn); false: neo ở chân hình (bụi trên mặt đất). Mặc định false */
     center?: boolean;
-    /** Khói giữ: lặp khói đang tung cho tới khi release() */
-    hold?: boolean;
     /** > 0: lặp hết các khung trong chừng ấy giây rồi tự xoá (sao choáng...) */
     loopFor?: number;
     /** Chỉ chạy đoạn khung from → to (đếm từ 0, tính cả to). Mặc định cả bộ */
@@ -44,28 +40,22 @@ function getSet(prefix: string): FrameSet {
 
 /**
  * Hiệu ứng ảnh nhiều khung trong assets/resources/art/fx (flip-book), mỗi bộ một tên đầu:
- * FX_run_ / FX_skid_ / FX_takeoff_ / FX_land_ / FX_airjump_ (khói của mèo, RunDust; FX_dust_ / FX_jump_ là bộ cũ không dùng nữa), FX_hit_ / FX_hitbig_ (trúng đòn),
- * vệt chém FX_cut1_ / FX_cut2_ / FX_cut3_ / FX_spin_ / FX_finish_ (combo 5 nhát, SlashFx), FX_airspin_ (chém hất),
- * FX_sweep_ (quét chân), FX_wave_ (sóng kiếm, SwordWave); FX_slash_ / FX_tornado_ là bộ cũ không dùng nữa,
+ * FX_run_ / FX_skid_ / FX_takeoff_ / FX_land_ / FX_airjump_ (khói của mèo, RunDust), FX_hit_ / FX_hitbig_ (trúng đòn),
+ * FX_cut3_ (vệt quét lúc phóng sóng kiếm, SlashFx), FX_sweep_ (quét chân), FX_wave_ (sóng kiếm, SwordWave), FX_charge_ (gồng, ChargeFx),
  * FX_ring_ / FX_spike_ (đập bụng), FX_stun_ (sao choáng), FX_swirl_ / FX_burst_ / FX_shock_ (tuyệt chiêu).
  * Tên đầu có thể kèm thư mục con: 'Boss/Axit/frame' lấy frame0, frame1... trong art/fx/Boss/Axit (đòn của boss, độc, Hold, quái chết).
  * Thường: chạy một lượt hết các khung rồi tự xoá. loopFor: lặp trong chừng ấy giây rồi tự xoá.
- * Khói giữ (hold): lặp qua lại 3 khung đầu (khói đang tung) cho tới khi gọi release(), lúc đó chạy nốt các khung còn lại (khói tan) rồi tự xoá.
  * Ảnh pixel art được giữ sắc nét (lọc NEAREST, không gộp vào atlas động) khi phóng to.
  * Muốn đổi ảnh: chép ảnh mới đè lên đúng tên; thêm hay bớt khung cũng được, code tự đếm.
  * Gọi DustPuff.spawn(...) với node cha là lớp Gameplay, hoặc node mèo / kẻ địch để hiệu ứng đi theo.
  */
 @ccclass('DustPuff')
 export class DustPuff extends Component {
-    static readonly RUN = 'FX_dust_';
-    static readonly JUMP = 'FX_jump_';
-    static readonly SLASH = 'FX_slash_';
     static readonly HIT = 'FX_hit_';
     static readonly HIT_BIG = 'FX_hitbig_';
     static readonly RING = 'FX_ring_';
     static readonly SPIKE = 'FX_spike_';
     static readonly STUN = 'FX_stun_';
-    static readonly TORNADO = 'FX_tornado_';
     static readonly SWIRL = 'FX_swirl_';
     static readonly BURST = 'FX_burst_';
     static readonly SHOCK = 'FX_shock_';
@@ -74,10 +64,7 @@ export class DustPuff extends Component {
     private sprite: Sprite | null = null;
     private time = 0;
     private fps = 20;
-    private holding = false;
     private loopFor = 0;
-    /** Khung bắt đầu chạy một lượt (0, hoặc khung khói tan sau khi release). */
-    private startFrame = 0;
 
     /** Các khung của bộ ảnh (rỗng nếu chưa tải xong; gọi preload luôn). */
     static frames(prefix: string): SpriteFrame[] {
@@ -150,7 +137,6 @@ export class DustPuff extends Component {
         const puff = n.addComponent(DustPuff);
         puff.frames = frames;
         puff.fps = opt.fps ?? 20;
-        puff.holding = !!opt.hold;
         puff.loopFor = opt.loopFor ?? 0;
         const sp = n.addComponent(Sprite);
         sp.sizeMode = Sprite.SizeMode.RAW;
@@ -161,33 +147,19 @@ export class DustPuff extends Component {
         return puff;
     }
 
-    /** Thôi giữ: khói đứng yên tại chỗ, chạy nốt các khung khói tan rồi tự xoá. */
-    release() {
-        if (!this.holding) return;
-        this.holding = false;
-        this.startFrame = Math.min(RISE_FRAMES, this.frames.length);
-        this.time = 0;
-    }
-
     update(dt: number) {
         const frames = this.frames;
         this.time += dt;
         const step = Math.floor(this.time * this.fps);
         let i: number;
-        if (this.holding) {
-            // Lặp qua lại 1 → 2 → 3 → 2 → 1... để khói không bị giật khi quay về khung đầu
-            const n = Math.min(RISE_FRAMES, frames.length);
-            const cycle = Math.max(1, n * 2 - 2);
-            const k = step % cycle;
-            i = k < n ? k : cycle - k;
-        } else if (this.loopFor > 0) {
+        if (this.loopFor > 0) {
             if (this.time >= this.loopFor) {
                 this.node.destroy();
                 return;
             }
             i = step % frames.length;
         } else {
-            i = this.startFrame + step;
+            i = step;
             if (i >= frames.length) {
                 this.node.destroy();
                 return;

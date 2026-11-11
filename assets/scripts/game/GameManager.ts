@@ -29,6 +29,9 @@ import '../ui/AchievementToast';
 import { SaveIcon } from '../ui/SaveIcon';
 const { ccclass, property } = _decorator;
 
+/** Bất tử trong lúc bị khoá (cảnh diễn, hội thoại, cửa hàng): lớn hơn mọi thời gian chờ thật */
+const LOCK_INVINCIBLE = 1e9;
+
 const _player = new Rect();
 const _other = new Rect();
 const _pos = new Vec3();
@@ -54,10 +57,10 @@ export class GameManager extends Component {
     @property({ type: PlayerController, tooltip: 'Leo' })
     player: PlayerController | null = null;
 
-    @property({ type: PlayerController, tooltip: 'Angelo (nút ⚙ Cập nhật tự thêm)' })
+    @property({ type: PlayerController, tooltip: 'Angelo (đang tắt: nút ⚙ Cập nhật xoá node Angelo khỏi scene)' })
     partner: PlayerController | null = null;
 
-    @property({ displayName: 'Bật Angelo', tooltip: 'Tắt: khi chơi ẩn Angelo và tim của Angelo, chỉ chơi 1 người với Leo. Angelo vẫn nằm trong scene, tick lại là có lại' })
+    @property({ displayName: 'Bật Angelo', tooltip: 'Tắt: khi chơi ẩn Angelo và tim của Angelo, chỉ chơi 1 người với Leo. Hiện node Angelo đã bị nút ⚙ xoá khỏi scene nên tick lại cũng chưa có Angelo' })
     angeloEnabled = false;
 
     @property({ type: HeartsHUD, tooltip: 'Tim của Leo' })
@@ -104,7 +107,7 @@ export class GameManager extends Component {
     downs = 0;
     /** Tên màn để lưu kỷ lục. */
     levelId = 'chapter1-1';
-    /** Đang cảnh diễn (mèo bị khoá: hội thoại, mở màn boss): đồng hồ đứng, bảng hướng dẫn không hiện */
+    /** Đang cảnh diễn (mèo bị khoá: hội thoại, mở màn boss, đang mở cửa hàng): đồng hồ đứng, bong bóng cửa hàng không hiện */
     cutscene = false;
     /** Chỗ đứng đầu màn của Leo (sau màn hướng dẫn thì về đây) */
     readonly startPoint = new Vec3();
@@ -125,7 +128,7 @@ export class GameManager extends Component {
     private respawning = false;
     /** Đang hiện màn GAME OVER */
     private gameOver = false;
-    /** Gục hết thì chờ chừng này giây (hiện "Try again!") rồi hồi sinh ở checkpoint */
+    /** Gục hết thì chờ chừng này giây rồi hiện màn GAME OVER */
     private respawnDelay = 1.2;
     private playing = false;
     private active: PlayerController | null = null;
@@ -134,14 +137,23 @@ export class GameManager extends Component {
     private readonly teleporting = new Set<PlayerController>();
     private readonly lastX = new Map<PlayerController, number>();
 
-    /** Các con mèo đang có trong màn (Leo trước, Angelo sau). */
-    get cats(): PlayerController[] {
-        return [this.player, this.partner].filter((c): c is PlayerController => !!c && c.isValid);
-    }
+    /** Mảng dùng lại cho cats / catsOverlapping (gọi rất nhiều lần mỗi khung, không tạo mảng mới mỗi lần) */
+    private readonly catList: PlayerController[] = [];
+    private readonly overlapList: PlayerController[] = [];
 
-    /** Chơi 1 người: con đang điều khiển. Chơi 2 người: null. */
-    get activeCat(): PlayerController | null {
-        return this.active;
+    /**
+     * Các con mèo đang có trong màn (Leo trước, Angelo sau).
+     * Luôn trả về CÙNG một mảng, điền lại mỗi lần gọi: đọc / lặp ngay thì được, đừng giữ lại để dùng về sau và đừng sửa mảng
+     * (cần giữ thì .slice()).
+     */
+    get cats(): readonly PlayerController[] {
+        const list = this.catList;
+        let n = 0;
+        const leo = this.player, angelo = this.partner;
+        if (leo && leo.isValid) list[n++] = leo;
+        if (angelo && angelo.isValid) list[n++] = angelo;
+        list.length = n;
+        return list;
     }
 
     onLoad() {
@@ -189,6 +201,11 @@ export class GameManager extends Component {
             this.hudFor(c)?.setHp(c.hp, this.maxHp);
         }
         this.applyUnlocks();
+        // Bấm "Chơi lại" ở bảng kết quả (tải lại màn, bỏ qua màn mở đầu): ô lưu đã qua màn thì mang theo cá và kỹ năng
+        if (LandingScreen.passed && GameSession.slot >= 0) {
+            const kept = SaveSlots.get(GameSession.slot);
+            if (kept?.cleared) this.carryOver(kept);
+        }
         if (this.player) {
             this.respawnPoint.set(this.player.node.position);
             this.startPoint.set(this.player.node.position);
@@ -498,10 +515,13 @@ export class GameManager extends Component {
 
     /**
      * Vào chơi tiếp từ ô lưu: mèo đứng ở checkpoint đã lưu, khôi phục thời gian / cá / số lần gục, bỏ những con cá đã ăn.
-     * Ô đã qua màn thì chơi lại từ đầu màn (giữ dấu đã qua màn).
+     * Ô đã qua màn thì chơi lại từ đầu màn (giữ dấu đã qua màn) nhưng vẫn giữ cá vàng, cá bự và kỹ năng đã mua.
      */
     applySave(data: SlotData) {
-        if (data.cleared) return;
+        if (data.cleared) {
+            this.carryOver(data);
+            return;
+        }
         this.playTime = data.time;
         this.fish = data.fish;
         this.coins = data.coins;
@@ -538,6 +558,31 @@ export class GameManager extends Component {
         this.updateCamera();
     }
 
+    /**
+     * Chơi lại ô đã qua màn: bắt đầu từ đầu màn (thời gian, số lần gục, cá của lượt này về 0) nhưng mang theo
+     * cá vàng, cá bự và kỹ năng đã mua. Cá bự đã nhặt không hiện lại (khỏi nhặt vô hạn); cá vàng thì hiện lại.
+     */
+    private carryOver(data: SlotData) {
+        this.coins = data.coins;
+        this.coinCounter?.setValue(this.coins);
+        this.bigFish = data.bigFish ?? 0;
+        this.unlocks.length = 0;
+        this.unlocks.push(...(data.unlocks ?? []));
+        this.applyUnlocks();
+        for (const c of this.cats) {
+            c.hp = this.maxHp;
+            this.hudFor(c)?.setHp(c.hp, this.maxHp);
+        }
+        const parent = this.player?.node.parent;
+        if (!parent) return;
+        const gone = new Set(data.collected ?? []);
+        for (const f of parent.getComponentsInChildren('BigFishPickup')) {
+            if (!gone.has(f.node.uuid)) continue;
+            this.collected.push(f.node.uuid);
+            f.node.destroy();
+        }
+    }
+
     /** Cảnh mở màn boss: mèo đứng yên, không điều khiển được, không bị đánh. */
     lockCats(on: boolean) {
         if (this.finished) return;
@@ -546,8 +591,9 @@ export class GameManager extends Component {
             c.controlEnabled = !on && !c.downed;
             if (on) {
                 c.body.velocity.x = 0;
-                c.invincible = Math.max(c.invincible, 999);
-            } else if (c.invincible > 900) {
+                // Số rất lớn: cảnh diễn / cửa hàng mở bao lâu thì lúc đóng vẫn nhận ra đây là bất tử do khoá (không phải do trúng đòn)
+                c.invincible = LOCK_INVINCIBLE;
+            } else if (c.invincible > LOCK_INVINCIBLE / 2) {
                 c.invincible = 0.5;
             }
         }
@@ -624,11 +670,19 @@ export class GameManager extends Component {
         });
     }
 
-    /** Các con mèo (còn đứng) đang chạm hộp (size, offset) của node. Node phải nằm trong lớp Gameplay. */
-    catsOverlapping(node: Node, size: Size, offset: Vec2): PlayerController[] {
-        if (this.finished) return [];
+    /**
+     * Các con mèo (còn đứng) đang chạm hộp (size, offset) của node. Node phải nằm trong lớp Gameplay.
+     * Trả về một mảng dùng lại, chỉ đúng tới lần gọi kế tiếp: lặp ngay, đừng giữ lại.
+     */
+    catsOverlapping(node: Node, size: Size, offset: Vec2): readonly PlayerController[] {
+        const out = this.overlapList;
+        out.length = 0;
+        if (this.finished) return out;
         const box = computeBox(node, size, offset, _other);
-        return this.cats.filter((c) => !c.downed && overlaps(c.body.getRect(_player), box));
+        for (const c of this.cats) {
+            if (!c.downed && overlaps(c.body.getRect(_player), box)) out.push(c);
+        }
+        return out;
     }
 
     private hudFor(cat: PlayerController): HeartsHUD | null {
@@ -687,7 +741,7 @@ export class GameManager extends Component {
     }
 
     /**
-     * Gục hết: hiện "Thử lại nào!" một chút, màn tối lại rồi mọi con mèo đứng dậy ở checkpoint gần nhất (chưa chạm checkpoint nào thì đầu màn),
+     * Gục hết: chờ một chút rồi hiện màn GAME OVER; bấm Chơi lại thì màn tối lại rồi mọi con mèo đứng dậy ở checkpoint gần nhất (chưa chạm checkpoint nào thì đầu màn),
      * đủ tim, bất tử 1.5 giây. Boss đánh lại từ đầu (respawnListeners). Quái đã hạ, cá đã ăn giữ nguyên.
      */
     private respawnAtCheckpoint() {
@@ -727,7 +781,6 @@ export class GameManager extends Component {
     private respawnNow() {
         this.respawning = false;
         if (this.finished) return;
-        this.hud?.hideMessage();
         this.cats.forEach((c, i) => {
             this.revive.delete(c);
             _pos.set(this.respawnPoint.x - i * 120, this.respawnPoint.y + 20, 0);

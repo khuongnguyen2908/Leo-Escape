@@ -1,7 +1,6 @@
 import { _decorator, Color, Component, Label, Node, Sprite, SpriteFrame, UIOpacity } from 'cc';
 import { useGameFont } from './GameFont';
 import { EnemyPatrol } from '../enemy/EnemyPatrol';
-import { GameManager } from '../game/GameManager';
 const { ccclass, property } = _decorator;
 
 const TEXT = new Color(255, 240, 215, 255);
@@ -11,8 +10,8 @@ const TEXT_LINE_WIDTH = 3;
 
 /**
  * Thanh máu boss ở đáy màn hình: khung MG_boss_hpgauge, thanh đỏ MG_boss_hp co lại theo máu,
- * icon MG_icon_boss ở đầu trái. Có khu boss (BossArena) thì hiện theo cảnh mở màn: trượt lên từ đáy rồi đầy dần;
- * không có thì hiện khi mèo tới gần boss. Bị đánh thì thanh tụt từ từ. Ẩn dần khi boss bị hạ.
+ * icon MG_icon_boss ở đầu trái. Chỉ hiện khi khu boss (BossArena) gọi reveal() sau phần giới thiệu tên boss:
+ * trượt lên từ đáy rồi đầy dần. Bị đánh thì thanh tụt từ từ. Ẩn dần khi boss bị hạ.
  */
 @ccclass('BossHealthBar')
 export class BossHealthBar extends Component {
@@ -29,9 +28,6 @@ export class BossHealthBar extends Component {
 
     @property({ type: SpriteFrame })
     iconFrame: SpriteFrame | null = null;
-
-    @property({ tooltip: 'Mèo cách boss bao xa thì thanh máu hiện ra' })
-    showDistance = 1500;
 
     private fill: Sprite | null = null;
     private label: Label | null = null;
@@ -99,7 +95,6 @@ export class BossHealthBar extends Component {
 
     update(dt: number) {
         const boss = this.boss;
-        const cats = GameManager.instance?.cats ?? [];
         if (!this.opacity) return;
 
         const alive = !!boss && boss.isValid && !boss.defeated;

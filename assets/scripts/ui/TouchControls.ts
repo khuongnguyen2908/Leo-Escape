@@ -65,13 +65,13 @@ export class TouchControls extends Component {
     @property({ tooltip: 'Tâm nút đổi mèo cách mép phải và đáy màn hình (x, y)' })
     swapPos = new Vec2(300, 330);
 
-    @property({ type: SpriteFrame, tooltip: 'Không bắt buộc: ảnh nút kỹ năng (K)' })
+    @property({ type: SpriteFrame, tooltip: 'Không bắt buộc: ảnh nút Special (ngôi sao)' })
     skillFrame: SpriteFrame | null = null;
 
     @property({ tooltip: 'Tâm nút kỹ năng cách mép phải và đáy màn hình (x, y)' })
     skillPos = new Vec2(580, 130);
 
-    @property({ type: SpriteFrame, tooltip: 'Không bắt buộc: ảnh nút tương tác (L)' })
+    @property({ type: SpriteFrame, tooltip: 'Không bắt buộc: ảnh nút Lướt » (hành động Tương tác)' })
     interactFrame: SpriteFrame | null = null;
 
     @property({ tooltip: 'Tâm nút tương tác cách mép phải và đáy màn hình (x, y)' })
@@ -228,7 +228,10 @@ export class TouchControls extends Component {
             paint = (down) => this.paint(g, button, r, down);
         }
         paint(false);
-        if (button === 'skill') this.skillPaint = paint;
+        if (button === 'skill') {
+            this.skillPaint = paint;
+            this.skillBtn = n;
+        }
         if (this.hints) {
             this.keyHint(n, button, 0, -r * 0.82);
         }
@@ -248,6 +251,8 @@ export class TouchControls extends Component {
     private time = 0;
     private skillState: SkillState = 'off';
     private skillPaint: ((down: boolean) => void) | null = null;
+    /** Node nút special (Btn_skill), giữ lại để update khỏi tìm theo tên mỗi khung hình */
+    private skillBtn: Node | null = null;
     private skillR = 0;
     private fire: Graphics | null = null;
     private fireOpacity: UIOpacity | null = null;
@@ -288,9 +293,9 @@ export class TouchControls extends Component {
 
     update(dt: number) {
         this.time += dt;
-        const btn = this.node.getChildByName('Btn_skill');
+        const btn = this.skillBtn;
         const cat = GameManager.instance?.player;
-        if (!btn || !cat) return;
+        if (!btn || !btn.isValid || btn.parent !== this.node || !cat) return;
         const state: SkillState = cat.specialOn ? 'on' : cat.specialReady ? 'ready' : 'off';
         if (state !== this.skillState) {
             this.skillState = state;

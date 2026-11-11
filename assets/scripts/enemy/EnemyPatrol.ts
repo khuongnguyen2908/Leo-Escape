@@ -132,8 +132,6 @@ export class EnemyPatrol extends Component implements Hittable {
     readonly pose = { sx: 1, sy: 1, angle: 0, x: 0, y: 0 };
     /** Boss: đang paused mà khác null thì tự chạy ngang với vận tốc này (lao, nhảy đè) */
     drive: number | null = null;
-    /** Boss: còn > 0 thì nháy đỏ báo trước đòn */
-    private tellTime = 0;
 
     /** Bị hất tung rơi xuống đất thì choáng thêm chừng này giây. */
     private static readonly LAND_DAZE = 0.4;
@@ -173,11 +171,6 @@ export class EnemyPatrol extends Component implements Hittable {
         this.dir = x >= this.node.position.x ? 1 : -1;
     }
 
-    /** Boss: nháy đỏ báo trước đòn trong seconds giây. */
-    tell(seconds: number) {
-        this.tellTime = Math.max(this.tellTime, seconds);
-    }
-
     /** Boss: đặt máu tối đa (và máu hiện tại) — BossBrain gọi lúc đầu, trước khi áp độ khó. */
     setMaxHp(hp: number) {
         this.hp = Math.max(1, Math.round(hp));
@@ -207,7 +200,6 @@ export class EnemyPatrol extends Component implements Hittable {
         this.paused = false;
         this.invulnerable = false;
         this.drive = null;
-        this.tellTime = 0;
         Object.assign(this.pose, { sx: 1, sy: 1, angle: 0, x: 0, y: 0 });
         this.stun = 0;
         this.knockVel = 0;
@@ -525,9 +517,7 @@ export class EnemyPatrol extends Component implements Hittable {
         v.setPosition(jx + tx + pose.x * this.dir, hop * 6 + ty + pose.y, 0);
         v.angle = ang;
         if (this.sprite) {
-            if (this.tellTime > 0) this.tellTime -= dt;
-            const warn = (this.peck === 'windup' && Math.floor(this.peckTime * 14) % 2 === 0)
-                || (this.tellTime > 0 && Math.floor(this.tellTime * 14) % 2 === 0);
+            const warn = this.peck === 'windup' && Math.floor(this.peckTime * 14) % 2 === 0;
             if (this.flash > 0) this.flash -= dt;
             this.setFlash(this.flash > 0);
             this.sprite.color = this.flashOn ? Color.WHITE

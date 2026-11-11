@@ -65,8 +65,6 @@ interface Motion {
     tx: number;
     legs: number;
     hit: boolean;
-    /** Đoạn lao này đi xa tối đa bao nhiêu */
-    legMax: number;
 }
 
 /** Trạng thái một cây gai: rise = bay lên trên đầu boss, aim = lơ lửng ngắm, fly = bay thẳng, chase = đuổi chậm */
@@ -883,7 +881,7 @@ export class BossBrain extends Component {
 
     private startMotion(kind: Motion['kind'], tx = 0) {
         const e = this.boss!;
-        this.motion = { kind, t: 0, stage: 0, dir: e.facingDir, tx, legs: 0, hit: false, legMax: 0 };
+        this.motion = { kind, t: 0, stage: 0, dir: e.facingDir, tx, legs: 0, hit: false };
     }
 
     /** Cào vồ (đòn thường): chạy tới sát mèo, ngả người nháy đỏ rồi vồ tới cào một nhát trước mặt. */
