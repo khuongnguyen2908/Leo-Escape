@@ -85,6 +85,13 @@ Mẫu một bài (ghi vào đúng nhóm, mới nhất lên đầu nhóm; đã c�
 
 ## 2. Va chạm và hình
 
+### Hố chỉ có trong hình, mèo đi trên không
+- Ngày: 12/11/2026
+- Triệu chứng: khúc cột x 6690 → 8930 có 2 hố đặt nón, nhưng mèo đi ngang qua như có sàn vô hình; nón (Hazard) không bao giờ chạm tới.
+- Nguyên nhân: một khối nền đá `Ground` (Width 2240) phẳng ở 370, các cột chỉ là ảnh `Tile_` con xếp cách nhau. Khoảng giữa ảnh không làm khung va chạm hụt.
+- Cách sửa (MapThu): bước `pillarPits` của 🧱 đọc mép các ảnh `Tile_`, rút khối còn cột đầu, thêm Solid cho cột sau và đáy hố. Main chưa sửa.
+- Cách tránh lần sau: xếp ô đá có khe thì mỗi cột một khối nền (hay một Solid), không để một khối phủ cả khe; thử bằng cách thả mèo vào giữa khe.
+
 ### Khung va chạm không tự theo hình (đi xuyên thùng, hình lọt trong tường, chém hụt)
 - Ngày: trước 03/11, 04/11, 08/11/2026
 - Nguyên nhân: `Size` của Solid và PlatformerBody không đổi khi scale node hay đổi ảnh. Đồ dựng bằng `platform()` là bục một chiều (`oneWay`):

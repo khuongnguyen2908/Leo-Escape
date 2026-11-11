@@ -1,4 +1,4 @@
-import { Color, Node, Size, UITransform, Vec2 } from 'cc';
+import { Color, Node, Size, UITransform, Vec2, Vec3 } from 'cc';
 import { CameraZone } from '../camera/CameraZone';
 import { PlatformerBody } from '../core/PlatformerBody';
 import { Solid } from '../core/Solid';
@@ -16,7 +16,7 @@ import { MapBlock, MapBlockKind } from './MapBlock';
  * Dựng map thử Map 1 (nóc nhà, cống, hang, hầm, bờ sông, 2 chìa, cổng 2 ổ khoá) vào scene MapThu bằng khối màu vẽ code,
  * theo toạ độ của bản thử docs/camera-demo.html (đã chỉnh cho cỡ Leo: thân 150 × 135, nhảy cao ~300, nhảy 2 lần ~520).
  * Không phải component; DemoLevelBuilder gọi qua nút 🧱. Mọi thứ nằm dưới node `MapThu` trong Gameplay (xoá node đó là bỏ hết),
- * trừ: 2 khối nền đá được rút ngắn để khoét nắp cống, 2 khối va chạm thay phần bị rút, ô chìa trên HUD, Wall Jump của Leo, Kill Y.
+ * trừ: các khối nền đá được rút ngắn (2 nắp cống, khúc cột có hố), ô chìa trên HUD, Wall Jump của Leo, Kill Y.
  */
 
 const C = {
@@ -196,6 +196,61 @@ function stairsToLedge(play: Node, root: Node, leo: PlayerController | null, don
     done.push(`cầu thang ${steps} bậc từ phố x ${STREET_END} xuống ô đá ${tile.name} (mặt đứng y ${surface}, x ${Math.round(left)} → ${Math.round(right)}), chui dưới khối đá cao; Leo tự bước lên bậc thấp (Step Height 45)`);
 }
 
+/**
+ * Khúc cột (khối nền đá cao ở x 6690): khung va chạm của khối phẳng ở mặt cột, phủ luôn 2 hố có nón nên mèo đi trên không.
+ * Đọc mép các cột theo ảnh Tile_ con của khối, rút khối còn cột đầu, thêm khung va chạm cho các cột sau và cho đáy hố (ngang mặt phố, chân nón).
+ * Bấm 🧱 lại: Width đã rút thì không rút nữa, khung va chạm nằm trong node MapThu nên được dựng lại.
+ */
+function pillarPits(play: Node, root: Node, done: string[]) {
+    const FROM_X = 6690, OLD_WIDTH = 2239.6, FLOOR = 0, BOTTOM = -470;
+    const gb = play.getComponentsInChildren(GroundBlock).find((g) => Math.abs(g.node.position.x - FROM_X) < 2);
+    if (!gb) {
+        done.push(`KHÔNG thấy khối nền đá ở x ${FROM_X}: chưa làm hố giữa các cột`);
+        return;
+    }
+    const top = gb.node.position.y, end = FROM_X + OLD_WIDTH;
+    // Mép trái / phải của từng ảnh cột, đổi sang toạ độ Gameplay; ảnh chồng nhau thì gộp làm một cột
+    const pillars: [number, number][] = [];
+    const p = new Vec3();
+    for (const t of gb.node.children) {
+        const ut = t.getComponent(UITransform);
+        if (!t.name.startsWith('Tile_') || !ut || !t.active) continue;
+        const b = ut.getBoundingBoxToWorld();
+        play.inverseTransformPoint(p, new Vec3(b.x, b.y, 0));
+        const l = p.x;
+        play.inverseTransformPoint(p, new Vec3(b.x + b.width, b.y, 0));
+        pillars.push([Math.max(FROM_X, Math.round(l)), Math.min(end, Math.round(p.x))]);
+    }
+    pillars.sort((a, b) => a[0] - b[0]);
+    const merged: [number, number][] = [];
+    for (const c of pillars) {
+        const last = merged[merged.length - 1];
+        if (last && c[0] <= last[1] + 10) last[1] = Math.max(last[1], c[1]);
+        else merged.push([c[0], c[1]]);
+    }
+    if (merged.length < 2) {
+        done.push(`khối nền đá x ${FROM_X} chỉ có ${merged.length} cột (ảnh Tile_): không có hố, giữ nguyên`);
+        return;
+    }
+    merged[merged.length - 1][1] = end;
+    const solid = (name: string, x: number, y: number, w: number, h: number) => {
+        const n = mk(name, root);
+        n.setPosition(x, y, 0);
+        const s = n.addComponent(Solid);
+        s.size = new Size(w, h);
+        s.offset = new Vec2(w / 2, -h / 2);
+    };
+    if (Math.abs(gb.width - OLD_WIDTH) < 1) gb.width = merged[0][1] - FROM_X;
+    for (let i = 1; i < merged.length; i++) {
+        const [l, r] = merged[i];
+        solid(`VaCham_Cot${i + 1}`, l, top, r - l, top - BOTTOM);
+        const pl = merged[i - 1][1];
+        solid(`VaCham_DayHo${i}`, pl, FLOOR, l - pl, FLOOR - BOTTOM);
+    }
+    done.push(`hố giữa các cột: rút khối nền đá x ${FROM_X} còn cột đầu (→ ${merged[0][1]}), ${merged.length - 1} cột sau `
+        + merged.slice(1).map(([l, r]) => `${l} → ${r}`).join(', ') + `, đáy hố ở y ${FLOOR}`);
+}
+
 /** Dựng map thử vào Canvas (scene MapThu). Trả về danh sách việc đã làm để in ra Console. */
 export function buildMapThu(canvas: Node): string[] {
     const done: string[] = [];
@@ -218,6 +273,7 @@ export function buildMapThu(canvas: Node): string[] {
     cutHole(play, root, 998, 1852.5, 1380, done);
     cutHole(play, root, 4268, 2422.5, 5530, done);
     stairsToLedge(play, root, leo, done);
+    pillarPits(play, root, done);
 
     // ---------- Cống: ngay dưới phố, x 1000 → 6160, sàn -1150 ----------
     block(root, 'Cong_Nen', 1000, -470, 5160, 680, B, C.sewerBg, 'CỐNG');

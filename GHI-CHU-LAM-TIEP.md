@@ -82,6 +82,9 @@ Hai dòng "bước 1", "bước 2" ngay dưới là việc đã làm trước kh
   cổng 2 ổ khoá ở x 8850, 2 ô chìa trên HUD. Đã chơi thử trọn một vòng. Chưa có: boss phụ, lưu chìa vào ô lưu, hình thật.
   Component mới dùng được ở mọi scene: `MapBlock` (khối màu có va chạm), `Door`, `KeyPickup`, `LockedGate`, `CameraZone`, `ui/KeySlots`;
   `PlayerController.wallJump` và `PlatformerBody.stepHeight` (Main đang tắt). Bấm 🧱 lại thì dựng mới từ đầu (chỉnh tay trong node MapThu sẽ mất).
+  Nền MapThu (12/11): BG, MG, River, Light Factor Y 1, bám mặt phố theo chiều dọc (nhảy, lên mái thì nhà cây, sông tụt xuống cùng phố,
+  không hở chân); Main vẫn là BG Y 0 / MG Y 1 / River, Light 0.6. Khúc cột x 6690 → 8930 có hố thật (bước `pillarPits` của 🧱: đáy hố y 0,
+  dính nón mất máu, nhảy 2 lần để ra). **Main vẫn còn lỗi đó:** khung va chạm khúc cột phẳng ở 370, mèo đi trên không qua hố. Chưa vẽ: mây, chim cho trời trống khi lên mái, tổ chim (lớp đứng yên như `Light_Far`).
   Cầu thang bậc thấp từ phố (x 1980) xuống ô đá `Tile_6` người dùng đặt dưới khối đá cao cạnh checkpoint 1: chỗ cụt, chưa quyết đi tiếp đâu.
 
 Thiết kế (các khu, giá từng ô): `docs/thiet-ke-game.html` mục 10 và 11.
