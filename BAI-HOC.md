@@ -8,7 +8,7 @@ Quy trình làm việc và lúc nào cần ghi: `.claude/skills/quy-trinh-lam-vi
 
 1. **Scene là bản chính.** Không sửa `assets/scenes/Main.scene` trên đĩa khi Creator đang mở. Sửa hàng loạt thì thêm một bước vào nút ⚙ Cập nhật, không thêm nút mới.
 2. Trước khi nhờ người dùng bấm một nút trong editor: đọc hết mọi bước của nút đó và nói rõ nó sẽ đổi gì.
-3. Người dùng báo "đã lưu": xem giờ sửa của `Main.scene` (`ls -la --time-style=full-iso`) và tìm trong file một giá trị vừa đổi, trước khi thử hay so ảnh. Thay đổi do nút ⚙ làm không phải lúc nào cũng bật dấu `*`, nên Ctrl+S có thể không ghi gì (06/11 bị 2 lần liền): dặn thấy dấu `*` rồi mới Ctrl+S, chưa có thì kéo nhẹ một node.
+3. Người dùng báo "đã lưu": xem giờ sửa của `Main.scene` (`ls -la --time-style=full-iso`) và tìm trong file một giá trị vừa đổi, trước khi thử hay so ảnh. Thay đổi do nút ⚙ làm không phải lúc nào cũng bật dấu `*`, nên Ctrl+S có thể không ghi gì (06/11 bị 2 lần liền): dặn thấy dấu `*` rồi mới Ctrl+S, chưa có thì kéo nhẹ một node. Vừa thêm file `.ts` mới thì chờ Creator nạp xong (có file `.meta` đi kèm, thanh tiến trình chạy hết) rồi mới bấm nút: 12/11 bấm 🧱 lúc Creator đang nạp `FishPit.ts`, scene không đổi.
 4. Giá trị đã lưu trong scene thắng giá trị mặc định trong code. Muốn đổi node có sẵn: đặt tên property mới (như `artFacesRight`), thêm bước ⚙, hoặc nhờ chỉnh trong Inspector.
 5. Mỗi file `.ts` chỉ một `@ccclass`, tên file trùng tên class.
 6. Hình vẽ bằng `Graphics` không được lưu vào scene: vẽ lại trong `onLoad`, kèm `executeInEditMode`.
@@ -97,7 +97,7 @@ Mẫu một bài (ghi vào đúng nhóm, mới nhất lên đầu nhóm; đã c�
 - Triệu chứng: bục treo dây mà không thấy dây buộc vào đâu, bạt xanh trơ trọi; bảng "CÀ PHÊ" trên mái nhà; cột gỗ có chậu cây đứng một mình.
 - Nguyên nhân: tán cây, căn nhà (chỗ bám) nằm ở lớp sau mọi ảnh nên bị ảnh cây, bụi cây của người dùng che hết. Chọn đồ theo hình dạng, không hỏi "ngoài đời thứ này có ở chỗ này không".
 - Cách sửa (MapThu): đo thân cây trong ảnh của người dùng, gắn sàn nhà cây vào đúng thân, thanh chống vẽ TRƯỚC ảnh cây; mái nhà dùng bồn nước inox; giếng trời dùng ban công hai dãy nhà.
-- Cách tránh lần sau: trước khi đặt đồ trang trí, liệt kê MỌI ảnh của người dùng đè lên chỗ đó (vị trí, cỡ, thứ tự vẽ) và đo bằng Pillow, rồi chụp trong game mới chốt (lần đầu chỉ ghép ảnh cây, sót quán `mg_cafe` đứng trước che thân cây); phần làm chỗ bám phải nằm trước ảnh của người dùng. Mỗi món tự hỏi: ngoài phố Việt Nam nó có ở đúng chỗ này không. Tên khu trong tài liệu (như "giếng" = giếng trời, leo lên) thì giải thích khi đưa cho người dùng xem.
+- Cách tránh lần sau: trước khi đặt đồ trang trí, liệt kê MỌI ảnh của người dùng đè lên chỗ đó (vị trí, cỡ, thứ tự vẽ) và đo bằng Pillow, rồi chụp trong game mới chốt (lần đầu chỉ ghép ảnh cây, sót quán `mg_cafe` đứng trước che thân cây); phần làm chỗ bám phải nằm trước ảnh của người dùng. Khoét hố / hốc dưới mặt phố thì cũng liệt kê ảnh đứng TRÊN chỗ khoét (12/11: cầu thang cũ hụt từ x 1980 làm quán THẠCH TRÚC và thùng `mg_up` đứng trên hốc tối); chụp toàn cảnh khúc đó trước khi chốt. Mỗi món tự hỏi: ngoài phố Việt Nam nó có ở đúng chỗ này không. Tên khu trong tài liệu (như "giếng" = giếng trời, leo lên) thì giải thích khi đưa cho người dùng xem.
 
 ### Hố chỉ có trong hình, mèo đi trên không
 - Ngày: 12/11/2026
