@@ -1,5 +1,6 @@
-import { Color, Node, Size, UITransform, Vec2, Vec3 } from 'cc';
+import { Color, Node, Size, Sprite, SpriteFrame, UITransform, Vec2, Vec3, view } from 'cc';
 import { CameraZone } from '../camera/CameraZone';
+import { FadeBelow } from '../camera/FadeBelow';
 import { PlatformerBody } from '../core/PlatformerBody';
 import { Solid } from '../core/Solid';
 import { GameManager } from '../game/GameManager';
@@ -11,6 +12,7 @@ import { GroundBlock } from './GroundBlock';
 import { KeyPickup } from './KeyPickup';
 import { LockedGate } from './LockedGate';
 import { MapBlock, MapBlockKind } from './MapBlock';
+import { PropArt, PropKind } from './PropArt';
 
 /**
  * Dựng map thử Map 1 (nóc nhà, cống, hang, hầm, bờ sông, 2 chìa, cổng 2 ổ khoá) vào scene MapThu bằng khối màu vẽ code,
@@ -39,6 +41,41 @@ const C = {
     void: new Color(20, 16, 18, 255),
     note: new Color(240, 200, 120, 255),
 };
+
+/** Màu cho cảnh vẽ tạm (PropArt) */
+const P_C = {
+    wall: new Color(196, 170, 140, 255),
+    shopWall: new Color(232, 204, 150, 255),
+    window: new Color(250, 240, 222, 255),
+    awningRed: new Color(206, 84, 70, 255),
+    awningWhite: new Color(242, 246, 250, 255),
+    trunk: new Color(116, 84, 60, 255),
+    leaf: new Color(112, 162, 92, 255),
+    leafLight: new Color(166, 204, 122, 255),
+    rope: new Color(156, 116, 72, 255),
+    signRed: new Color(196, 62, 52, 255),
+    aircon: new Color(222, 226, 230, 255),
+    pot: new Color(190, 104, 72, 255),
+    beam: new Color(168, 116, 70, 255),
+    inox: new Color(206, 214, 222, 255),
+    inoxLight: new Color(242, 246, 250, 255),
+    inoxTop: new Color(150, 160, 170, 255),
+    rail: new Color(62, 92, 84, 255),
+    flower: new Color(232, 130, 160, 255),
+    culvertBg: new Color(52, 62, 66, 255),
+    concrete: new Color(128, 132, 128, 255),
+    stain: new Color(84, 96, 74, 255),
+    canalWater: new Color(70, 110, 96, 255),
+    flowWater: new Color(120, 176, 160, 255),
+    foam: new Color(240, 240, 232, 255),
+};
+
+function prop(parent: Node, name: string, kind: PropKind, x: number, y: number, w: number, h: number, color: Color, color2?: Color, text = '', h2 = 0): Node {
+    const n = mk(name, parent);
+    n.setPosition(x, y, 0);
+    n.addComponent(PropArt).setup(kind, w, h, color, color2, text, h2);
+    return n;
+}
 
 const W = MapBlockKind.Wall, P = MapBlockKind.Platform, B = MapBlockKind.Backdrop;
 
@@ -251,9 +288,41 @@ function pillarPits(play: Node, root: Node, done: string[]) {
         + merged.slice(1).map(([l, r]) => `${l} → ${r}`).join(', ') + `, đáy hố ở y ${FLOOR}`);
 }
 
+/**
+ * Ảnh trời (art/Bg_simple) thay dải màu trời: node con TroiAnh của node Sky, đứng yên theo màn hình như dải màu cũ.
+ * Phủ kín khung thiết kế (giữ tỉ lệ, dư 4% cho rung màn hình), bám mép trên để mây và cầu vồng luôn thấy.
+ * Dải màu (SkyGradient) vẫn còn bên dưới. Có ảnh to hơn thì kéo đè cùng tên là nét hơn, không cần bấm lại.
+ */
+function skyImage(canvas: Node, frame: SpriteFrame | null, done: string[]) {
+    const sky = canvas.getChildByName('Sky');
+    if (!sky) {
+        done.push('KHÔNG thấy node Sky: chưa gắn ảnh trời');
+        return;
+    }
+    if (!frame) {
+        done.push('KHÔNG thấy ảnh art/Bg_simple (phải nhập dạng sprite-frame): chưa gắn ảnh trời');
+        return;
+    }
+    sky.getChildByName('TroiAnh')?.destroy();
+    const n = mk('TroiAnh', sky);
+    const ut = n.addComponent(UITransform);
+    const sp = n.addComponent(Sprite);
+    sp.trim = true;
+    sp.sizeMode = Sprite.SizeMode.CUSTOM;
+    sp.spriteFrame = frame;
+    const d = view.getDesignResolutionSize();
+    const k = Math.max(d.width / frame.rect.width, d.height / frame.rect.height) * 1.04;
+    const w = frame.rect.width * k, h = frame.rect.height * k;
+    ut.setContentSize(w, h);
+    ut.setAnchorPoint(0.5, 1);
+    n.setPosition(0, d.height / 2 + d.height * 0.02, 0);
+    done.push(`ảnh trời Bg_simple (${frame.rect.width} × ${frame.rect.height}) phủ kín khung hình, node Sky/TroiAnh, phóng ${k.toFixed(1)} lần`);
+}
+
 /** Dựng map thử vào Canvas (scene MapThu). Trả về danh sách việc đã làm để in ra Console. */
-export function buildMapThu(canvas: Node): string[] {
+export function buildMapThu(canvas: Node, skyFrame: SpriteFrame | null = null): string[] {
     const done: string[] = [];
+    skyImage(canvas, skyFrame, done);
     const play = canvas.getChildByName('Gameplay');
     if (!play) return ['không thấy node Gameplay'];
     // Bấm lại: xoá node MapThu cũ rồi dựng mới (chỉnh tay bên trong MapThu sẽ mất)
@@ -288,39 +357,90 @@ export function buildMapThu(canvas: Node): string[] {
     block(root, 'Cong_Buc3', 4300, -820, 500, 30, P, C.wood);
     block(root, 'Cong_Ngach', 4900, -700, 380, 30, P, C.wood, 'NGÁCH');
     fish(root, 'CaBu_Cong', 5090, -640);
+    // Ống xuống từ 2 nắp cống dựng ở cutHole (phải trước stairsToLedge) nên nằm sau nền cống: đưa lên trên để nền không che
+    for (const n of root.children.filter((c) => /^(Ong|VachOngTrai|VachOngPhai|NapCong)_\d+$/.test(c.name))) n.setSiblingIndex(root.children.length - 1);
     // Đáy vùng thấp hơn sàn cống ~750 để camera giữ Leo gần giữa khung (cống chỉ cao 680, khung hình zoom 0.7 cao ~1540);
     // không chặn hai bên để Leo đứng sát vách cống vẫn ở gần giữa khung
     zone(root, 'VungCamera_Cong', 940, -1900, 5220, 1880, false, false);
     const congXuongHang = door(root, 'Cua_XuongHang', 3600, -1150, 'XUỐNG HANG');
 
-    // ---------- Bờ sông: dưới Nhà Leo, vào bằng ống cống ----------
-    block(root, 'Song_Nen', -300, -470, 1300, 830, B, C.riverBg, 'BỜ SÔNG');
+    // ---------- Kênh ngầm (trước gọi là Bờ sông): con kênh bị lấp dưới phố Nhà Leo, cống đổ ra đây qua ống bên trái cống ----------
+    // Tên node giữ chữ Song_ như cũ. Mặt nước y -1170 (thấp hơn 2 gờ bê tông), bè thùng xốp nổi trên nước.
+    block(root, 'Song_Nen', -300, -470, 1300, 830, B, P_C.culvertBg);
+    prop(root, 'Song_VomKenh', PropKind.Culvert, -300, -1300, 1300, 830, P_C.concrete, P_C.stain, 'KÊNH NGẦM', 160);
     block(root, 'Song_VachTrai', -420, -470, 120, 1100, W, C.earth);
-    block(root, 'Song_KeTrai', -300, -1050, 400, 700, W, C.stone, 'KÈ ĐÁ');
+    block(root, 'Song_KeTrai', -300, -1050, 400, 700, W, P_C.concrete);
     block(root, 'Song_LongSong', 100, -1250, 600, 300, W, C.earth);
-    block(root, 'Song_Nuoc', 100, -1110, 600, 140, B, C.water, 'NƯỚC');
-    block(root, 'Song_Thuyen', 330, -1130, 200, 30, P, C.wood, 'THUYỀN');
-    block(root, 'Song_KePhai', 700, -1150, 300, 600, W, C.stone);
+    block(root, 'Song_Nuoc', 100, -1170, 600, 80, B, P_C.canalWater);
+    prop(root, 'Song_BeThungXop', PropKind.FoamRaft, 330, -1205, 200, 55, P_C.foam, P_C.rope);
+    block(root, 'Song_Be', 330, -1150, 200, 18, P, P_C.foam);
+    block(root, 'Song_KePhai', 700, -1150, 300, 600, W, P_C.concrete);
+    // Nước từ ống cống chảy qua gờ phải rồi rớt xuống kênh
+    block(root, 'Song_NuocChay', 700, -1150, 300, 24, B, P_C.flowWater);
+    block(root, 'Song_ThacNho', 672, -1150, 34, 34, B, P_C.flowWater);
     block(root, 'Song_OngCong', 960, -990, 200, 160, B, C.pipe, 'ỐNG CỐNG');
     fish(root, 'CaBu_BoSong', -180, -1000);
     zone(root, 'VungCamera_BoSong', -420, -1900, 1420, 1880, false, false);
 
-    // ---------- Mái nhà: giếng 1 (x ~1900) lên mái y 1160 ----------
-    for (let i = 1; i <= 5; i++) block(root, `Gieng1_Buc${i}`, i % 2 ? 1880 : 2120, i * 210, 260, 30, P, C.wood);
+    // ---------- Cảnh vẽ tạm (nhà, bạt, cây, cột, bảng): node riêng đầu Gameplay, nằm SAU mọi hình của bạn ----------
+    // để bục không lơ lửng: mỗi bục bám vào một thứ (bạt che, cây, mái nhà, bảng quảng cáo, cột gỗ)
+    play.getChildByName('MapThu_Canh')?.destroy();
+    const canh = mk('MapThu_Canh', play);
+    canh.setSiblingIndex(0);
+
+    // ---------- Đầu phố lên mái: sàn nhà cây → giàn gỗ bên quán cà phê → mái quán → nóc tiệm SHOP → máy lạnh → mái ----------
+    // Đo từ ảnh của bạn: node mg_cay_2 (ảnh MG_cay_2) mép phải thân ~x 350; quán mg_cafe (ảnh MG_cafe) vách trái x 1420 (y 100..300),
+    // mái phẳng y ~533 từ x 1428 → 1860, máy lạnh trên mái x 1447 → 1579. Quán che thân cây mg_cay_4 nên bục giữa chống vào vách quán.
+    // Thanh chống nằm TRƯỚC ảnh của bạn (node riêng trong MapThu, trước các bục) để thấy rõ bục bám vào đâu.
+    const nhaCay = mk('NhaCay_ThanhChong', root);
+    prop(nhaCay, 'Bat_Chong', PropKind.Beam, 338, 225, 82, 78, P_C.beam);
+    block(root, 'Buc_Bat', 330, 330, 340, 24, P, C.wood);
+    prop(nhaCay, 'Treo1_Chong1', PropKind.Beam, 1430, 280, -185, 74, P_C.beam);
+    prop(nhaCay, 'Treo1_Chong2', PropKind.Beam, 1430, 170, -320, 184, P_C.beam);
+    block(root, 'Buc_Treo1', 950, 380, 300, 24, P, C.wood);
+    block(root, 'Buc_Treo2', 1590, 535, 270, 24, P, C.wood);
+    prop(canh, 'Tiem_Shop', PropKind.House, 2100, 0, 520, 690, P_C.shopWall, P_C.window);
+    prop(canh, 'Bang_Shop', PropKind.Sign, 2030, 250, 90, 400, P_C.signRed, P_C.window, 'SHOP');
+    block(root, 'Buc_NocTiem', 2100, 700, 520, 24, P, C.roofDark);
+    prop(canh, 'MayLanh', PropKind.AirCon, 2460, 830, 140, 100, P_C.aircon);
+    block(root, 'Buc_MayLanh', 2460, 930, 140, 24, P, P_C.aircon);
+
+    // ---------- Mái nhà y 1160 ----------
     block(root, 'Mai1_Ngoi', 1650, 1130, 2650, 140, B, C.roof, 'MÁI NHÀ', true);
     block(root, 'Mai1', 1650, 1160, 2650, 40, P, C.roofDark);
     block(root, 'Mai2_Ngoi', 4500, 1130, 2100, 140, B, C.roof, '', true);
     block(root, 'Mai2', 4500, 1160, 2100, 40, P, C.roofDark);
-    block(root, 'GacTrai', 1750, 1560, 800, 30, P, C.wood, 'GÁC TRÁI');
+    // Gác trái: bạt che dựng trên mái (kiểu bạt)
+    prop(canh, 'GacTrai_Bat', PropKind.Awning, 1750, 1160, 800, 400, P_C.awningRed, P_C.awningWhite);
+    block(root, 'GacTrai', 1750, 1560, 800, 30, P, P_C.awningRed, 'GÁC TRÁI');
     fish(root, 'CaBu_GacTrai', 2150, 1640);
-    block(root, 'Mai_Buc1', 3500, 1450, 300, 30, P, C.wood);
-    block(root, 'Mai_Buc2', 5100, 1440, 380, 30, P, C.wood);
+    // 2 bục trên mái: nắp bồn nước inox trên giàn sắt
+    prop(canh, 'BonNuoc1', PropKind.WaterTank, 3500, 1250, 300, 200, P_C.inox, P_C.inoxLight, '', 90);
+    block(root, 'Mai_Buc1', 3500, 1450, 300, 24, P, P_C.inoxTop);
+    prop(canh, 'BonNuoc2', PropKind.WaterTank, 5100, 1240, 380, 200, P_C.inox, P_C.inoxLight, '', 80);
+    block(root, 'Mai_Buc2', 5100, 1440, 380, 24, P, P_C.inoxTop);
 
-    // ---------- Giếng 2 (trên bậc cao x ~7150) lên tổ chim, chìa 1 ----------
-    for (let i = 1; i <= 5; i++) block(root, `Gieng2_Buc${i}`, i % 2 ? 7150 : 7400, 370 + i * 230, 260, 30, P, C.wood);
-    block(root, 'ToChim_1', 6800, 1660, 1900, 30, P, C.roofDark);
-    block(root, 'ToChim_2', 7300, 2100, 1000, 30, P, C.roofDark);
-    block(root, 'ToChim_3', 7800, 2530, 600, 30, P, C.wood, 'TỔ CHIM ĐẦU ĐÀN');
+    // ---------- Giếng 2 = giếng trời giữa 2 dãy nhà (trên bậc cao x ~7150), leo lên tổ chim ----------
+    // Tường trái tới x 7150, tường phải từ x 7660; bục lẻ là ban công nhà trái, bục chẵn là ban công nhà phải
+    prop(canh, 'Gieng2_NhaTrai', PropKind.House, 6880, 370, 270, 1260, P_C.wall, P_C.window);
+    prop(canh, 'Gieng2_NhaPhai', PropKind.House, 7660, 370, 180, 1260, P_C.shopWall, P_C.window);
+    for (let i = 1; i <= 5; i++) {
+        const left = i % 2 === 1, x = left ? 7150 : 7400, y = 370 + i * 230;
+        prop(canh, `Gieng2_BanCong${i}`, PropKind.Balcony, left ? 7150 : 7660, y, left ? 260 : -260, 70, P_C.rail);
+        prop(canh, `Gieng2_Chau${i}`, PropKind.Pot, left ? 7165 : 7585, y, 60, 90, P_C.pot, i % 2 ? P_C.leaf : P_C.flower);
+        block(root, `Gieng2_Buc${i}`, x, y, 260, 30, P, C.wood);
+    }
+    // ---------- Tổ chim: cây lớn, các bục là cành (kiểu tán cây) ----------
+    prop(canh, 'CayLon_Than', PropKind.Trunk, 7850, 370, 220, 2050, P_C.trunk);
+    prop(canh, 'CayLon_Tan', PropKind.Canopy, 6900, 1800, 2000, 1000, P_C.leaf, P_C.leafLight);
+    prop(canh, 'CayLon_Canh1', PropKind.Rope, 7900, 1400, -900, 260, P_C.trunk);
+    prop(canh, 'CayLon_Canh2', PropKind.Rope, 8020, 1450, 650, 210, P_C.trunk);
+    prop(canh, 'CayLon_Canh3', PropKind.Rope, 7900, 1950, -560, 150, P_C.trunk);
+    prop(canh, 'CayLon_Canh4', PropKind.Rope, 8020, 2000, 250, 100, P_C.trunk);
+    block(root, 'ToChim_1', 6800, 1660, 1900, 30, P, P_C.trunk);
+    block(root, 'ToChim_2', 7300, 2100, 1000, 30, P, P_C.trunk);
+    block(root, 'ToChim_3', 7800, 2530, 600, 30, P, P_C.trunk, 'TỔ CHIM ĐẦU ĐÀN');
+    prop(canh, 'ToChim', PropKind.Nest, 7930, 2530, 300, 110, P_C.rope, P_C.window);
     key(root, 'Chia1_ToChim', 8200, 2640);
 
     // ---------- Cổng 2 ổ khoá trước khu boss ----------
@@ -362,6 +482,14 @@ export function buildMapThu(canvas: Node): string[] {
     if (gm && gm.killY > -3000) {
         gm.killY = -3000;
         done.push('GameManager: Kill Y → -3000 (chui cống không bị tính là rơi vực)');
+    }
+    // Lớp tiền cảnh trên phố (tủ điện, cột đèn, lá cây) mờ dần khi camera xuống cống / kênh ngầm
+    for (const name of ['FR', 'FR_Top']) {
+        const layer = canvas.getChildByName(name);
+        if (layer && !layer.getComponent(FadeBelow)) {
+            layer.addComponent(FadeBelow);
+            done.push(`${name}: gắn FadeBelow (mờ dần khi camera xuống dưới phố)`);
+        }
     }
     return done;
 }

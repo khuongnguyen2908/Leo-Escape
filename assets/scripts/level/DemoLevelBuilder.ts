@@ -205,7 +205,13 @@ export class DemoLevelBuilder extends Component {
             console.warn(`[DemoLevelBuilder] 🧱 chỉ dùng trong scene MapThu (đang mở: ${sceneName || 'không rõ'}). Không làm gì.`);
             return;
         }
-        const done = buildMapThu(this.node);
+        void this.buildTestMapInEditor();
+    }
+
+    /** 🧱: nạp ảnh trong art (ảnh trời Bg_simple) rồi dựng map thử. */
+    private async buildTestMapInEditor() {
+        await this.loadArtInEditor();
+        const done = buildMapThu(this.node, this.art.get(normalizeName('Bg_simple')) ?? null);
         try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
         console.log(`[DemoLevelBuilder] 🧱 Map thử:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu.`);
     }

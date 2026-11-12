@@ -29,11 +29,11 @@ Quy trình làm việc và lúc nào cần ghi: `.claude/skills/quy-trinh-lam-vi
 | Nhóm | Đọc khi | Các bài |
 |---|---|---|
 | 1. Scene và nút ⚙ | sửa `Main.scene`, `DemoLevelBuilder.ts`, nhờ bấm nút trong editor | Quy tắc cho bước ⚙ · Component gắn lúc chạy · Component bị chồng (Ctrl+S không lưu: xem Luôn nhớ 3) |
-| 2. Va chạm và hình | đổi cỡ hình, thêm đồ đứng lên được, xếp ô đá | Khung va chạm không tự theo hình |
+| 2. Va chạm và hình | đổi cỡ hình, thêm đồ đứng lên được, xếp ô đá, vẽ đồ trang trí cho bục | Nền dựng sau che hình · Đồ trang trí vẫn lơ lửng · Hố chỉ có trong hình · Khung va chạm không tự theo hình |
 | 3. Ảnh, âm thanh, asset | thêm / đổi ảnh, tiếng; tự tạo ảnh; đổi tên, chuyển file | Ảnh nhập dạng texture · Đổi tên, chuyển file · Tâm lệch vì Trim · Ảnh ghép trái / phải · Tên có dấu |
 | 4. Bẫy engine | code vẽ Graphics, nhạc, hẹn giờ, lò xo, import, tải lại màn, tsc | Đổi dữ liệu cũ chạy lại mỗi lần · Số to làm dấu · Mỗi node một thứ vẽ · Nhuộm màu ảnh · Âm thanh · Slow motion · Lò xo theo dt · Import vòng · Tải lại màn · tsc |
 | 5. Menu và bảng | viết, sửa menu, bảng hỏi, chữ trên màn hình | Checklist bảng / menu · Font thiếu dấu |
-| 6. Đòn đánh, hiệu ứng, camera | thêm đòn boss, hiệu ứng bám nhân vật, biển / chữ trong màn, camera | Đòn boss phải né được · Đổi zoom lộ phần chưa có hình · Hiệu ứng gắn vật đang chuyển động · Camera sát giới hạn màn · Chụp thật trước khi chốt số |
+| 6. Đòn đánh, hiệu ứng, camera | thêm đòn boss, hiệu ứng bám nhân vật, biển / chữ trong màn, camera | Tiền cảnh đè khu dưới đất · Đòn boss phải né được · Đổi zoom lộ phần chưa có hình · Hiệu ứng gắn vật đang chuyển động · Camera sát giới hạn màn · Chụp thật trước khi chốt số |
 | 7. Build, git, máy | build, nén, phát hành, chạy script, làm tài liệu | Zip bản build · QUIT bản web · Python và Edge chạy ngầm · Tài liệu thiết kế |
 
 Mẹo thao tác (thử game trong trình duyệt của app, so lớp với ảnh demo, cắt sprite sheet, bẫy PowerShell / sed) nằm ở
@@ -84,6 +84,20 @@ Mẫu một bài (ghi vào đúng nhóm, mới nhất lên đầu nhóm; đã c�
   Thấy "Can't add component" thì mở scene đếm component của node đó.
 
 ## 2. Va chạm và hình
+
+### Hình dựng trước bị nền dựng sau che mất (ống xuống cống tàng hình)
+- Ngày: 12/11/2026
+- Triệu chứng: rơi qua nắp cống chỉ thấy một khoảng tím, không thấy lòng ống và hai vách ống; vách vẫn chặn mèo.
+- Nguyên nhân: trong cùng một node cha, con thêm sau vẽ đè con thêm trước. `cutHole` dựng ống trước, nền cống `Cong_Nen` dựng sau nên phủ lên ống.
+- Cách sửa (MapThu): sau khi dựng nền cống, đưa các node `Ong_`, `VachOng...`, `NapCong_` xuống cuối (`setSiblingIndex`).
+- Cách tránh lần sau: mỗi khi thêm một nền (Backdrop) rộng, hỏi "có gì dựng trước nó nằm trong vùng này không"; chụp thử ngay chỗ đó trong game.
+
+### Đồ trang trí cho bục mà vẫn thấy lơ lửng, hoặc vô lý
+- Ngày: 12/11/2026
+- Triệu chứng: bục treo dây mà không thấy dây buộc vào đâu, bạt xanh trơ trọi; bảng "CÀ PHÊ" trên mái nhà; cột gỗ có chậu cây đứng một mình.
+- Nguyên nhân: tán cây, căn nhà (chỗ bám) nằm ở lớp sau mọi ảnh nên bị ảnh cây, bụi cây của người dùng che hết. Chọn đồ theo hình dạng, không hỏi "ngoài đời thứ này có ở chỗ này không".
+- Cách sửa (MapThu): đo thân cây trong ảnh của người dùng, gắn sàn nhà cây vào đúng thân, thanh chống vẽ TRƯỚC ảnh cây; mái nhà dùng bồn nước inox; giếng trời dùng ban công hai dãy nhà.
+- Cách tránh lần sau: trước khi đặt đồ trang trí, liệt kê MỌI ảnh của người dùng đè lên chỗ đó (vị trí, cỡ, thứ tự vẽ) và đo bằng Pillow, rồi chụp trong game mới chốt (lần đầu chỉ ghép ảnh cây, sót quán `mg_cafe` đứng trước che thân cây); phần làm chỗ bám phải nằm trước ảnh của người dùng. Mỗi món tự hỏi: ngoài phố Việt Nam nó có ở đúng chỗ này không. Tên khu trong tài liệu (như "giếng" = giếng trời, leo lên) thì giải thích khi đưa cho người dùng xem.
 
 ### Hố chỉ có trong hình, mèo đi trên không
 - Ngày: 12/11/2026
@@ -238,6 +252,13 @@ Mẫu một bài (ghi vào đúng nhóm, mới nhất lên đầu nhóm; đã c�
   Muốn đồng bộ font thì tìm font có hỗ trợ tiếng Việt (ví dụ Baloo 2, Be Vietnam Pro).
 
 ## 6. Đòn đánh, hiệu ứng, camera
+
+### Lớp tiền cảnh trên phố hiện đè lên khu dưới đất
+- Ngày: 12/11/2026
+- Triệu chứng: xuống cống, kênh ngầm vẫn thấy tủ điện, cột đèn, lá cây (lớp `FR`, `FR_Top`) treo lơ lửng trước mặt.
+- Nguyên nhân: các lớp parallax vẽ theo camera ở mọi độ cao, không biết đâu là trên phố, đâu là dưới đất.
+- Cách sửa (MapThu): component `FadeBelow` trên FR / FR_Top, camera thấp hơn -250 thì mờ dần, dưới -650 thì ẩn.
+- Cách tránh lần sau: thêm khu mới ở độ cao khác (dưới đất, trên mái) thì chụp thử ở đó và xem từng lớp parallax có nên hiện không. Mỗi khu cũng tự hỏi "chỗ này ngoài đời có thật không" (sông có trần đá, thuyền trong hang kín là vô lý).
 
 ### Đòn boss mới viết ra mà không né được
 - Ngày: 08/11/2026

@@ -85,6 +85,11 @@ Hai dòng "bước 1", "bước 2" ngay dưới là việc đã làm trước kh
   Nền MapThu (12/11): BG, MG, River, Light Factor Y 1, bám mặt phố theo chiều dọc (nhảy, lên mái thì nhà cây, sông tụt xuống cùng phố,
   không hở chân); Main vẫn là BG Y 0 / MG Y 1 / River, Light 0.6. Khúc cột x 6690 → 8930 có hố thật (bước `pillarPits` của 🧱: đáy hố y 0,
   dính nón mất máu, nhảy 2 lần để ra). **Main vẫn còn lỗi đó:** khung va chạm khúc cột phẳng ở 370, mèo đi trên không qua hố. Chưa vẽ: mây, chim cho trời trống khi lên mái, tổ chim (lớp đứng yên như `Light_Far`).
+  Bục không lơ lửng (12/11): đầu phố = sàn nhà cây gắn vào thân `mg_cay_2` → bục giữa có giàn gỗ chống vào vách quán `mg_cafe` → bục trên mái quán (y 535),
+  thanh chống nằm TRƯỚC ảnh của bạn (node `MapThu/NhaCay_ThanhChong`) → nóc tiệm SHOP → máy lạnh → mái; gác trái = bạt đỏ, 2 bục trên mái = nắp bồn nước inox,
+  Giếng 2 (= giếng trời, leo LÊN) = khe giữa 2 dãy nhà, bục là ban công có chậu hoa; tổ chim = cây lớn có cành. Hình tạm `PropArt`, chờ art vẽ thật.
+  Kênh ngầm (12/11, thay cho Bờ sông dưới Nhà Leo): con kênh bị lấp dưới phố, cột và vòm bê tông, bè thùng xốp thay thuyền, nước từ ống cống
+  chảy xuống; node vẫn tên `Song_`. Lớp FR / FR_Top của MapThu có `FadeBelow`: camera xuống dưới phố thì tủ điện, cột đèn, lá cây mờ dần.
   Cầu thang bậc thấp từ phố (x 1980) xuống ô đá `Tile_6` người dùng đặt dưới khối đá cao cạnh checkpoint 1: chỗ cụt, chưa quyết đi tiếp đâu.
 
 Thiết kế (các khu, giá từng ô): `docs/thiet-ke-game.html` mục 10 và 11.

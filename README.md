@@ -205,9 +205,12 @@ Nút chỉ chạy ở scene tên MapThu; mọi khối nằm dưới node `MapThu
 | **MapBlock** | Khối màu vẽ bằng code, gốc ở góc trên trái. *Kind*: Wall (tường / nền), Platform (bục một chiều, S S để rơi), Backdrop (chỉ là nền) |
 | **Door** | Cửa: đứng trước cửa bấm Lên → màn tối, sang chỗ node *Target* |
 | **CameraZone** | Khung giới hạn camera khi Leo đứng trong vùng (viền cam trong editor). Clamp Sides / Bottom / Top: chặn mép nào |
+| **FadeBelow** | Gắn vào một lớp (FR, FR_Top): camera xuống thấp hơn Full Y thì lớp mờ dần, thấp hơn Gone Y thì ẩn hẳn. Nút 🧱 gắn cho MapThu để tủ điện, cột đèn, lá cây không đè lên cống và kênh ngầm |
 | **KeyPickup**, **LockedGate**, **KeySlots** | Chìa để nhặt, cổng mở khi đủ *Keys Needed* chìa, 2 ô chìa trên HUD |
 | Wall Jump (PlayerController) | Đang rơi mà đẩy vào tường thì trượt chậm, bấm Nhảy bật ra. MapThu bật, Main tắt |
 | Step Height (PlatformerBody) | Tự bước lên bậc thấp hơn số này khi đang đi trên đất (cầu thang đi bộ được). MapThu đặt 45 cho Leo, Main 0 (tắt) |
+| **PropArt** | Hình vẽ tạm bằng code cho map thử (nhà, bạt sọc, tán cây, thân cây, dây treo, cột gỗ, chậu cây, bảng quảng cáo, bảng hiệu dọc, máy lạnh, tổ chim, thanh chống gỗ, bồn nước inox, ban công). Chỉ là hình, không va chạm. Nút 🧱 đặt chúng trong node `MapThu_Canh` ở đầu Gameplay (nằm sau mọi ảnh của bạn) để các bục không lơ lửng; riêng thanh chống nhà cây nằm trong `MapThu` (trước ảnh cây) |
+| Ảnh trời (MapThu) | Nút 🧱 gắn ảnh `art/Bg_simple` vào node con `Sky/TroiAnh`: phủ kín khung hình, đứng yên, bám mép trên; dải màu trời cũ vẫn ở dưới. Kéo ảnh to hơn đè cùng tên là nét hơn |
 | Cầu thang xuống ô đá thấp | Nút 🧱 tìm ô đá `Tile_...` bạn đặt thẳng trong Gameplay dưới mặt phố (x 2600 → 4000), làm 6 bậc từ phố x 1980 xuống mặt ô đá. Kéo ô đá chỗ khác rồi bấm 🧱 lại là cầu thang chạy theo |
 
 ## Cửa hàng và cá bự
