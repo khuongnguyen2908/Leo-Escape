@@ -223,13 +223,13 @@ export class AngeloSkills extends Component implements CatSkills, Carryable {
         const c = this.cat, b = c.body, ctl = c.controls;
         const pressingIn = (b.hitLeft && ctl.left) || (b.hitRight && ctl.right);
         if (!b.grounded && pressingIn && b.velocity.y < 0) {
-            // Bám tường: trượt chậm xuống, được nhảy lại
+            // Bám tường: trượt chậm xuống, được bật tường. Không hồi nhảy 2 lần (chỉ chạm đất mới hồi), giống Leo:
+            // hồi thì một bức tường đơn leo mãi được (14/11)
             this.wallSide = b.hitLeft ? -1 : 1;
             this.wallTimer = 0.15;
             // Tắt trọng lực khi đang bám, nếu không thì sau khi giới hạn vẫn bị trọng lực kéo nhanh thêm
             b.velocity.y = Math.max(b.velocity.y - 600 * dt, -this.wallSlideSpeed);
             b.gravityScale = 0;
-            this.airLeft = this.airJumps;
         } else {
             this.wallTimer -= dt;
         }

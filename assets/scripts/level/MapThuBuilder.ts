@@ -1,4 +1,4 @@
-import { Color, Node, Size, Sprite, SpriteFrame, UITransform, Vec2, Vec3, view } from 'cc';
+import { Color, instantiate, Node, Size, Sprite, SpriteFrame, UITransform, Vec2, Vec3, view } from 'cc';
 import { CameraZone } from '../camera/CameraZone';
 import { FadeBelow } from '../camera/FadeBelow';
 import { PlatformerBody } from '../core/PlatformerBody';
@@ -12,13 +12,14 @@ import { FishPit } from './FishPit';
 import { GroundBlock } from './GroundBlock';
 import { Hazard } from './Hazard';
 import { KeyPickup } from './KeyPickup';
+import { LilyPad } from './LilyPad';
 import { LockedGate } from './LockedGate';
 import { MapBlock, MapBlockKind } from './MapBlock';
 import { PropArt, PropKind } from './PropArt';
 import { SongSat } from './SongSat';
 
 /**
- * Dựng map thử Map 1 (nóc nhà, cống, hang, hầm, bờ sông, 2 chìa, cổng 2 ổ khoá) vào scene MapThu bằng khối màu vẽ code,
+ * Dựng map thử Map 1 (cột điện + dây + sân thượng, cống, hang, hầm, kênh ngầm, 2 chìa, cổng 2 ổ khoá) vào scene MapThu bằng khối màu vẽ code,
  * theo toạ độ của bản thử docs/camera-demo.html (đã chỉnh cho cỡ Leo: thân 150 × 135, nhảy cao ~300, nhảy 2 lần ~520).
  * Không phải component; DemoLevelBuilder gọi qua nút 🧱. Mọi thứ nằm dưới node `MapThu` trong Gameplay (xoá node đó là bỏ hết),
  * trừ: các khối nền đá được rút ngắn (2 nắp cống, khúc cột có hố), nón giao thông dời lên mép hố, ô chìa trên HUD, Wall Jump của Leo, Kill Y.
@@ -318,23 +319,69 @@ function pillarPits(play: Node, root: Node, done: string[]): { pits: [number, nu
  * Nón giao thông của người dùng (mg_cone... nằm trong hố) dời lên mép hố làm biển báo, tắt sát thương (Hazard).
  */
 function fishPits(play: Node, root: Node, pits: [number, number][], top: number, done: string[]) {
-    // Mặt nước thấp hơn mặt cột 220; cá nhảy tới y 500 (dưới ban công thấp nhất của Giếng 2, đáy 570, nằm trên hố đầu)
-    const WATER = 150, BOTTOM = -470, PEAK = 500;
+    // Mặt nước thấp hơn mặt cột 220; cá nhảy tới y 500
+    const BOTTOM = -470, PEAK = 500;
     pits.forEach(([l, r], i) => {
         const n = mk(`HoCa_${i + 1}`, root);
-        n.addComponent(FishPit).setup(l, r, top, WATER, BOTTOM, PEAK);
+        n.addComponent(FishPit).setup(l, r, top, POND_WATER, BOTTOM, PEAK);
     });
-    if (pits.length) done.push(`${pits.length} hố nước có cá lóc (HoCa_1..${pits.length}): mặt nước y ${WATER}, cá nhảy tới y ${PEAK}`);
-    const cones = play.children.filter((c) => c.name.startsWith('mg_cone')).sort((a, b) => a.position.x - b.position.x);
+    if (pits.length) done.push(`${pits.length} hố nước có cá lóc (HoCa_1..${pits.length}): mặt nước y ${POND_WATER}, cá nhảy tới y ${PEAK}`);
+    if (!pits.length) return;
+    // 4 nón: nửa đầu đứng ở mép trái hồ, nửa sau ở mép phải, cách nhau 120 (đặt lại từ đầu mỗi lần bấm, chân nón lún 11 như ảnh gốc)
+    const l0 = pits[0][0], r1 = pits[pits.length - 1][1];
+    const cones = play.children.filter((c) => c.name.startsWith('mg_cone') && c.position.x > l0 - 500 && c.position.x < r1 + 500)
+        .sort((a, b) => a.position.x - b.position.x);
+    const half = Math.ceil(cones.length / 2);
+    cones.forEach((c, k) => {
+        const x = k < half ? l0 - 60 - (half - 1 - k) * 120 : r1 + 60 + (k - half) * 120;
+        c.setPosition(x, top - 11, 0);
+        const hz = c.getComponent(Hazard);
+        if (hz) hz.enabled = false;
+    });
+    if (cones.length) done.push(`${cones.length} nón dời lên 2 mép hồ (x ${cones.map((c) => Math.round(c.position.x)).join(', ')}), tắt sát thương`);
+}
+
+/** Mặt nước hồ / hố cá (y) */
+const POND_WATER = 150;
+
+/**
+ * Khúc 7 theo bản vẽ của bạn: hồ lá sen thay cột đá giữa. Ẩn (không xoá) các ảnh Tile_ nằm giữa của khối nền đá x 6690,
+ * chỉ giữ cột đầu và cột cuối; pillarPits đọc lại thì còn một hố rộng = hồ. Gọi trước pillarPits.
+ */
+function hideMiddlePillars(play: Node, done: string[]) {
+    const gb = play.getComponentsInChildren(GroundBlock).find((g) => Math.abs(g.node.position.x - 6690) < 2);
+    if (!gb) return;
+    const tiles = gb.node.children.filter((t) => t.name.startsWith('Tile_') && t.getComponent(UITransform))
+        .sort((a, b) => a.worldPosition.x - b.worldPosition.x);
+    const middle = tiles.slice(1, -1);
+    for (const t of middle) t.active = false;
+    if (middle.length) done.push(`hồ lá sen: ẩn cột giữa (${middle.map((t) => t.name).join(', ')}), không xoá`);
+}
+
+/**
+ * Lá sen trên hồ: rải đều trên mỗi hố, rộng 260 (hồ 1276 → 3 lá), mặt lá cao hơn mặt nước 15; từ lá thứ 2 trở đi có bông lục bình tím (như đốm tím trong bản vẽ).
+ * Điểm lưu nằm trên hồ (cột giữa đã ẩn) thì dời sang cột trái, ngay trước hồ.
+ */
+function lilyPond(play: Node, root: Node, pits: [number, number][], done: string[]) {
+    // Lá to, thưa như bản vẽ: hồ 1276 → 3 lá rộng 260, khe ~124
+    const W = 260, GAP_TARGET = 420;
+    let count = 0;
     for (const [l, r] of pits) {
-        const inPit = cones.filter((c) => c.position.x > l && c.position.x < r);
-        inPit.forEach((c, k) => {
-            const x = k % 2 === 0 ? l - 60 : r + 60;
-            c.setPosition(x, top + c.position.y, 0);
-            const hz = c.getComponent(Hazard);
-            if (hz) hz.enabled = false;
-            done.push(`${c.name}: dời lên mép hố (x ${x}), tắt sát thương`);
-        });
+        const n = Math.max(1, Math.round((r - l) / GAP_TARGET));
+        const gap = (r - l - n * W) / (n + 1);
+        for (let i = 0; i < n; i++) {
+            const x = Math.round(l + gap + i * (W + gap));
+            const pad = mk(`LaSen_${++count}`, root);
+            pad.setPosition(x, POND_WATER + 15, 0);
+            pad.addComponent(LilyPad).setup(W, i > 0);
+        }
+    }
+    if (count) done.push(`${count} lá sen (LaSen_1..${count}) trên mặt nước y ${POND_WATER + 15}: đứng 1 giây thì rung, chìm 2,5 giây rồi nổi lại`);
+    for (const cp of play.children.filter((c) => c.name.startsWith('Checkpoint'))) {
+        const pit = pits.find(([l, r]) => cp.position.x > l && cp.position.x < r);
+        if (!pit) continue;
+        cp.setPosition(pit[0] - 230, cp.position.y, 0);
+        done.push(`${cp.name} dời từ trên hồ sang cột trái (x ${Math.round(pit[0] - 230)})`);
     }
 }
 
@@ -369,6 +416,134 @@ function skyImage(canvas: Node, frame: SpriteFrame | null, done: string[]) {
     done.push(`ảnh trời Bg_simple (${frame.rect.width} × ${frame.rect.height}) phủ kín khung hình, node Sky/TroiAnh, phóng ${k.toFixed(1)} lần`);
 }
 
+/** Màu cho đường lên cao theo bản vẽ của bạn */
+const H_C = {
+    concrete: new Color(132, 124, 132, 255),
+    concreteDark: new Color(92, 86, 94, 255),
+    hole: new Color(54, 50, 58, 255),
+    cable: new Color(40, 36, 42, 255),
+    ladder: new Color(190, 180, 92, 255),
+    leafDark: new Color(58, 92, 62, 255),
+    leafLight: new Color(110, 168, 96, 255),
+};
+
+/**
+ * Đường lên cao theo bản vẽ của bạn (ảnh toàn cảnh MapThu tô thêm, 13/11; 1px ảnh ≈ 10 đơn vị game):
+ * - Cột điện trái = ảnh mg_cotdien của bạn (đứng trên khối đá cao, đỉnh y 1276): bục xà ngang y 820, bục đỉnh cột y 1250.
+ * - Dây điện võng từ đỉnh cột trái xuống thấp nhất y 950 ở x 4770 rồi lên đỉnh cột phải: đi được, là chuỗi khối cứng mỏng
+ *   (Leo tự bước lên dốc nhờ Step Height; bục một chiều thì không bước lên được nên không dùng).
+ * - Cột điện phải = ảnh mg_cotdien-001 (đỉnh y 895, thấp hơn bản vẽ): nối tạm một đoạn cột lên tới đỉnh y 1250.
+ * - Thang x 6120 → 6440 từ y 1090 lên sân thượng, bậc cách nhau ~185, bấm W leo từng bậc; trên cùng là lỗ chui (rộng hơn thang) qua sân thượng.
+ * - Sân thượng bê tông x 5750 → 8800, mặt trên y 1835, dày 365 (khối cứng), sát cổng (x 8820).
+ * - Cây bự ở đầu phải sân thượng: thân x 8350 → 8800 là tường cứng tới y 3080, chặn đường xuống cổng.
+ *   Cành bên trái thân y 2260 / 2680, tổ chim trên ngọn thân (y 3080) có chìa 1.
+ */
+function highRoute(play: Node, root: Node, canh: Node, done: string[]) {
+    const solid = (name: string, x: number, top: number, w: number, h: number) => {
+        const n = mk(name, root);
+        n.setPosition(x, top, 0);
+        const s = n.addComponent(Solid);
+        s.size = new Size(w, h);
+        s.offset = new Vec2(w / 2, -h / 2);
+    };
+    const poleL = play.getChildByName('mg_cotdien');
+    const poleR = play.getChildByName('mg_cotdien-001');
+    const lx = poleL ? Math.round(poleL.position.x) : 3582;
+    const rx = poleR ? Math.round(poleR.position.x) : 5940;
+    const rTop = poleR ? Math.round(poleR.position.y + (poleR.getComponent(UITransform)?.height ?? 861) * poleR.scale.y) : 895;
+    // Nhảy 2 lần của Leo cao ~484 (đo 13/11): khối đá cao 370 → xà 820 → đỉnh 1250, mỗi nấc còn dư ~30-50
+    const ARM = 820, TOP = 1250;
+
+    // Cột trái: xà ngang + đỉnh cột (bục một chiều màu bê tông, nhảy xuyên từ dưới lên)
+    block(root, 'CotTrai_XaNgang', lx - 160, ARM, 420, 26, P, H_C.concrete);
+    block(root, 'CotTrai_Dinh', lx - 140, TOP, 300, 26, P, H_C.concrete);
+    // Cột phải: đoạn nối tạm từ đỉnh ảnh của bạn lên tới đỉnh, rồi bục đỉnh cột.
+    // Bục này là khối cứng mỏng: đi từ dây sang phải bước lên được (Step Height), bục một chiều thì không
+    if (rTop < TOP - 30) prop(canh, 'CotPhai_NoiTam', PropKind.Pole, rx - 60, rTop, 120, TOP - 20 - rTop, H_C.concrete);
+    block(root, 'CotPhai_Dinh', rx - 160, TOP, 280, 26, W, H_C.concrete);
+
+    // Tán cây xanh đậm che khúc giữa dây (vẽ trước dây)
+    prop(root, 'Day_TanCay', PropKind.Canopy, 4450, 860, 1400, 360, H_C.leafDark, H_C.leafLight);
+    // Dây võng: y = 950 + a (x - 4770)², hai đầu ở đỉnh 2 cột
+    const x0 = lx + 160, x1 = rx - 160, LOW_X = 4770, LOW_Y = 950;
+    const a = (TOP - LOW_Y) / Math.pow(Math.max(LOW_X - x0, x1 - LOW_X), 2);
+    const cy = (x: number) => LOW_Y + a * (x - LOW_X) * (x - LOW_X);
+    const SEG = 40;
+    let segs = 0;
+    for (let x = x0; x < x1; x += SEG) {
+        const w = Math.min(SEG, x1 - x);
+        solid(`Day_VaCham${++segs}`, x, Math.round(cy(x + w / 2)), w, 20);
+    }
+    const VIS = 120;
+    const day = mk('Day_Hinh', root);
+    for (let x = x0, i = 1; x < x1; x += VIS, i++) {
+        const nx = Math.min(x + VIS, x1);
+        prop(day, `Doan${i}`, PropKind.Rope, x, cy(x) - 4, nx - x, cy(nx) - cy(x), H_C.cable);
+    }
+
+    // Sân thượng: 2 khối cứng hai bên lỗ chui, lòng lỗ tối. Lỗ rộng hơn thang 80 mỗi bên (nửa thân Leo 75):
+    // đứng sát mép bậc thang bấm W thì đầu không cụng đáy sân thượng. Mép phải sát cổng (x 8820), cây bự chặn ở đó.
+    const SLAB_L = 5750, SLAB_R = 8800, SLAB_TOP = 1835, SLAB_H = 365, LAD_L = 6120, LAD_R = 6440, HOLE_L = LAD_L - 80, HOLE_R = LAD_R + 80;
+    block(root, 'SanThuong_LoChui', HOLE_L, SLAB_TOP, HOLE_R - HOLE_L, SLAB_H, B, H_C.hole);
+    block(root, 'SanThuong_Trai', SLAB_L, SLAB_TOP, HOLE_L - SLAB_L, SLAB_H, W, H_C.concrete);
+    block(root, 'SanThuong', HOLE_R, SLAB_TOP, SLAB_R - HOLE_R, SLAB_H, W, H_C.concrete, 'SÂN THƯỢNG');
+    fish(root, 'CaBu_GacTrai', SLAB_L + 150, SLAB_TOP + 100);
+
+    // Thang: 2 tay vịn + các bậc (bục một chiều), bậc trên cùng là nắp lỗ chui ngang mặt sân thượng
+    const LADDER_BOTTOM = 1090;
+    prop(root, 'Thang_TayTrai', PropKind.Rope, LAD_L + 20, LADDER_BOTTOM - 20, 0, SLAB_TOP - LADDER_BOTTOM + 20, H_C.ladder);
+    prop(root, 'Thang_TayPhai', PropKind.Rope, LAD_R - 20, LADDER_BOTTOM - 20, 0, SLAB_TOP - LADDER_BOTTOM + 20, H_C.ladder);
+    const rungs = 4, step = (SLAB_TOP - LADDER_BOTTOM) / rungs;
+    for (let i = 0; i < rungs; i++) block(root, `Thang_Bac${i + 1}`, LAD_L, Math.round(LADDER_BOTTOM + i * step), LAD_R - LAD_L, 22, P, H_C.ladder);
+    block(root, 'Thang_NapLo', HOLE_L, SLAB_TOP, HOLE_R - HOLE_L, 22, P, H_C.concreteDark);
+
+    // Cây bự ở đầu phải sân thượng (14/11): thân rộng 450 sát cổng là tường cứng, chặn đường xuống cổng (khe thân ↔ cổng 20 < thân Leo 150).
+    // Cành và tổ chim ở bên trái thân; ngọn thân (mặt khối cứng) là chỗ đặt tổ chim có chìa 1. Thân vẽ thẳng (Pole) cho khớp khối va chạm.
+    const TL = SLAB_R - 450, TR = SLAB_R, TREE_TOP = 3080;
+    solid('CayTo_ThanVaCham', TL, TREE_TOP, TR - TL, TREE_TOP - SLAB_TOP);
+    prop(canh, 'CayTo_Tan', PropKind.Canopy, 7300, 2700, 2600, 1300, P_C.leaf, P_C.leafLight);
+    prop(canh, 'CayTo_Than', PropKind.Pole, TL, SLAB_TOP, TR - TL, TREE_TOP - SLAB_TOP, P_C.trunk);
+    prop(canh, 'CayTo_ReTrai', PropKind.Rope, TL + 30, SLAB_TOP + 60, -160, -60, P_C.trunk);
+    prop(canh, 'CayTo_CanhDuoi', PropKind.Rope, TL, 2140, -650, 140, P_C.trunk);
+    prop(canh, 'CayTo_CanhTren', PropKind.Rope, TL, 2560, -500, 140, P_C.trunk);
+    block(root, 'CayTo_BucCanhDuoi', 7700, 2260, TL - 7700, 26, P, P_C.trunk);
+    block(root, 'CayTo_BucCanhTren', 7850, 2680, TL - 7850, 26, P, P_C.trunk);
+    prop(root, 'ToChim', PropKind.Nest, TL + 75, TREE_TOP, 300, 110, P_C.rope, P_C.window);
+    key(root, 'Chia1_ToChim', TL + 225, TREE_TOP + 130);
+
+    done.push(`đường lên cao theo bản vẽ: cột trái x ${lx} (xà ${ARM}, đỉnh ${TOP}), dây võng ${segs} đoạn (thấp nhất y ${LOW_Y} ở x ${LOW_X}), `
+        + `cột phải x ${rx} (nối tạm ${rTop} → ${TOP}), thang ${rungs} bậc + lỗ chui, sân thượng x ${SLAB_L} → ${SLAB_R} (mặt ${SLAB_TOP}), `
+        + `cây bự chặn bên phải (thân ${TL} → ${TR}, ngọn ${TREE_TOP}), cành 2260 / 2680, tổ chim trên ngọn thân (chìa 1)`);
+}
+
+/**
+ * Khúc 5 + 6 theo bản vẽ của bạn: trên cột đầu và cột cuối cạnh hồ lá sen có hàng rào và cột đèn cổ cong chìa ra mép hồ.
+ * Hàng rào = bản sao ảnh MG_hangrao_1 / MG_hangrao_2 của bạn (lấy từ node mg_hangrao... có sẵn, đặt ở y 441 như hàng rào trên khối đá cao).
+ * Cột đèn = hình tạm (PropArt StreetLamp), có art thì thay. Chỉ là hình, không va chạm; nằm trong node MapThu nên bấm 🧱 là dựng lại.
+ */
+function lampsAndFences(play: Node, root: Node, done: string[]) {
+    const LAMP = new Color(34, 32, 38, 255), BULB = new Color(255, 236, 170, 255);
+    // Cột đèn trước (vẽ sau hàng rào): chân ở mặt cột, cao 700, cổ cong chìa ra phía hồ
+    prop(root, 'CotDen_CotDau', PropKind.StreetLamp, 7050, 380, 140, 700, LAMP, BULB);
+    prop(root, 'CotDen_CotCuoi', PropKind.StreetLamp, 8580, 380, -120, 700, LAMP, BULB);
+    const frameOf = (n: Node) => n.getComponent(Sprite)?.spriteFrame?.name ?? '';
+    const src1 = play.children.find((n) => n.name.startsWith('mg_hangrao') && frameOf(n) === 'MG_hangrao_1');
+    const src2 = play.children.find((n) => n.name.startsWith('mg_hangrao') && frameOf(n) === 'MG_hangrao_2') ?? src1;
+    if (!src1 || !src2) {
+        done.push('KHÔNG thấy hàng rào mg_hangrao (ảnh MG_hangrao_1) trong Gameplay: chưa đặt hàng rào khúc 5 + 6');
+        return;
+    }
+    const fences: [string, Node, number][] = [['HangRao_CotDau1', src1, 6810], ['HangRao_CotDau2', src2, 7020], ['HangRao_CotCuoi', src2, 8660]];
+    for (const [name, src, x] of fences) {
+        const n = instantiate(src);
+        n.name = name;
+        root.addChild(n);
+        n.setPosition(x, 441, 0);
+    }
+    for (const n of root.children.filter((c) => c.name.startsWith('CotDen_'))) n.setSiblingIndex(root.children.length - 1);
+    done.push('khúc 5 + 6: hàng rào (ảnh của bạn) x 6810, 7020 trên cột đầu, x 8660 trên cột cuối; 2 cột đèn tạm x 7050 (cổ sang phải), 8580 (cổ sang trái)');
+}
+
 /** Dựng map thử vào Canvas (scene MapThu). Trả về danh sách việc đã làm để in ra Console. */
 export function buildMapThu(canvas: Node, skyFrame: SpriteFrame | null = null): string[] {
     const done: string[] = [];
@@ -392,8 +567,11 @@ export function buildMapThu(canvas: Node, skyFrame: SpriteFrame | null = null): 
     cutHole(play, root, 998, 1852.5, 1380, done);
     cutHole(play, root, 4268, 2422.5, 5530, done);
     stairsToLedge(play, root, leo, done);
+    hideMiddlePillars(play, done);
     const pp = pillarPits(play, root, done);
     fishPits(play, root, pp.pits, pp.top, done);
+    lilyPond(play, root, pp.pits, done);
+    lampsAndFences(play, root, done);
 
     // ---------- Cống: ngay dưới phố, x 1000 → 6160, sàn -1150 ----------
     block(root, 'Cong_Nen', 1000, -470, 5160, 680, B, C.sewerBg, 'CỐNG');
@@ -458,48 +636,17 @@ export function buildMapThu(canvas: Node, skyFrame: SpriteFrame | null = null): 
     prop(canh, 'MayLanh', PropKind.AirCon, 2460, 830, 140, 100, P_C.aircon);
     block(root, 'Buc_MayLanh', 2460, 930, 140, 24, P, P_C.aircon);
 
-    // ---------- Mái nhà y 1160 ----------
-    block(root, 'Mai1_Ngoi', 1650, 1130, 2650, 140, B, C.roof, 'MÁI NHÀ', true);
-    block(root, 'Mai1', 1650, 1160, 2650, 40, P, C.roofDark);
-    block(root, 'Mai2_Ngoi', 4500, 1130, 2100, 140, B, C.roof, '', true);
-    block(root, 'Mai2', 4500, 1160, 2100, 40, P, C.roofDark);
-    // Gác trái: bạt che dựng trên mái (kiểu bạt)
-    prop(canh, 'GacTrai_Bat', PropKind.Awning, 1750, 1160, 800, 400, P_C.awningRed, P_C.awningWhite);
-    block(root, 'GacTrai', 1750, 1560, 800, 30, P, P_C.awningRed, 'GÁC TRÁI');
-    fish(root, 'CaBu_GacTrai', 2150, 1640);
-    // 2 bục trên mái: nắp bồn nước inox trên giàn sắt
-    prop(canh, 'BonNuoc1', PropKind.WaterTank, 3500, 1250, 300, 200, P_C.inox, P_C.inoxLight, '', 90);
-    block(root, 'Mai_Buc1', 3500, 1450, 300, 24, P, P_C.inoxTop);
-    prop(canh, 'BonNuoc2', PropKind.WaterTank, 5100, 1240, 380, 200, P_C.inox, P_C.inoxLight, '', 80);
-    block(root, 'Mai_Buc2', 5100, 1440, 380, 24, P, P_C.inoxTop);
-
-    // ---------- Giếng 2 = giếng trời giữa 2 dãy nhà (trên bậc cao x ~7150), leo lên tổ chim ----------
-    // Tường trái tới x 7150, tường phải từ x 7660; bục lẻ là ban công nhà trái, bục chẵn là ban công nhà phải
-    prop(canh, 'Gieng2_NhaTrai', PropKind.House, 6880, 370, 270, 1260, P_C.wall, P_C.window);
-    prop(canh, 'Gieng2_NhaPhai', PropKind.House, 7660, 370, 180, 1260, P_C.shopWall, P_C.window);
-    for (let i = 1; i <= 5; i++) {
-        const left = i % 2 === 1, x = left ? 7150 : 7400, y = 370 + i * 230;
-        prop(canh, `Gieng2_BanCong${i}`, PropKind.Balcony, left ? 7150 : 7660, y, left ? 260 : -260, 70, P_C.rail);
-        prop(canh, `Gieng2_Chau${i}`, PropKind.Pot, left ? 7165 : 7585, y, 60, 90, P_C.pot, i % 2 ? P_C.leaf : P_C.flower);
-        block(root, `Gieng2_Buc${i}`, x, y, 260, 30, P, C.wood);
-    }
-    // ---------- Tổ chim: cây lớn, các bục là cành (kiểu tán cây) ----------
-    prop(canh, 'CayLon_Than', PropKind.Trunk, 7850, 370, 220, 2050, P_C.trunk);
-    prop(canh, 'CayLon_Tan', PropKind.Canopy, 6900, 1800, 2000, 1000, P_C.leaf, P_C.leafLight);
-    prop(canh, 'CayLon_Canh1', PropKind.Rope, 7900, 1400, -900, 260, P_C.trunk);
-    prop(canh, 'CayLon_Canh2', PropKind.Rope, 8020, 1450, 650, 210, P_C.trunk);
-    prop(canh, 'CayLon_Canh3', PropKind.Rope, 7900, 1950, -560, 150, P_C.trunk);
-    prop(canh, 'CayLon_Canh4', PropKind.Rope, 8020, 2000, 250, 100, P_C.trunk);
-    block(root, 'ToChim_1', 6800, 1660, 1900, 30, P, P_C.trunk);
-    block(root, 'ToChim_2', 7300, 2100, 1000, 30, P, P_C.trunk);
-    block(root, 'ToChim_3', 7800, 2530, 600, 30, P, P_C.trunk, 'TỔ CHIM ĐẦU ĐÀN');
-    prop(canh, 'ToChim', PropKind.Nest, 7930, 2530, 300, 110, P_C.rope, P_C.window);
-    key(root, 'Chia1_ToChim', 8200, 2640);
+    // ---------- Đường lên cao theo bản vẽ của bạn (13/11): cột điện → dây điện võng → thang → sân thượng → cây có tổ chim ----------
+    // Bỏ mái nhà, gác trái, bồn nước, giếng trời và cây lớn cũ. Cá bự gác trái tạm đặt ở đầu trái sân thượng.
+    highRoute(play, root, canh, done);
 
     // ---------- Cổng 2 ổ khoá trước khu boss ----------
     const gate = mk('Cong2OKhoa', root);
     gate.setPosition(8850, 370, 0);
-    gate.addComponent(LockedGate);
+    // Cao 4400 (đỉnh y 4770): đứng trên ngọn cây bự (3080) bám mặt cổng bật nhảy lên được tới ~4060, cổng 3600 cũ (đỉnh 3970) thì lách qua được (14/11)
+    const lock = gate.addComponent(LockedGate);
+    lock.height = 4400;
+    lock.redraw();
 
     // ---------- Hầm bí mật (phòng riêng), cửa trên phố ở x 650 ----------
     const ham = room(root, 'PhongHam', -30000, 1600, 1200, C.cellarBg, C.cellarWall, 'HẦM BÍ MẬT');
@@ -515,7 +662,7 @@ export function buildMapThu(canvas: Node, skyFrame: SpriteFrame | null = null): 
     key(hang, 'Chia2_Hang', -36700, 120);
     link(congXuongHang, door(hang, 'Cua_Hang_LenCong', -39700, 0, 'LÊN CỐNG'));
     link(door(hang, 'Cua_Hang_CuaSat', -36100, 0, 'CỬA SẮT LÊN PHỐ'), door(root, 'Cua_Pho_CuaSat', 8450, 370, 'CỬA SẮT'));
-    done.push('dựng node MapThu: cống, bờ sông, mái nhà, tổ chim (chìa 1), cổng 2 ổ khoá, hầm bí mật, hang (chìa 2), cá bự, 4 vùng camera, 6 cửa');
+    done.push('dựng node MapThu: cống, kênh ngầm, cột điện + dây + sân thượng, tổ chim (chìa 1), cổng 2 ổ khoá, hầm bí mật, hang (chìa 2), cá bự, 4 vùng camera, 6 cửa');
 
     // ---------- HUD: 2 ô chìa dưới thanh nộ ----------
     const hud = canvas.getChildByName('HUD');

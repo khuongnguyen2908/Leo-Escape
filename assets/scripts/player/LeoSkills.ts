@@ -219,13 +219,14 @@ export class LeoSkills extends Component implements CatSkills {
         if (this.state !== 'none' || this.carrying) return false;
         const c = this.cat;
         if (this.wallTimer > 0) {
-            // Nhảy bật tường: văng ra ngược phía tường, được nhảy 2 lần lại
+            // Nhảy bật tường: văng ra ngược phía tường. KHÔNG hồi nhảy 2 lần (chỉ chạm đất mới hồi):
+            // hồi thì bật tường → nhảy 2 lần quay vào → bám → bật tiếp, một bức tường đơn leo mãi được (vượt cổng 2 ổ khoá, 14/11).
+            // Ống hẹp 2 vách vẫn leo được bằng cách bật qua bật lại giữa 2 vách.
             c.body.velocity.x = -this.wallSide * this.wallJumpSpeed;
             c.pushLock = 0.18;
             c.facing = -this.wallSide;
             c.startJump(c.jumpSpeed * 0.95);
             this.wallTimer = 0;
-            this.airLeft = this.airJumps;
             this.getComponent(RunDust)?.airJumpPuff();
             return true;
         }

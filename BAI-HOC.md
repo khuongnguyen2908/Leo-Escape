@@ -99,6 +99,22 @@ Mẫu một bài (ghi vào đúng nhóm, mới nhất lên đầu nhóm; đã c�
 - Cách sửa (MapThu): đo thân cây trong ảnh của người dùng, gắn sàn nhà cây vào đúng thân, thanh chống vẽ TRƯỚC ảnh cây; mái nhà dùng bồn nước inox; giếng trời dùng ban công hai dãy nhà.
 - Cách tránh lần sau: trước khi đặt đồ trang trí, liệt kê MỌI ảnh của người dùng đè lên chỗ đó (vị trí, cỡ, thứ tự vẽ) và đo bằng Pillow, rồi chụp trong game mới chốt (lần đầu chỉ ghép ảnh cây, sót quán `mg_cafe` đứng trước che thân cây); phần làm chỗ bám phải nằm trước ảnh của người dùng. Khoét hố / hốc dưới mặt phố thì cũng liệt kê ảnh đứng TRÊN chỗ khoét (12/11: cầu thang cũ hụt từ x 1980 làm quán THẠCH TRÚC và thùng `mg_up` đứng trên hốc tối); chụp toàn cảnh khúc đó trước khi chốt. Mỗi món tự hỏi: ngoài phố Việt Nam nó có ở đúng chỗ này không. Tên khu trong tài liệu (như "giếng" = giếng trời, leo lên) thì giải thích khi đưa cho người dùng xem.
 
+### Bám tường bật nhảy leo mãi một bức tường đơn (vượt cổng 2 ổ khoá không cần chìa)
+- Ngày: 14/11/2026
+- Triệu chứng: đứng trên ngọn cây bự cạnh cổng, bám mặt cổng bật nhảy liên tục thì lên tới 6000+, qua cổng vào khu boss; nâng cổng cao bao nhiêu cũng qua.
+- Nguyên nhân: `LeoSkills.airJump` (bật tường) và `AngeloSkills.beforeMove` (bám tường) hồi lại lần nhảy 2 → bật ra, nhảy 2 lần quay vào, bám, bật tiếp, mỗi vòng +420.
+- Cách sửa: bật / bám tường không hồi nhảy 2 lần nữa (chỉ chạm đất mới hồi), cả Leo và Angelo; cổng MapThu cao 4400 (từ ngọn cây giờ chỉ lên được ~4060).
+- Cách tránh lần sau: chỗ nào khoá đường bằng tường thì thử leo đơn tường bằng nhiều nhịp bấm khác nhau; đỉnh tường phải cao hơn chỗ đứng gần nhất + ~1000.
+  Ống 2 vách vẫn leo được (bật qua bật lại): sửa luật nhảy thì thử lại ống nắp cống 1380 / 5530 và lối ra hầm cầu thang. Angelo bám tường ở mọi scene, kể cả Main.
+
+### Đường leo dựng theo bản vẽ mà đi không được (bục quá tầm nhảy, cụng đầu ở lỗ chui, kẹt cuối dây)
+- Ngày: 13/11/2026
+- Triệu chứng: nhảy 2 lần không tới xà cột điện (870); bấm W ở thang bị cụng đầu khi đứng sát mép; đi hết dây điện thì rơi xuống phố; sân thượng sát cổng nên không có khe nhảy xuống.
+- Nguyên nhân: nhảy 2 lần của Leo chỉ cao ~484 (W lên bục ≤ 420); lỗ chui rộng đúng bằng thang mà thân Leo rộng 150; bục một chiều không cho bước lên từ bên cạnh (Step Height chỉ áp cho khối cứng); khe 20 < thân 150.
+- Cách sửa: xà 820, đỉnh 1250, cành 2260; lỗ chui rộng hơn thang 80 mỗi bên; bục cuối dây là khối cứng mỏng; sân thượng rút về 8620.
+- Cách tránh lần sau: mỗi nấc leo ≤ 450 (nhảy 2 lần) hoặc ≤ 400 (W); lỗ / khe để chui rộng hơn chỗ đứng ít nhất nửa thân mỗi bên; chỗ nối từ dốc sang bục dùng khối cứng.
+  Thử bằng cách cho Leo đi thật từ đầu tới cuối (không đặt thẳng lên từng bục). Khi thử bằng JS, lấy PlatformerBody từ node của Leo (tìm theo tên component trên cả scene sẽ ra con chim).
+
 ### Hố chỉ có trong hình, mèo đi trên không
 - Ngày: 12/11/2026
 - Triệu chứng: khúc cột x 6690 → 8930 có 2 hố đặt nón, nhưng mèo đi ngang qua như có sàn vô hình; nón (Hazard) không bao giờ chạm tới.

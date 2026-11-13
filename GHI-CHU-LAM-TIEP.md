@@ -87,8 +87,19 @@ Hai dòng "bước 1", "bước 2" ngay dưới là việc đã làm trước kh
   từ 12/11 là đường sụt lộ kênh ngầm: `FishPit` vẽ nước, mỗi hố một con cá lóc nhảy lên cắn khi mèo tới gần, rơi xuống nước mất 1 máu và bật lên mép;
   4 nón `mg_cone` dời lên mép hố làm biển báo, tắt sát thương. Cá, nước, vách hố là hình tạm, chờ art). **Main vẫn còn lỗi đó:** khung va chạm khúc cột phẳng ở 370, mèo đi trên không qua hố. Chưa vẽ: mây, chim cho trời trống khi lên mái, tổ chim (lớp đứng yên như `Light_Far`).
   Bục không lơ lửng (12/11): đầu phố = sàn nhà cây gắn vào thân `mg_cay_2` → bục giữa có giàn gỗ chống vào vách quán `mg_cafe` → bục trên mái quán (y 535),
-  thanh chống nằm TRƯỚC ảnh của bạn (node `MapThu/NhaCay_ThanhChong`) → nóc tiệm SHOP → máy lạnh → mái; gác trái = bạt đỏ, 2 bục trên mái = nắp bồn nước inox,
-  Giếng 2 (= giếng trời, leo LÊN) = khe giữa 2 dãy nhà, bục là ban công có chậu hoa; tổ chim = cây lớn có cành. Hình tạm `PropArt`, chờ art vẽ thật.
+  thanh chống nằm TRƯỚC ảnh của bạn (node `MapThu/NhaCay_ThanhChong`) → nóc tiệm SHOP → máy lạnh (giờ là chỗ cụt, khúc 2 tính tiếp). Hình tạm `PropArt`, chờ art vẽ thật.
+  **Làm theo bản vẽ của người dùng (13/11, ảnh toàn cảnh MapThu tô thêm, chia 8 khúc, làm từng khúc, duyệt rồi mới qua khúc sau):**
+  khúc 1 mây hình thú · 2 tán cây che đầu phố · 3 cột điện + dây · 4 thang + sân thượng + cây · 5, 6 cột đèn đen cong + hàng rào · 7 hồ lá sen (thay khúc cột + hố cá:
+  vài lá sen cách nhau, đứng lên vài giây thì chìm, lá khác nổi, phải nhảy lẹ) · 8 nhà lớn hồng sau cổng, hoa giấy, dây leo trên cổng. 1px ảnh ≈ 10 đơn vị game.
+  Đã xong khúc 3 + 4 (hàm `highRoute`): bỏ mái nhà, gác trái, bồn nước, giếng trời, cây lớn cũ. Cột trái = ảnh `mg_cotdien` (xà 820, đỉnh 1250) → dây võng đi được
+  (khối cứng mỏng, thấp nhất 950 ở x 4770) → cột phải `mg_cotdien-001` (nối tạm lên 1250) → thang W x 6120 → 6440 → lỗ chui → sân thượng x 5750 → 8620 (mặt 1835)
+  → cành 2260 / 2680 → ngọn thân cây 3080 (tổ chim, chìa 1). Cá bự gác trái tạm ở đầu trái sân thượng.
+  14/11: cây bự chặn kín bên phải (theo ý người dùng, bỏ đường tắt xuống cổng): thân x 8350 → 8800 là khối cứng tới 3080, sân thượng kéo tới 8800,
+  cổng 2 ổ khoá cao 4400. Bám / bật tường không còn hồi nhảy 2 lần (Leo và Angelo): tường đơn không leo mãi được, ống 2 vách vẫn leo được.
+  Khúc 7 (14/11): ẩn cột giữa `Tile_4` (không xoá) → một hồ x 7182 → 8458 (FishPit, giữ cá lóc), 3 lá sen to `LilyPad` (level/LilyPad.ts) rộng 260 ở y 165:
+  đứng 1 giây thì rung 0,4 giây rồi chìm, 2,5 giây sau nổi lại; rơi xuống nước mất 1 máu, bật lên mép. Điểm lưu 2 dời sang cột đầu (x 6952), 4 nón chia 2 mép hồ.
+  Khúc 5 + 6 (14/11, `lampsAndFences`): hàng rào = bản sao ảnh MG_hangrao_1 / _2 của bạn (x 6810, 7020 trên cột đầu; 8660 trên cột cuối, y 441);
+  2 cột đèn cổ cong hình tạm `PropArt` StreetLamp (`CotDen_CotDau` x 7050 cổ sang phải, `CotDen_CotCuoi` x 8580 cổ sang trái), chờ ảnh thật. Hoa lục bình ở lá 2, 3.
   Kênh ngầm (12/11, thay cho Bờ sông dưới Nhà Leo): con kênh bị lấp dưới phố, cột và vòm bê tông, bè thùng xốp thay thuyền, nước từ ống cống
   chảy xuống; node vẫn tên `Song_`. Lớp FR / FR_Top của MapThu có `FadeBelow`: camera xuống dưới phố thì tủ điện, cột đèn, lá cây mờ dần.
   Hầm cầu thang (12/11) nằm hẳn dưới khối đá cao x 2850 → 4275, mặt phố liền dưới quán THẠCH TRÚC và thùng `mg_up`: vào bằng nắp hầm x 3280

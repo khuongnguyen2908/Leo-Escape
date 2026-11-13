@@ -35,6 +35,8 @@ export enum PropKind {
     Culvert = 14,
     /** Bè thùng xốp: vài thùng trắng buộc dây */
     FoamRaft = 15,
+    /** Cột đèn đường cổ cong (gốc = chân cột): cao Height, cổ cong chìa ngang Width (âm = sang trái), bóng đèn treo ở đầu cổ */
+    StreetLamp = 16,
 }
 
 const LINE = new Color(70, 44, 34, 255);
@@ -140,6 +142,7 @@ export class PropArt extends Component {
             case PropKind.Balcony: this.balcony(g); break;
             case PropKind.Culvert: label = this.culvert(g); break;
             case PropKind.FoamRaft: this.foamRaft(g); break;
+            case PropKind.StreetLamp: this.streetLamp(g); break;
         }
         this.setLabel(label);
     }
@@ -424,6 +427,40 @@ export class PropArt extends Component {
             }
         }
         return this._text;
+    }
+
+    private streetLamp(g: Graphics) {
+        const reach = this._w, h = this._h, neck = h - 90;
+        // Thân cột + cổ cong: vẽ nét dày màu chính, viền mảnh bên trong cho thấy khối
+        const path = () => {
+            g.moveTo(0, 0);
+            g.lineTo(0, neck);
+            g.quadraticCurveTo(0, h, reach * 0.5, h);
+            g.quadraticCurveTo(reach, h, reach, h - 50);
+        };
+        g.strokeColor = this._color;
+        g.lineWidth = 26;
+        path();
+        g.stroke();
+        g.strokeColor = this.dark(this._color, 1.8);
+        g.lineWidth = 4;
+        path();
+        g.stroke();
+        // Đế cột
+        g.fillColor = this._color;
+        g.rect(-24, 0, 48, 40);
+        g.fill();
+        // Chao đèn + bóng đèn sáng
+        g.fillColor = this._color;
+        g.moveTo(reach - 30, h - 50);
+        g.lineTo(reach + 30, h - 50);
+        g.lineTo(reach + 46, h - 90);
+        g.lineTo(reach - 46, h - 90);
+        g.close();
+        g.fill();
+        g.fillColor = this._color2;
+        g.circle(reach, h - 100, 16);
+        g.fill();
     }
 
     private foamRaft(g: Graphics) {
