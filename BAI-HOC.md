@@ -8,7 +8,7 @@ Quy trình làm việc và lúc nào cần ghi: `.claude/skills/quy-trinh-lam-vi
 
 1. **Scene là bản chính.** Không sửa `assets/scenes/Main.scene` trên đĩa khi Creator đang mở. Sửa hàng loạt thì thêm một bước vào nút ⚙ Cập nhật, không thêm nút mới.
 2. Trước khi nhờ người dùng bấm một nút trong editor: đọc hết mọi bước của nút đó và nói rõ nó sẽ đổi gì.
-3. Người dùng báo "đã lưu": xem giờ sửa của `Main.scene` (`ls -la --time-style=full-iso`) và tìm trong file một giá trị vừa đổi, trước khi thử hay so ảnh. Thay đổi do nút ⚙ làm không phải lúc nào cũng bật dấu `*`, nên Ctrl+S có thể không ghi gì (06/11 bị 2 lần liền): dặn thấy dấu `*` rồi mới Ctrl+S, chưa có thì kéo nhẹ một node. Vừa thêm file `.ts` mới thì chờ Creator nạp xong (có file `.meta` đi kèm, thanh tiến trình chạy hết) rồi mới bấm nút: 12/11 bấm 🧱 lúc Creator đang nạp `FishPit.ts`, scene không đổi.
+3. Người dùng báo "đã lưu": xem giờ sửa của `Main.scene` (`ls -la --time-style=full-iso`) và tìm trong file một giá trị vừa đổi, trước khi thử hay so ảnh. Thay đổi do nút ⚙ làm không phải lúc nào cũng bật dấu `*`, nên Ctrl+S có thể không ghi gì (06/11 bị 2 lần liền): dặn thấy dấu `*` rồi mới Ctrl+S, chưa có thì kéo nhẹ một node. Vừa thêm file `.ts` mới thì chờ Creator nạp xong (có file `.meta` đi kèm, thanh tiến trình chạy hết) rồi mới bấm nút: 12/11 bấm 🧱 lúc Creator đang nạp `FishPit.ts`, scene không đổi. 14/11 lại bị 2 lần với 🧱 MapThu: so giờ dòng "🧱 Map thử" mới nhất trong `temp/logs/project.log` với giờ lưu file.
 4. Giá trị đã lưu trong scene thắng giá trị mặc định trong code. Muốn đổi node có sẵn: đặt tên property mới (như `artFacesRight`), thêm bước ⚙, hoặc nhờ chỉnh trong Inspector.
 5. Mỗi file `.ts` chỉ một `@ccclass`, tên file trùng tên class.
 6. Hình vẽ bằng `Graphics` không được lưu vào scene: vẽ lại trong `onLoad`, kèm `executeInEditMode`.
@@ -119,7 +119,7 @@ Mẫu một bài (ghi vào đúng nhóm, mới nhất lên đầu nhóm; đã c�
 - Ngày: 12/11/2026
 - Triệu chứng: khúc cột x 6690 → 8930 có 2 hố đặt nón, nhưng mèo đi ngang qua như có sàn vô hình; nón (Hazard) không bao giờ chạm tới.
 - Nguyên nhân: một khối nền đá `Ground` (Width 2240) phẳng ở 370, các cột chỉ là ảnh `Tile_` con xếp cách nhau. Khoảng giữa ảnh không làm khung va chạm hụt.
-- Cách sửa (MapThu): bước `pillarPits` của 🧱 đọc mép các ảnh `Tile_`, rút khối còn cột đầu, thêm Solid cho cột sau và đáy hố. Main chưa sửa.
+- Cách sửa (MapThu): bước `pillarPits` của 🧱 đọc mép các ảnh `Tile_`, rút khối còn cột đầu, thêm Solid cho cột sau và đáy hố. Main có từ 14/11 (chép MapThu).
 - Cách tránh lần sau: xếp ô đá có khe thì mỗi cột một khối nền (hay một Solid), không để một khối phủ cả khe; thử bằng cách thả mèo vào giữa khe.
 
 ### Khung va chạm không tự theo hình (đi xuyên thùng, hình lọt trong tường, chém hụt)
@@ -269,6 +269,13 @@ Mẫu một bài (ghi vào đúng nhóm, mới nhất lên đầu nhóm; đã c�
 
 ## 6. Đòn đánh, hiệu ứng, camera
 
+### Chỗ bí mật lộ ra, camera không theo vào chỗ ngoài mép màn
+- Ngày: 14/11/2026
+- Triệu chứng: hốc bí mật đầu trái kênh ngầm (x -700) nằm ngoài khung hình (camera dừng ở mép màn x -360); khi camera theo vào rồi thì cửa Hầm bí mật nhìn thấy rõ dù tường giả chưa vỡ.
+- Nguyên nhân: vùng camera có `clampSides` tắt thì camera chặn theo mép màn chung (minX); tường giả chỉ chặn đường, không che hình phía sau.
+- Cách sửa: vùng camera kênh bật `clampSides` (chặn theo vùng); `FakeWall.coverLeft` phủ cả hốc bằng màu đất, vỡ tường thì mờ cùng.
+- Cách tránh lần sau: đặt thứ gì ra ngoài mép màn chung thì kiểm tra vùng camera chỗ đó; thứ "bí mật" phải chụp thử trước khi mở xem có thấy không.
+
 ### Lớp tiền cảnh trên phố hiện đè lên khu dưới đất
 - Ngày: 12/11/2026
 - Triệu chứng: xuống cống, kênh ngầm vẫn thấy tủ điện, cột đèn, lá cây (lớp `FR`, `FR_Top`) treo lơ lửng trước mặt.
@@ -319,6 +326,12 @@ Mẫu một bài (ghi vào đúng nhóm, mới nhất lên đầu nhóm; đã c�
   màn mở đầu, và giữ Xuống để nhìn xuống; xem mép dưới, mép trái / phải và các lớp ghim mép trên.
 
 ## 7. Build, git, máy
+
+### Xoá file script đang có trong scene: Creator hiện hộp thoại, preview treo lúc khởi động
+- Ngày: 14/11/2026
+- Triệu chứng: xoá `SongSat.ts` (node song sắt cũ trong MapThu còn gắn) rồi bấm 🧱; preview đứng ở màn tải Cocos, `cc.game` không khởi động, Console không báo lỗi.
+- Nguyên nhân: Creator ghi "Script deleted ..." và mở hộp thoại hỏi về script bị mất; hộp thoại chờ bấm làm Creator nghẽn, preview không chạy tiếp (đóng hộp thoại cũng chưa đủ, phải mở lại Creator).
+- Cách tránh lần sau: xoá script thì dặn người dùng bấm 🧱 / gỡ node dùng nó trước, xoá file sau; preview treo mà không có lỗi thì hỏi xem Creator có hộp thoại, nếu vẫn treo thì đóng mở lại Creator.
 
 ### Zip bản build: không dùng Compress-Archive
 - Ngày: trước 03/11/2026

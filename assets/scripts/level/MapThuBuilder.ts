@@ -8,6 +8,7 @@ import { PlayerController } from '../player/PlayerController';
 import { KeySlots } from '../ui/KeySlots';
 import { BigFishPickup } from './BigFishPickup';
 import { Door } from './Door';
+import { FakeWall } from './FakeWall';
 import { FishPit } from './FishPit';
 import { GroundBlock } from './GroundBlock';
 import { Hazard } from './Hazard';
@@ -16,7 +17,7 @@ import { LilyPad } from './LilyPad';
 import { LockedGate } from './LockedGate';
 import { MapBlock, MapBlockKind } from './MapBlock';
 import { PropArt, PropKind } from './PropArt';
-import { SongSat } from './SongSat';
+import { SavePoint } from './SavePoint';
 
 /**
  * Dựng map thử Map 1 (cột điện + dây + sân thượng, cống, hang, hầm, kênh ngầm, 2 chìa, cổng 2 ổ khoá) vào scene MapThu bằng khối màu vẽ code,
@@ -149,7 +150,7 @@ function room(parent: Node, name: string, x0: number, w: number, h: number, bg: 
 }
 
 /** Rút ngắn khối nền đá có mép trái ở fromX (chỉ khi Width còn đúng số cũ) và thêm khối va chạm cho phần bên phải lỗ. */
-function cutHole(play: Node, root: Node, fromX: number, oldWidth: number, holeX: number, done: string[]) {
+function cutHole(play: Node, root: Node, fromX: number, oldWidth: number, holeX: number, done: string[], dropOnly = false) {
     const gb = play.getComponentsInChildren(GroundBlock).find((g) => Math.abs(g.node.position.x - fromX) < 2);
     if (!gb) {
         done.push(`KHÔNG thấy khối nền đá ở x ${fromX}: chưa khoét nắp cống ở x ${holeX}`);
@@ -163,95 +164,35 @@ function cutHole(play: Node, root: Node, fromX: number, oldWidth: number, holeX:
     const s = n.addComponent(Solid);
     s.size = new Size(right - holeX - HOLE, depth);
     s.offset = new Vec2((right - holeX - HOLE) / 2, -depth / 2);
-    // Ống thẳng đứng: nền tối che ô đá chỗ lỗ, nắp (bục một chiều), 2 vách ống phía dưới khối đá
-    block(root, `Ong_${Math.round(holeX)}`, holeX, top, HOLE, depth + 520, B, C.shaft);
+    // Ống thẳng đứng: nền tối che ô đá chỗ lỗ, nắp (bục một chiều), 2 vách ống phía dưới khối đá.
+    // Drop Only (ống chỉ rớt xuống): không có vách bên dưới, miệng ống (đáy khối đá -470) cao hơn gờ kênh 680 > nhảy 2 lần ~484: không leo lại được
+    block(root, `Ong_${Math.round(holeX)}`, holeX, top, HOLE, dropOnly ? depth : depth + 520, B, C.shaft);
     block(root, `NapCong_${Math.round(holeX)}`, holeX, top, HOLE, 24, P, C.lid, 'NẮP CỐNG (S S)');
-    block(root, `VachOngTrai_${Math.round(holeX)}`, holeX - 60, top - depth, 60, 520, W, C.sewerWall);
-    block(root, `VachOngPhai_${Math.round(holeX)}`, holeX + HOLE, top - depth, 60, 520, W, C.sewerWall);
-    done.push(`nắp cống ở x ${Math.round(holeX)}: rút khối nền đá còn ${Math.round(holeX - fromX)}, thêm khối va chạm ${Math.round(holeX + HOLE)} → ${Math.round(right)}`);
+    if (!dropOnly) {
+        block(root, `VachOngTrai_${Math.round(holeX)}`, holeX - 60, top - depth, 60, 520, W, C.sewerWall);
+        block(root, `VachOngPhai_${Math.round(holeX)}`, holeX + HOLE, top - depth, 60, 520, W, C.sewerWall);
+    }
+    done.push(`nắp cống ở x ${Math.round(holeX)}${dropOnly ? ' (chỉ rớt xuống)' : ''}: rút khối nền đá còn ${Math.round(holeX - fromX)}, thêm khối va chạm ${Math.round(holeX + HOLE)} → ${Math.round(right)}`);
 }
 
 /**
- * Hầm cầu thang dưới khối đá cao x 2850 → 4275 (kiểu hình mẫu của người dùng: mặt phố liền dưới quán và thùng mg_up).
- * - Vào bằng nắp hầm trên mặt khối đá cao (x 3280, giữa ShopNPC và cột điện), S S để chui xuống như nắp cống.
- * - Trong hầm: chiếu nghỉ sát vách trái (lối cũ ra phố, bị chồng thùng chặn) → 4 bậc 60 × 35 đi xuống → sàn y -300
- *   có song sắt (SongSat) thông xuống Cống → ô đá thấp Tile_ của người dùng (dời sát vách phải) có 1 cá bự.
- * - Song sắt chỉ mở được từ phía Cống (nhảy lên cụng đầu): đường tắt từ Cống về điểm lưu 1.
- * Khung va chạm khối đá cao chỉ dày 370 (đáy ngang mặt phố) để có chỗ cho hầm. Bấm 🧱 lại thì đọc lại chỗ ô đá.
+ * Bỏ hầm cầu thang dưới khối đá cao (theo ý người dùng 14/11): trả khối đá cao x 2850 về liền, dày 840 (bản cũ rút còn 430 × 370 để khoét nắp hầm),
+ * xoá nền tối của hầm (node MapThu_HocCauThang nằm thẳng trong Gameplay), ẩn ô đá thấp Tile_ người dùng đặt cho hầm (không xoá).
+ * Nắp hầm, bậc, sàn, song sắt, cá bự của hầm nằm trong node MapThu nên tự mất khi bấm 🧱.
  */
-function stairsToLedge(play: Node, root: Node, leo: PlayerController | null, done: string[]) {
-    const HIGH_X = 2850, HIGH_W = 1425, END = HIGH_X + HIGH_W, BOTTOM = -470;
-    const HATCH_X = 3280, HATCH_W = 220;
-    const LANDING_W = 120, LANDING_Y = -160, STEP_W = 60, STEPS = 4, FLOOR = -300;
-    const GRATE_X = 3520, GRATE_W = 240;
-    const tile = play.children.find((n) => n.name.startsWith('Tile_') && n.position.y < 0 && n.position.x > 2600 && n.position.x < 4300);
-    const ut = tile?.getComponent(UITransform);
+function removeStairs(play: Node, done: string[]) {
+    const HIGH_X = 2850, HIGH_W = 1425, DEPTH = 840;
     const high = play.getComponentsInChildren(GroundBlock).find((g) => Math.abs(g.node.position.x - HIGH_X) < 2);
-    if (!tile || !ut || !high) {
-        done.push('KHÔNG thấy ô đá thấp (node Tile_... thẳng trong Gameplay, dưới mặt phố, x 2600 → 4300) hoặc khối đá cao x 2850: chưa làm hầm cầu thang');
-        return;
+    if (high && Math.abs(high.width - 430) < 1) high.width = HIGH_W;
+    if (high && Math.abs(high.depth - 370) < 1) high.depth = DEPTH;
+    const pocket = play.getChildByName('MapThu_HocCauThang');
+    if (pocket) {
+        pocket.removeFromParent();
+        pocket.destroy();
     }
-    const top = high.node.position.y;
-    const solid = (name: string, x: number, y: number, w: number, h: number) => {
-        const n = mk(name, root);
-        n.setPosition(x, y, 0);
-        const s = n.addComponent(Solid);
-        s.size = new Size(w, h);
-        s.offset = new Vec2(w / 2, -h / 2);
-    };
-
-    // Khối đá cao: khung va chạm dày 370 (đáy ngang mặt phố); khoét lỗ nắp hầm
-    if (Math.abs(high.depth - 840) < 1) high.depth = 370;
-    if (Math.abs(high.width - HIGH_W) < 1) high.width = HATCH_X - HIGH_X;
-    solid('VaCham_SauNapHam', HATCH_X + HATCH_W, top, END - HATCH_X - HATCH_W, top);
-    block(root, 'OngHam', HATCH_X, top, HATCH_W, top, B, C.shaft);
-    block(root, 'NapHam', HATCH_X, top, HATCH_W, 24, P, C.lid, 'NẮP HẦM (S S)');
-
-    // Ô đá thấp: dời sát vách phải của hầm (chỉ khi còn ở chỗ cũ, bạn kéo đi chỗ khác thì giữ nguyên)
-    const sx = Math.abs(tile.scale.x), sy = Math.abs(tile.scale.y);
-    const tw = ut.width * sx;
-    let left = tile.position.x - ut.anchorX * tw;
-    if (left < 3300) {
-        const nl = END - tw;
-        tile.setPosition(tile.position.x + (nl - left), tile.position.y, tile.position.z);
-        done.push(`${tile.name}: dời sang phải, mép trái x ${Math.round(left)} → ${Math.round(nl)}`);
-        left = nl;
-    }
-    const right = left + tw;
-    const artTop = tile.position.y + (1 - ut.anchorY) * ut.height * sy;
-    // Mặt đứng thấp hơn mép trên ảnh ô đá: ô đá phố cao 281 thì mặt đứng thấp hơn mép ảnh 66 (≈ 23.5% chiều cao ảnh)
-    const surface = Math.round(artTop - ut.height * sy * 0.235);
-
-    // Chiếu nghỉ, bậc, sàn (cột đá đặc tới đáy, không hở xuống cống), song sắt, khung va chạm mặt ô đá
-    block(root, 'CauThang_ChieuNghi', HIGH_X, LANDING_Y, LANDING_W, LANDING_Y - BOTTOM, W, C.stone);
-    block(root, 'CauThang_LoiCu', HIGH_X, -10, 60, 150, B, C.wood, '', true);
-    const stepH = (LANDING_Y - FLOOR) / STEPS;
-    for (let k = 1; k <= STEPS; k++) {
-        const y = Math.round(LANDING_Y - k * stepH);
-        block(root, `CauThang_Bac${k}`, HIGH_X + LANDING_W + (k - 1) * STEP_W, y, STEP_W, y - BOTTOM, W, C.stone);
-    }
-    const floorX = HIGH_X + LANDING_W + STEPS * STEP_W;
-    block(root, 'CauThang_San1', floorX, FLOOR, GRATE_X - floorX, FLOOR - BOTTOM, W, C.stone);
-    if (left > GRATE_X + GRATE_W) block(root, 'CauThang_San2', GRATE_X + GRATE_W, FLOOR, left - GRATE_X - GRATE_W, FLOOR - BOTTOM, W, C.stone);
-    const grate = mk('SongSat_XuongCong', root);
-    grate.setPosition(GRATE_X, FLOOR, 0);
-    grate.addComponent(SongSat).setup(GRATE_W, 24);
-    solid('VaCham_ODaThap', left, surface, right - left, surface - BOTTOM);
-    fish(root, 'CaBu_HamCauThang', Math.round((left + right) / 2), surface + 60);
-
-    // Nền tối của hầm (sau ô đá, dưới khối đá cao): đặt thẳng trong Gameplay ngay sau các khối nền đá, ô đá dời lên ngay sau nó
-    play.getChildByName('MapThu_HocCauThang')?.destroy();
-    const pocket = mk('MapThu_HocCauThang', play);
-    pocket.setPosition(HIGH_X, 0, 0);
-    pocket.addComponent(MapBlock).setup(END - HIGH_X, -BOTTOM, B, C.shaft);
-    const grounds = play.getComponentsInChildren(GroundBlock).map((g) => g.node.getSiblingIndex());
-    pocket.setSiblingIndex(Math.max(...grounds) + 1);
-    tile.setSiblingIndex(pocket.getSiblingIndex() + 1);
-
-    const body = leo?.getComponent(PlatformerBody);
-    if (body && body.stepHeight < 45) body.stepHeight = 45;
-    done.push(`hầm cầu thang dưới khối đá cao: nắp hầm x ${HATCH_X} (S S), ${STEPS} bậc xuống sàn y ${FLOOR}, song sắt x ${GRATE_X} thông xuống Cống (mở từ dưới), `
-        + `ô đá ${tile.name} x ${Math.round(left)} → ${Math.round(right)} (mặt đứng y ${surface}) có 1 cá bự; mặt phố liền lại tới chân khối đá cao`);
+    const tile = play.children.find((n) => n.name.startsWith('Tile_') && n.position.y < 0 && n.position.x > 2600 && n.position.x < 4300);
+    if (tile) tile.active = false;
+    done.push(`bỏ hầm cầu thang: khối đá cao x ${HIGH_X} liền lại (rộng ${high?.width ?? '?'}, dày ${high?.depth ?? '?'})${tile ? ', ẩn ô đá ' + tile.name : ''}`);
 }
 
 /**
@@ -376,7 +317,7 @@ function lilyPond(play: Node, root: Node, pits: [number, number][], done: string
             pad.addComponent(LilyPad).setup(W, i > 0);
         }
     }
-    if (count) done.push(`${count} lá sen (LaSen_1..${count}) trên mặt nước y ${POND_WATER + 15}: đứng 1 giây thì rung, chìm 2,5 giây rồi nổi lại`);
+    if (count) done.push(`${count} lá sen (LaSen_1..${count}) trên mặt nước y ${POND_WATER + 15}: chạm là 0,5 giây sau chìm, 2,5 giây sau nổi lại`);
     for (const cp of play.children.filter((c) => c.name.startsWith('Checkpoint'))) {
         const pit = pits.find(([l, r]) => cp.position.x > l && cp.position.x < r);
         if (!pit) continue;
@@ -435,8 +376,8 @@ const H_C = {
  * - Cột điện phải = ảnh mg_cotdien-001 (đỉnh y 895, thấp hơn bản vẽ): nối tạm một đoạn cột lên tới đỉnh y 1250.
  * - Thang x 6120 → 6440 từ y 1090 lên sân thượng, bậc cách nhau ~185, bấm W leo từng bậc; trên cùng là lỗ chui (rộng hơn thang) qua sân thượng.
  * - Sân thượng bê tông x 5750 → 8800, mặt trên y 1835, dày 365 (khối cứng), sát cổng (x 8820).
- * - Cây bự ở đầu phải sân thượng: thân x 8350 → 8800 là tường cứng tới y 3080, chặn đường xuống cổng.
- *   Cành bên trái thân y 2260 / 2680, tổ chim trên ngọn thân (y 3080) có chìa 1.
+ * - Cây bự ở đầu phải sân thượng: thân x 8350 → 8800 là tường cứng tới y 4000 (đỉnh tán), chặn đường xuống cổng, không đứng trên đỉnh được.
+ *   Cành bên trái thân y 2260 / 2680, tổ chim trên cành trên (7921, 2705) có chìa 1.
  */
 function highRoute(play: Node, root: Node, canh: Node, done: string[]) {
     const solid = (name: string, x: number, top: number, w: number, h: number) => {
@@ -498,22 +439,24 @@ function highRoute(play: Node, root: Node, canh: Node, done: string[]) {
     block(root, 'Thang_NapLo', HOLE_L, SLAB_TOP, HOLE_R - HOLE_L, 22, P, H_C.concreteDark);
 
     // Cây bự ở đầu phải sân thượng (14/11): thân rộng 450 sát cổng là tường cứng, chặn đường xuống cổng (khe thân ↔ cổng 20 < thân Leo 150).
-    // Cành và tổ chim ở bên trái thân; ngọn thân (mặt khối cứng) là chỗ đặt tổ chim có chìa 1. Thân vẽ thẳng (Pole) cho khớp khối va chạm.
-    const TL = SLAB_R - 450, TR = SLAB_R, TREE_TOP = 3080;
+    // Thân cứng cao tới đỉnh tán (4000): không đứng được trên đỉnh cây (từ cành trên nhảy 2 lần / bám thân bật nhảy chỉ lên ~3700).
+    // Thân vẽ thẳng (Pole) cho khớp khối va chạm, vẽ TRƯỚC tán lá để tán che phần thân phía trên.
+    const TL = SLAB_R - 450, TR = SLAB_R, TREE_TOP = 4000;
     solid('CayTo_ThanVaCham', TL, TREE_TOP, TR - TL, TREE_TOP - SLAB_TOP);
-    prop(canh, 'CayTo_Tan', PropKind.Canopy, 7300, 2700, 2600, 1300, P_C.leaf, P_C.leafLight);
     prop(canh, 'CayTo_Than', PropKind.Pole, TL, SLAB_TOP, TR - TL, TREE_TOP - SLAB_TOP, P_C.trunk);
+    prop(canh, 'CayTo_Tan', PropKind.Canopy, 7300, 2700, 2600, 1300, P_C.leaf, P_C.leafLight);
     prop(canh, 'CayTo_ReTrai', PropKind.Rope, TL + 30, SLAB_TOP + 60, -160, -60, P_C.trunk);
     prop(canh, 'CayTo_CanhDuoi', PropKind.Rope, TL, 2140, -650, 140, P_C.trunk);
     prop(canh, 'CayTo_CanhTren', PropKind.Rope, TL, 2560, -500, 140, P_C.trunk);
     block(root, 'CayTo_BucCanhDuoi', 7700, 2260, TL - 7700, 26, P, P_C.trunk);
     block(root, 'CayTo_BucCanhTren', 7850, 2680, TL - 7850, 26, P, P_C.trunk);
-    prop(root, 'ToChim', PropKind.Nest, TL + 75, TREE_TOP, 300, 110, P_C.rope, P_C.window);
-    key(root, 'Chia1_ToChim', TL + 225, TREE_TOP + 130);
+    // Tổ chim trên cành trên, chìa 1 phía trên tổ: đúng chỗ người dùng tự kéo trong Main (14/11)
+    prop(root, 'ToChim', PropKind.Nest, 7921, 2705, 300, 110, P_C.rope, P_C.window);
+    key(root, 'Chia1_ToChim', 8081, 2899);
 
     done.push(`đường lên cao theo bản vẽ: cột trái x ${lx} (xà ${ARM}, đỉnh ${TOP}), dây võng ${segs} đoạn (thấp nhất y ${LOW_Y} ở x ${LOW_X}), `
         + `cột phải x ${rx} (nối tạm ${rTop} → ${TOP}), thang ${rungs} bậc + lỗ chui, sân thượng x ${SLAB_L} → ${SLAB_R} (mặt ${SLAB_TOP}), `
-        + `cây bự chặn bên phải (thân ${TL} → ${TR}, ngọn ${TREE_TOP}), cành 2260 / 2680, tổ chim trên ngọn thân (chìa 1)`);
+        + `cây bự chặn bên phải (thân ${TL} → ${TR}, ngọn ${TREE_TOP}), cành 2260 / 2680, tổ chim trên cành trên (chìa 1)`);
 }
 
 /**
@@ -544,8 +487,85 @@ function lampsAndFences(play: Node, root: Node, done: string[]) {
     done.push('khúc 5 + 6: hàng rào (ảnh của bạn) x 6810, 7020 trên cột đầu, x 8660 trên cột cuối; 2 cột đèn tạm x 7050 (cổ sang phải), 8580 (cổ sang trái)');
 }
 
-/** Dựng map thử vào Canvas (scene MapThu). Trả về danh sách việc đã làm để in ra Console. */
-export function buildMapThu(canvas: Node, skyFrame: SpriteFrame | null = null): string[] {
+/**
+ * Kênh ngầm liền một dải dưới phố (theo ý người dùng 14/11), x -820 → 6160, trần = đáy khối đá phố (-470):
+ * - Gờ bê tông đi bộ mặt -1150; 3 đoạn lòng kênh lộ nước (FishPit không cá, kiểu kênh): rơi xuống mất 1 máu, bật lên gờ gần nhất.
+ *   Đoạn 1 và 2 có bè thùng xốp nổi giữa để nhảy.
+ * - Ống cống trái (x 1380) chỉ rớt xuống (cutHole dropOnly): miệng ống cao hơn gờ 680, không bục nào trong tầm 484 dưới miệng ống.
+ *   Ống cống phải (x 5530) có vách, bật tường leo lên phố.
+ * - Cửa phòng boss chuột ở x 3600 trên gờ. Hốc đầu trái x -700 → -420 có cửa Hầm bí mật, che bằng tường giả (FakeWall, chém 3 nhát thì vỡ).
+ * - Giữ: ngách có cá bự gần ống phải, cá bự đầu kênh.
+ * Trả về 2 cửa để nối với phòng.
+ */
+function canal(root: Node, done: string[]): { bossDoor: Door; secretDoor: Door } {
+    const L = -820, NICHE = -700, WALL = -420, R = 6160, TOP = -470, LEDGE = -1150, BOTTOM = -1450, WATER = -1240;
+    const waters: [number, number][] = [[100, 700], [2000, 2450], [4200, 4600]];
+    // Nền tối + vòm bê tông suốt chiều dài; đất lấp dưới đáy kênh (camera xuống tới -1900) và khe giữa 2 khối đá phố (x 933 → 998)
+    block(root, 'Kenh_Nen', L, TOP, R - L, TOP - BOTTOM, B, P_C.culvertBg);
+    block(root, 'Kenh_DatDuoi', L, BOTTOM, R - L, 700, B, C.earth);
+    block(root, 'Kenh_LapKhePho', 925, -30, 80, -30 - TOP, B, C.earth);
+    prop(root, 'Kenh_Vom', PropKind.Culvert, WALL, -1300, R - WALL, TOP + 1300, P_C.concrete, P_C.stain, 'KÊNH NGẦM', 160);
+    // Vách hai đầu (hốc trái sau tường giả)
+    block(root, 'Kenh_VachTrai', L, TOP, NICHE - L, TOP - BOTTOM, W, C.earth);
+    // Trần đất trên hốc (phố chỉ bắt đầu từ x -300): kín, không nhảy ra ngoài màn được
+    block(root, 'Kenh_TranHoc', L, 0, -300 - L, -TOP, W, C.earth);
+    block(root, 'Kenh_VachPhai', 6100, TOP, R - 6100, TOP - BOTTOM, W, P_C.concrete);
+    // Gờ đi bộ: liền từ hốc trái tới vách phải, đứt ở các đoạn nước
+    let x = NICHE, k = 0;
+    for (const [l, r] of [...waters, [6100, 6100] as [number, number]]) {
+        if (l > x) block(root, `Kenh_Go${++k}`, x, LEDGE, l - x, LEDGE - BOTTOM, W, P_C.concrete);
+        x = r;
+    }
+    // Lòng kênh lộ nước: không cá, vẽ kiểu kênh
+    waters.forEach(([l, r], i) => {
+        const n = mk(`Kenh_Nuoc${i + 1}`, root);
+        const fp = n.addComponent(FishPit);
+        fp.hasFish = false;
+        fp.canal = true;
+        fp.setup(l, r, LEDGE, WATER, BOTTOM, LEDGE);
+    });
+    // Bè thùng xốp nổi giữa đoạn nước 1 và 2 (vẽ sau nước)
+    waters.slice(0, 2).forEach(([l, r], i) => {
+        const bx = Math.round((l + r) / 2 - 90);
+        prop(root, `Kenh_BeThungXop${i + 1}`, PropKind.FoamRaft, bx, WATER - 40, 180, 55, P_C.foam, P_C.rope);
+        block(root, `Kenh_Be${i + 1}`, bx, WATER + 15, 180, 18, P, P_C.foam);
+    });
+    // Bục: xa miệng ống trái (x 1380 → 1620) và thấp hơn -954 gần đó, để không nhảy với tới miệng ống
+    block(root, 'Kenh_Buc', 3000, -950, 500, 30, P, C.wood);
+    block(root, 'Kenh_Ngach', 4900, -700, 380, 30, P, C.wood, 'NGÁCH');
+    fish(root, 'CaBu_Cong', 5090, -640);
+    fish(root, 'CaBu_BoSong', -180, -1000);
+    // Hốc bí mật: cửa Hầm bí mật, che bằng tường giả cao từ gờ tới trần
+    const secretDoor = door(root, 'Cua_Ham_Kenh', Math.round((NICHE + WALL) / 2), LEDGE, 'HẦM BÍ MẬT');
+    const fake = mk('Kenh_TuongGia', root);
+    fake.setPosition(WALL, TOP, 0);
+    fake.addComponent(FakeWall).setup(120, TOP - LEDGE, 3, WALL - NICHE);
+    const bossDoor = door(root, 'Cua_BossChuot', 3600, LEDGE, 'PHÒNG BOSS CHUỘT');
+    // Đáy vùng thấp hơn gờ ~750 để camera giữ Leo gần giữa khung. Chặn hai bên theo vùng (không theo mép màn x -360),
+    // để camera theo Leo vào tận hốc bí mật ở đầu trái
+    zone(root, 'VungCamera_Kenh', L, -1900, R - L, 1880, false, true);
+    done.push(`kênh ngầm x ${L} → ${R}: gờ ${LEDGE}, ${waters.length} đoạn nước (${waters.map(([l, r]) => `${l}→${r}`).join(', ')}), `
+        + `cửa boss chuột x 3600, tường giả x ${WALL} che cửa Hầm bí mật, ống trái chỉ rớt xuống, ống phải leo lên được`);
+    return { bossDoor, secretDoor };
+}
+
+/**
+ * Miếu lưu game (14/11): ảnh MG_checkpoint / MG_checkpoint_active của người dùng, trên sân thượng ngay bên trái cây bự (thân miếu x ~7450,
+ * trước cành dưới 7700 để nóc miếu cao ~480 không đâm qua cành). Bỏ cờ điểm lưu cũ (node Checkpoint trong Gameplay): ẩn, không xoá.
+ */
+function shrine(play: Node, root: Node, art: (name: string) => SpriteFrame | null, done: string[]) {
+    const frame = art('MG_checkpoint'), active = art('MG_checkpoint_active');
+    const n = mk('MieuLuu_CayBu', root);
+    n.setPosition(7350, 1835, 0);
+    n.addComponent(SavePoint).setup(frame, active, 1);
+    const old = play.children.filter((c) => c.name.startsWith('Checkpoint') && c.active);
+    for (const c of old) c.active = false;
+    done.push(`miếu lưu game ở x 7350 trên sân thượng (cạnh cây bự)${frame ? '' : ' — KHÔNG thấy ảnh MG_checkpoint (phải nhập dạng sprite-frame)'}${active ? '' : ', thiếu ảnh MG_checkpoint_active'}`
+        + (old.length ? `; ẩn ${old.length} cờ điểm lưu cũ` : ''));
+}
+
+/** Dựng map thử vào Canvas (scene MapThu). Trả về danh sách việc đã làm để in ra Console. art: tìm ảnh trong art theo tên. */
+export function buildMapThu(canvas: Node, skyFrame: SpriteFrame | null = null, art: (name: string) => SpriteFrame | null = () => null): string[] {
     const done: string[] = [];
     skyImage(canvas, skyFrame, done);
     const play = canvas.getChildByName('Gameplay');
@@ -563,55 +583,23 @@ export function buildMapThu(canvas: Node, skyFrame: SpriteFrame | null = null): 
     const leo = play.getComponentsInChildren(PlayerController).find((c) => c.catName !== 'Angelo') ?? null;
     if (leo) root.setSiblingIndex(leo.node.getSiblingIndex());
 
-    // ---------- Nắp cống: khoét 2 lỗ trên phố ----------
-    cutHole(play, root, 998, 1852.5, 1380, done);
+    // ---------- Nắp cống: khoét 2 lỗ trên phố (trái: chỉ rớt xuống kênh, không leo lại; phải: có vách ống, leo lên được) ----------
+    cutHole(play, root, 998, 1852.5, 1380, done, true);
     cutHole(play, root, 4268, 2422.5, 5530, done);
-    stairsToLedge(play, root, leo, done);
+    removeStairs(play, done);
+    // Leo tự bước lên dốc thấp (đi trên dây điện cần)
+    const leoBody = leo?.getComponent(PlatformerBody);
+    if (leoBody && leoBody.stepHeight < 45) leoBody.stepHeight = 45;
     hideMiddlePillars(play, done);
     const pp = pillarPits(play, root, done);
     fishPits(play, root, pp.pits, pp.top, done);
     lilyPond(play, root, pp.pits, done);
     lampsAndFences(play, root, done);
 
-    // ---------- Cống: ngay dưới phố, x 1000 → 6160, sàn -1150 ----------
-    block(root, 'Cong_Nen', 1000, -470, 5160, 680, B, C.sewerBg, 'CỐNG');
-    block(root, 'Cong_San', 1000, -1150, 5160, 700, W, C.sewerWall);
-    // Vách trái chừa lỗ ống cống (-980 → -1150) thông ra bờ sông; vách phải kín
-    block(root, 'Cong_VachTrai', 1000, -470, 60, 510, W, C.sewerWall);
-    block(root, 'Cong_VachPhai', 6100, -470, 60, 680, W, C.sewerWall);
-    block(root, 'Cong_Ong1', 2700, -470, 120, 680, B, C.pipe);
-    block(root, 'Cong_Ong2', 3900, -470, 120, 680, B, C.pipe);
-    block(root, 'Cong_Buc1', 2100, -880, 500, 30, P, C.wood);
-    block(root, 'Cong_Buc2', 3000, -950, 600, 30, P, C.wood);
-    block(root, 'Cong_Buc3', 4300, -820, 500, 30, P, C.wood);
-    block(root, 'Cong_Ngach', 4900, -700, 380, 30, P, C.wood, 'NGÁCH');
-    // Bục ngay dưới song sắt của hầm cầu thang (x 3520 → 3760): nhảy lên cụng đầu là song sắt bật mở, đường tắt về điểm lưu 1
-    block(root, 'Cong_BucSongSat', 3540, -720, 200, 30, P, C.wood, 'SONG SẮT ↑');
-    fish(root, 'CaBu_Cong', 5090, -640);
-    // Ống xuống từ 2 nắp cống dựng ở cutHole (phải trước stairsToLedge) nên nằm sau nền cống: đưa lên trên để nền không che
+    // ---------- Kênh ngầm liền một dải dưới phố (14/11, thay Cống tím + đoạn kênh dưới Nhà Leo) ----------
+    const kenh = canal(root, done);
+    // Ống xuống từ 2 nắp cống dựng ở cutHole (trước kênh) nên nằm sau nền kênh: đưa lên trên để nền không che
     for (const n of root.children.filter((c) => /^(Ong|VachOngTrai|VachOngPhai|NapCong)_\d+$/.test(c.name))) n.setSiblingIndex(root.children.length - 1);
-    // Đáy vùng thấp hơn sàn cống ~750 để camera giữ Leo gần giữa khung (cống chỉ cao 680, khung hình zoom 0.7 cao ~1540);
-    // không chặn hai bên để Leo đứng sát vách cống vẫn ở gần giữa khung
-    zone(root, 'VungCamera_Cong', 940, -1900, 5220, 1880, false, false);
-    const congXuongHang = door(root, 'Cua_XuongHang', 3600, -1150, 'XUỐNG HANG');
-
-    // ---------- Kênh ngầm (trước gọi là Bờ sông): con kênh bị lấp dưới phố Nhà Leo, cống đổ ra đây qua ống bên trái cống ----------
-    // Tên node giữ chữ Song_ như cũ. Mặt nước y -1170 (thấp hơn 2 gờ bê tông), bè thùng xốp nổi trên nước.
-    block(root, 'Song_Nen', -300, -470, 1300, 830, B, P_C.culvertBg);
-    prop(root, 'Song_VomKenh', PropKind.Culvert, -300, -1300, 1300, 830, P_C.concrete, P_C.stain, 'KÊNH NGẦM', 160);
-    block(root, 'Song_VachTrai', -420, -470, 120, 1100, W, C.earth);
-    block(root, 'Song_KeTrai', -300, -1050, 400, 700, W, P_C.concrete);
-    block(root, 'Song_LongSong', 100, -1250, 600, 300, W, C.earth);
-    block(root, 'Song_Nuoc', 100, -1170, 600, 80, B, P_C.canalWater);
-    prop(root, 'Song_BeThungXop', PropKind.FoamRaft, 330, -1205, 200, 55, P_C.foam, P_C.rope);
-    block(root, 'Song_Be', 330, -1150, 200, 18, P, P_C.foam);
-    block(root, 'Song_KePhai', 700, -1150, 300, 600, W, P_C.concrete);
-    // Nước từ ống cống chảy qua gờ phải rồi rớt xuống kênh
-    block(root, 'Song_NuocChay', 700, -1150, 300, 24, B, P_C.flowWater);
-    block(root, 'Song_ThacNho', 672, -1150, 34, 34, B, P_C.flowWater);
-    block(root, 'Song_OngCong', 960, -990, 200, 160, B, C.pipe, 'ỐNG CỐNG');
-    fish(root, 'CaBu_BoSong', -180, -1000);
-    zone(root, 'VungCamera_BoSong', -420, -1900, 1420, 1880, false, false);
 
     // ---------- Cảnh vẽ tạm (nhà, bạt, cây, cột, bảng): node riêng đầu Gameplay, nằm SAU mọi hình của bạn ----------
     // để bục không lơ lửng: mỗi bục bám vào một thứ (bạt che, cây, mái nhà, bảng quảng cáo, cột gỗ)
@@ -639,6 +627,7 @@ export function buildMapThu(canvas: Node, skyFrame: SpriteFrame | null = null): 
     // ---------- Đường lên cao theo bản vẽ của bạn (13/11): cột điện → dây điện võng → thang → sân thượng → cây có tổ chim ----------
     // Bỏ mái nhà, gác trái, bồn nước, giếng trời và cây lớn cũ. Cá bự gác trái tạm đặt ở đầu trái sân thượng.
     highRoute(play, root, canh, done);
+    shrine(play, root, art, done);
 
     // ---------- Cổng 2 ổ khoá trước khu boss ----------
     const gate = mk('Cong2OKhoa', root);
@@ -648,21 +637,21 @@ export function buildMapThu(canvas: Node, skyFrame: SpriteFrame | null = null): 
     lock.height = 4400;
     lock.redraw();
 
-    // ---------- Hầm bí mật (phòng riêng), cửa trên phố ở x 650 ----------
+    // ---------- Hầm bí mật (phòng riêng): cửa trong hốc đầu trái kênh ngầm, sau tường giả ----------
     const ham = room(root, 'PhongHam', -30000, 1600, 1200, C.cellarBg, C.cellarWall, 'HẦM BÍ MẬT');
     block(ham, 'Ham_Buc', -29300, 300, 400, 30, P, C.wood);
     fish(ham, 'CaBu_Ham', -29100, 400);
-    link(door(root, 'Cua_Ham_Pho', 650, 0, 'HẦM BÍ MẬT'), door(ham, 'Cua_Ham_Trong', -29800, 0, 'LÊN PHỐ'));
+    link(kenh.secretDoor, door(ham, 'Cua_Ham_Trong', -29800, 0, 'RA KÊNH NGẦM'));
 
-    // ---------- Hang chó-gián (phòng riêng): chìa 2, cửa sắt lên phố gần cổng ----------
-    const hang = room(root, 'PhongHang', -40000, 4200, 1300, C.caveBg, C.caveWall, 'HANG CHÓ-GIÁN');
-    block(hang, 'Hang_Buc1', -38700, 350, 500, 30, P, C.wood);
-    block(hang, 'Hang_Buc2', -37500, 350, 500, 30, P, C.wood);
-    block(hang, 'Hang_BossPhu', -38100, 520, 500, 520, B, C.caveWall, 'CHÓ-GIÁN CHÚA\n(làm sau)');
-    key(hang, 'Chia2_Hang', -36700, 120);
-    link(congXuongHang, door(hang, 'Cua_Hang_LenCong', -39700, 0, 'LÊN CỐNG'));
-    link(door(hang, 'Cua_Hang_CuaSat', -36100, 0, 'CỬA SẮT LÊN PHỐ'), door(root, 'Cua_Pho_CuaSat', 8450, 370, 'CỬA SẮT'));
-    done.push('dựng node MapThu: cống, kênh ngầm, cột điện + dây + sân thượng, tổ chim (chìa 1), cổng 2 ổ khoá, hầm bí mật, hang (chìa 2), cá bự, 4 vùng camera, 6 cửa');
+    // ---------- Phòng boss chuột (phòng riêng, trước là Hang chó-gián): chìa 2, cửa sắt lên phố gần cổng ----------
+    const hang = room(root, 'PhongBossChuot', -40000, 4200, 1300, C.caveBg, C.caveWall, 'PHÒNG BOSS CHUỘT');
+    block(hang, 'BossChuot_Buc1', -38700, 350, 500, 30, P, C.wood);
+    block(hang, 'BossChuot_Buc2', -37500, 350, 500, 30, P, C.wood);
+    block(hang, 'BossChuot', -38100, 520, 500, 520, B, C.caveWall, 'BOSS CHUỘT\n(làm sau)');
+    key(hang, 'Chia2_BossChuot', -36700, 120);
+    link(kenh.bossDoor, door(hang, 'Cua_BossChuot_RaKenh', -39700, 0, 'RA KÊNH NGẦM'));
+    link(door(hang, 'Cua_BossChuot_CuaSat', -36100, 0, 'CỬA SẮT LÊN PHỐ'), door(root, 'Cua_Pho_CuaSat', 8450, 370, 'CỬA SẮT'));
+    done.push('dựng node MapThu: kênh ngầm, cột điện + dây + sân thượng, tổ chim (chìa 1), cổng kẽm gai 2 ổ khoá, hầm bí mật (sau tường giả), phòng boss chuột (chìa 2), cá bự, 3 vùng camera, 6 cửa');
 
     // ---------- HUD: 2 ô chìa dưới thanh nộ ----------
     const hud = canvas.getChildByName('HUD');

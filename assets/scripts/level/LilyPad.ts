@@ -15,7 +15,7 @@ const HEART = new Color(250, 214, 90, 255);
 enum State { Float, Shake, Sink, Under, Rise }
 
 /**
- * Lá sen nổi trên hồ (map thử): bục một chiều, mèo đứng lên Stand Time giây thì lá rung (Shake Time), rồi chìm xuống (Sink Time)
+ * Lá sen nổi trên hồ (map thử): bục một chiều, mèo vừa chạm là lá rung (Shake Time, mặc định 0,5 giây; nhảy đi rồi vẫn chìm), rồi chìm xuống (Sink Time)
  * — lúc đó mèo rơi xuống nước —, nằm dưới nước Under Time giây rồi nổi lại chỗ cũ (Rise Time). Lá không ai đứng thì nổi yên.
  * Gốc node = mép trái, mặt lá. Hình vẽ tạm bằng code trong node con `La`; có art thật thì thay hình trong đó.
  */
@@ -26,10 +26,8 @@ export class LilyPad extends Component {
     width = 200;
     @property({ tooltip: 'Có bông lục bình tím trên lá' })
     flower = false;
-    @property({ tooltip: 'Đứng lên bao nhiêu giây thì lá bắt đầu rung' })
-    standTime = 1.0;
-    @property({ tooltip: 'Giây rung báo trước khi chìm' })
-    shakeTime = 0.4;
+    @property({ tooltip: 'Mèo chạm lá bao nhiêu giây thì lá chìm (lá rung trong lúc đó); nhảy đi rồi vẫn chìm' })
+    shakeTime = 0.5;
     @property({ tooltip: 'Giây chìm xuống' })
     sinkTime = 0.3;
     @property({ tooltip: 'Giây nằm dưới nước rồi mới nổi lại' })
@@ -44,7 +42,6 @@ export class LilyPad extends Component {
     private solid: Solid | null = null;
     private state = State.Float;
     private time = 0;
-    private stood = 0;
 
     setup(width: number, flower: boolean) {
         this.width = width;
@@ -144,9 +141,8 @@ export class LilyPad extends Component {
         this.time += dt;
         switch (this.state) {
             case State.Float:
-                // Đứng liên tục (rời lá thì đếm lại từ đầu)
-                this.stood = this.standing() ? this.stood + dt : 0;
-                if (this.stood >= this.standTime) this.go(State.Shake);
+                // Vừa chạm là bắt đầu đếm, rời lá vẫn chìm
+                if (this.standing()) this.go(State.Shake);
                 break;
             case State.Shake:
                 this.place(Math.sin(this.time * 70) * 5, -Math.min(1, this.time / this.shakeTime) * 6, 255);
@@ -170,7 +166,6 @@ export class LilyPad extends Component {
                 this.place(0, -(1 - k) * this.sinkDepth, 255 * k);
                 if (k >= 1) {
                     this.solid.enabled = true;
-                    this.stood = 0;
                     this.go(State.Float);
                 }
                 break;

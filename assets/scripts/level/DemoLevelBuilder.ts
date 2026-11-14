@@ -196,13 +196,13 @@ export class DemoLevelBuilder extends Component {
         if (v && EDITOR) this.rebuildFromScratch();
     }
 
-    @property({ displayName: '🧱 Dựng map thử (chỉ scene MapThu)', tooltip: 'Dựng thử Map 1 bằng khối màu vẽ code (mái nhà, cống, hang, hầm, bờ sông, 2 chìa, cổng 2 ổ khoá) theo docs/camera-demo.html. Chỉ chạy khi scene đang mở tên MapThu; Main.scene không bị đụng. Bấm lại thì xoá node MapThu cũ và dựng mới (chỉnh tay bên trong sẽ mất). Bấm xong Ctrl+S' })
+    @property({ displayName: '🧱 Dựng Map 1 (scene Main hoặc MapThu)', tooltip: 'Dựng Map 1 bằng khối màu vẽ code (cột điện + dây + sân thượng, cây tổ chim, hồ lá sen, kênh ngầm, hầm bí mật, phòng boss chuột, 2 chìa, cổng kẽm gai). Chạy trong scene Main hoặc MapThu (MapThu là bản nháp). Bấm lại thì xoá node MapThu cũ và dựng mới (chỉnh tay bên trong sẽ mất). Bấm xong thấy dấu * thì Ctrl+S' })
     get buildTestMap() { return false; }
     set buildTestMap(v: boolean) {
         if (!v || !EDITOR) return;
         const sceneName = director.getScene()?.name ?? '';
-        if (sceneName !== 'MapThu') {
-            console.warn(`[DemoLevelBuilder] 🧱 chỉ dùng trong scene MapThu (đang mở: ${sceneName || 'không rõ'}). Không làm gì.`);
+        if (sceneName !== 'MapThu' && sceneName !== 'Main') {
+            console.warn(`[DemoLevelBuilder] 🧱 chỉ dùng trong scene Main hoặc MapThu (đang mở: ${sceneName || 'không rõ'}). Không làm gì.`);
             return;
         }
         void this.buildTestMapInEditor();
@@ -211,7 +211,7 @@ export class DemoLevelBuilder extends Component {
     /** 🧱: nạp ảnh trong art (ảnh trời Bg_simple) rồi dựng map thử. */
     private async buildTestMapInEditor() {
         await this.loadArtInEditor();
-        const done = buildMapThu(this.node, this.art.get(normalizeName('Bg_simple')) ?? null);
+        const done = buildMapThu(this.node, this.art.get(normalizeName('Bg_simple')) ?? null, (name) => this.art.get(normalizeName(name)) ?? null);
         try { Editor.Message.send('scene', 'snapshot'); } catch (e) { /* bản editor không hỗ trợ cũng không sao */ }
         console.log(`[DemoLevelBuilder] 🧱 Map thử:\n - ${done.join('\n - ')}\nNhấn Ctrl+S để lưu.`);
     }

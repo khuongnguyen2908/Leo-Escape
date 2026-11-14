@@ -175,6 +175,8 @@ const TEXT = {
     'action.attack': ['Đánh', 'Attack'],
     'action.skill': ['Bùng nổ', 'Special'],
     'action.interact': ['Lướt', 'Dash'],
+    'action.use': ['Dùng (lưu game)', 'Use (save)'],
+    'save.hint': ['Lưu game', 'Save'],
     'action.swap': ['Đổi mèo', 'Swap cat'],
     'action.dash': ['Lướt', 'Dash'],
 

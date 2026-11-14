@@ -232,23 +232,65 @@ export class TouchControls extends Component {
             this.skillPaint = paint;
             this.skillBtn = n;
         }
+        if (button === 'jump') this.makeUseIcon(n, r);
         if (this.hints) {
             this.keyHint(n, button, 0, -r * 0.82);
         }
 
+        // Nút Nhảy lúc đứng gần miếu là nút Dùng (lưu game): nhả thì nhả đúng hành động đã bấm
+        let pressedAs: TouchButton | null = null;
         const press = () => {
             // Nút L chưa đầy nộ / đang bật special: chạm không ra gì
             if (button === 'skill' && this.skillState !== 'ready') return;
-            PlayerInput.setTouch(button, true);
+            pressedAs = button === 'jump' && PlayerInput.useNearby ? 'use' : button;
+            PlayerInput.setTouch(pressedAs, true);
             paint(true);
         };
-        const release = () => { PlayerInput.setTouch(button, false); paint(false); };
+        const release = () => { PlayerInput.setTouch(pressedAs ?? button, false); pressedAs = null; paint(false); };
         n.on(Node.EventType.TOUCH_START, press);
         n.on(Node.EventType.TOUCH_END, release);
         n.on(Node.EventType.TOUCH_CANCEL, release);
     }
 
     private time = 0;
+    /** Hình nút Dùng (lưu game) phủ lên nút Nhảy, hiện khi đứng gần miếu */
+    private useIcon: Node | null = null;
+
+    /** Hình nút Dùng: nền tròn như các nút, biểu tượng mái miếu + dấu lưu (mũi tên xuống khay) */
+    private makeUseIcon(btn: Node, r: number) {
+        const n = this.child('UseIcon', btn);
+        n.addComponent(UITransform).setContentSize(r * 2, r * 2);
+        const g = n.addComponent(Graphics);
+        g.fillColor = BTN;
+        g.circle(0, 0, r);
+        g.fill();
+        g.strokeColor = RING;
+        g.lineWidth = Math.max(4, r * 0.06);
+        g.circle(0, 0, r * 0.84);
+        g.stroke();
+        const a = r * 0.36;
+        g.fillColor = ICON;
+        g.strokeColor = ICON;
+        g.lineWidth = r * 0.11;
+        g.lineCap = Graphics.LineCap.ROUND;
+        g.lineJoin = Graphics.LineJoin.ROUND;
+        // Mũi tên xuống
+        g.moveTo(0, a * 0.95);
+        g.lineTo(0, -a * 0.15);
+        g.stroke();
+        g.moveTo(-a * 0.42, a * 0.2);
+        g.lineTo(0, -a * 0.28);
+        g.lineTo(a * 0.42, a * 0.2);
+        g.stroke();
+        // Khay
+        g.moveTo(-a * 0.85, -a * 0.35);
+        g.lineTo(-a * 0.85, -a * 0.85);
+        g.lineTo(a * 0.85, -a * 0.85);
+        g.lineTo(a * 0.85, -a * 0.35);
+        g.stroke();
+        n.active = false;
+        this.useIcon = n;
+    }
     private skillState: SkillState = 'off';
     private skillPaint: ((down: boolean) => void) | null = null;
     /** Node nút special (Btn_skill), giữ lại để update khỏi tìm theo tên mỗi khung hình */
@@ -293,6 +335,8 @@ export class TouchControls extends Component {
 
     update(dt: number) {
         this.time += dt;
+        // Đứng gần miếu: phủ hình nút Dùng lên nút Nhảy
+        if (this.useIcon?.isValid && this.useIcon.active !== PlayerInput.useNearby) this.useIcon.active = PlayerInput.useNearby;
         const btn = this.skillBtn;
         const cat = GameManager.instance?.player;
         if (!btn || !btn.isValid || btn.parent !== this.node || !cat) return;

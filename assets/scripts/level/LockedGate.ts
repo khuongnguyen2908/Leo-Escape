@@ -1,4 +1,4 @@
-import { _decorator, Color, Component, Graphics, Label, Node, Size, tween, Tween, UIOpacity, Vec2, Vec3 } from 'cc';
+import { _decorator, Color, Component, Graphics, Label, Node, Size, tween, Tween, UIOpacity, Vec2 } from 'cc';
 import { EDITOR } from 'cc/env';
 import { Solid } from '../core/Solid';
 import { Sound } from '../core/Sound';
@@ -8,13 +8,17 @@ import { UI, uiLabel } from '../ui/UiKit';
 import { drawKey, KEY_EDGE, KEY_GOLD } from './KeyPickup';
 const { ccclass, property, executeInEditMode } = _decorator;
 
-const BAR = new Color(163, 45, 45, 255);
-const BAR_EDGE = new Color(80, 19, 19, 255);
-const LOCK_OFF = new Color(70, 60, 58, 255);
+const WIRE = new Color(150, 150, 158, 255);
+const WIRE_DARK = new Color(64, 62, 70, 255);
+const LOCK = new Color(232, 112, 170, 255);
+const LOCK_EDGE = new Color(112, 40, 78, 255);
+const SHACKLE = new Color(176, 176, 186, 255);
+/** Độ cao 2 ổ khoá so với chân cổng, theo 2 đốm hồng trong bản vẽ của người dùng (ổ thứ 3 trở đi cách nhau 345) */
+const LOCK_Y = [330, 675];
 
 /**
- * Cổng khoá (map thử): bức tường chắn đường, có N ổ khoá (mặc định 2). Mỗi chìa nhặt được thì một ổ sáng lên.
- * Leo tới gần: thiếu chìa thì hiện chữ "Còn thiếu N chìa khoá"; đủ chìa thì cổng trượt lên, hết chặn đường.
+ * Cổng khoá (map thử): cuộn dây kẽm gai chắn đường, có N ổ khoá (mặc định 2). Mỗi chìa nhặt được thì một ổ cắm chìa vàng.
+ * Leo tới gần: thiếu chìa thì hiện chữ "Còn thiếu N chìa khoá"; đủ chìa thì dây kẽm gai mờ dần rồi biến mất, hết chặn đường.
  * Hình tạm vẽ bằng code. Gốc node là chân cổng (giữa); cổng cao Height, rộng Width (va chạm đúng cỡ đó).
  */
 @ccclass('LockedGate')
@@ -61,32 +65,60 @@ export class LockedGate extends Component {
         const w = this.width, h = this.height;
         const g = this.getComponent(Graphics) ?? this.addComponent(Graphics);
         g.clear();
-        // Song sắt đỏ
-        g.fillColor = BAR;
-        g.strokeColor = BAR_EDGE;
+        g.lineJoin = Graphics.LineJoin.ROUND;
+        g.lineCap = Graphics.LineCap.ROUND;
+        // Dây kẽm gai: 2 sợi xoắn chéo nhau suốt chiều cao (viền tối vẽ trước, sợi sáng đè lên), gai nhọn ở mỗi chỗ chéo
+        const half = w / 2, period = 90;
+        const strand = (phase: number) => {
+            for (let y = 0; y <= h; y += 15) {
+                const x = Math.sin((y / period) * Math.PI * 2 + phase) * half;
+                if (y === 0) g.moveTo(x, y);
+                else g.lineTo(x, y);
+            }
+        };
+        for (const [color, lw] of [[WIRE_DARK, 9], [WIRE, 4]] as [Color, number][]) {
+            g.strokeColor = color;
+            g.lineWidth = lw;
+            strand(0);
+            strand(Math.PI);
+            g.stroke();
+        }
+        g.strokeColor = WIRE_DARK;
         g.lineWidth = 4;
-        g.rect(-w / 2, 0, w, h);
-        g.fill();
-        g.stroke();
-        g.strokeColor = BAR_EDGE;
-        g.lineWidth = 3;
-        for (let y = 120; y < h; y += 120) {
-            g.moveTo(-w / 2, y);
-            g.lineTo(w / 2, y);
+        for (let y = 0; y <= h; y += period / 2) {
+            g.moveTo(-14, y - 14);
+            g.lineTo(14, y + 14);
+            g.moveTo(-14, y + 14);
+            g.lineTo(14, y - 14);
         }
         g.stroke();
-        // Ổ khoá: vòng tròn tối, có chìa thì vẽ chìa vàng vào
+        // Ổ khoá: quai bạc + thân hồng có lỗ khoá; có chìa thì cắm chìa vàng vào
         const lit = this.lit;
         this.shownLit = lit;
         for (let i = 0; i < this.keysNeeded; i++) {
-            const cy = 120 + i * 130;
-            g.fillColor = LOCK_OFF;
-            g.strokeColor = BAR_EDGE;
-            g.lineWidth = 4;
-            g.circle(0, cy, 46);
+            const cy = LOCK_Y[i] ?? LOCK_Y[LOCK_Y.length - 1] + (i - LOCK_Y.length + 1) * 345;
+            g.strokeColor = LOCK_EDGE;
+            g.lineWidth = 14;
+            g.arc(0, cy + 28, 24, 0, Math.PI, true);
+            g.stroke();
+            g.strokeColor = SHACKLE;
+            g.lineWidth = 8;
+            g.arc(0, cy + 28, 24, 0, Math.PI, true);
+            g.stroke();
+            g.fillColor = LOCK;
+            g.strokeColor = LOCK_EDGE;
+            g.lineWidth = 5;
+            g.roundRect(-38, cy - 36, 76, 66, 12);
             g.fill();
             g.stroke();
-            if (i < lit) drawKey(g, 0, cy - 6, 18, KEY_GOLD, KEY_EDGE);
+            if (i < lit) drawKey(g, 0, cy - 4, 18, KEY_GOLD, KEY_EDGE);
+            else {
+                g.fillColor = LOCK_EDGE;
+                g.circle(0, cy + 2, 8);
+                g.fill();
+                g.rect(-4, cy - 20, 8, 20);
+                g.fill();
+            }
         }
         // Va chạm
         const solid = this.getComponent(Solid) ?? this.addComponent(Solid);
@@ -110,15 +142,15 @@ export class LockedGate extends Component {
         this.showHint(near ? T('gate.need', this.keysNeeded - gm.keys) : '');
     }
 
-    /** Đủ chìa: cổng trượt lên rồi tắt va chạm. */
+    /** Đủ chìa: tắt va chạm, dây kẽm gai mờ dần rồi ẩn hẳn. */
     private unlock() {
         this.open = true;
         this.showHint(T('gate.open'));
         Sound.play('checkpoint', 1);
         const solid = this.getComponent(Solid);
         if (solid) solid.enabled = false;
-        const p = this.node.position;
-        tween(this.node).to(1.2, { position: new Vec3(p.x, p.y + this.height, p.z) }, { easing: 'quadIn' }).start();
+        const op = this.getComponent(UIOpacity) ?? this.addComponent(UIOpacity);
+        tween(op).to(1.0, { opacity: 0 }, { easing: 'quadIn' }).call(() => { this.getComponent(Graphics)!.enabled = false; }).start();
         this.scheduleOnce(() => this.showHint(''), 2);
     }
 

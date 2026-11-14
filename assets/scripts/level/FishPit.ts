@@ -68,6 +68,10 @@ export class FishPit extends Component {
     jumpTime = 1.0;
     @property({ tooltip: 'Giây nghỉ sau mỗi cú nhảy' })
     restTime = 1.5;
+    @property({ tooltip: 'Có cá lóc nhảy lên cắn. Tắt: chỉ là nước (rơi xuống mất 1 máu, bật lên mép)' })
+    hasFish = true;
+    @property({ tooltip: 'Vẽ kiểu lòng kênh ngầm (vách bê tông) thay cho hố đường sụt (đất, nhựa đường, sắt)' })
+    canal = false;
 
     private wallG: Graphics | null = null;
     private waterG: Graphics | null = null;
@@ -143,7 +147,7 @@ export class FishPit extends Component {
             c.respawn(_pos);
         }
 
-        switch (this.state) {
+        switch (this.hasFish ? this.state : State.Rest) {
             case State.Idle:
                 if (cats.some((c) => !c.downed && !c.idle && c.node.position.x > l - this.near && c.node.position.x < r + this.near
                     && c.node.position.y > this.water && c.node.position.y < this.top + 900)) this.go(State.Warn);
@@ -178,7 +182,7 @@ export class FishPit extends Component {
                 break;
             }
             case State.Rest:
-                if (this.time >= this.restTime) this.go(State.Idle);
+                if (this.hasFish && this.time >= this.restTime) this.go(State.Idle);
                 break;
         }
 
@@ -211,6 +215,23 @@ export class FishPit extends Component {
     private drawWall(g: Graphics) {
         g.clear();
         const l = this.left, r = this.right, t = this.top, b = this.bottom, w = r - l, cx = (l + r) / 2;
+        if (this.canal) {
+            // Lòng kênh ngầm: vách bê tông, vệt rêu ngang mặt nước, mép gờ tối
+            g.fillColor = CONCRETE;
+            g.rect(l, b, w, t - b);
+            g.fill();
+            g.fillColor = WAVE;
+            g.rect(l, this.water, w, 26);
+            g.fill();
+            g.strokeColor = LINE;
+            g.lineWidth = 5;
+            g.moveTo(l, t);
+            g.lineTo(l, b);
+            g.moveTo(r, t);
+            g.lineTo(r, b);
+            g.stroke();
+            return;
+        }
         g.fillColor = EARTH;
         g.rect(l, b, w, t - b);
         g.fill();

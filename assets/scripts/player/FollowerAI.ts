@@ -53,6 +53,7 @@ export class FollowerAI implements Controls {
     consumeDown() { return this.take('downQueued'); }
     consumeSkill() { return false; }
     consumeInteract() { return false; }
+    consumeUse() { return false; }
     consumeSwap() { return false; }
 
     /** Quên mọi việc đang dở (khi vừa đổi vai, vừa dịch chuyển). */

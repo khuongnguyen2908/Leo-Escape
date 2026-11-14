@@ -76,6 +76,11 @@ Hai dòng "bước 1", "bước 2" ngay dưới là việc đã làm trước kh
 - Bố cục đang thử (11/11): đầu map là **Nhà Leo** (không có khu Chợ); **Bờ sông nằm dưới đầu phố**, khe x 933–998 sau Nhà Leo là chỗ thấy nước,
   vào bằng ống cống ở đầu trái Cống. Chưa quyết: Cống liền dưới phố hay phòng riêng, zoom 0.8 hay 1.0.
 - Sơ đồ trong `docs/thiet-ke-game.html` mục 10 là **bản nháp cũ** (Bờ sông còn vẽ ở cuối phố).
+- **14/11: Main.scene = bản chép của MapThu** (Map 1 đầy đủ: cột điện + dây + sân thượng + cây tổ chim, hồ lá sen, kênh ngầm, hầm bí mật, phòng boss chuột,
+  cổng kẽm gai, nền bám mặt phố). Nút 🧱 ("Dựng Map 1") giờ chạy được trong Main lẫn MapThu; sửa map thì sửa thẳng trong Main, MapThu là bản nháp.
+  Main cũ còn trong git. Nút ⚙ Cập nhật trong Main có thể đặt lại khối đá mà map mới đã sửa: đọc lại các bước của ⚙ trước khi bấm.
+  **Điểm lưu = miếu (14/11):** `SavePoint` (ảnh MG_checkpoint / _active), phím Dùng E / V (hành động `use` mới), điện thoại nút Nhảy đổi thành Dùng khi gần;
+  lưu = ghi ô + hồi sinh ở miếu + đầy tim (`GameManager.saveAtShrine`). 1 miếu `MieuLuu_CayBu` trên sân thượng x 7350 (thân ~7450); 2 cờ `Checkpoint` cũ ẩn.
 - **Scene thử `assets/scenes/MapThu.scene`** (11/11, bản sao của Main): nút **🧱 Dựng map thử** trên DemoLevelBuilder dựng Map 1 bằng khối màu
   vẽ code theo `camera-demo.html` (code: `level/MapThuBuilder.ts`). Có: mái nhà + tổ chim (chìa 1), cống dưới phố (2 nắp cống, S S để chui,
   leo lên bằng wall jump), bờ sông dưới Nhà Leo, hầm bí mật và hang (phòng riêng, vào bằng cửa, chìa 2 trong hang), cửa sắt lên phố,
@@ -85,7 +90,7 @@ Hai dòng "bước 1", "bước 2" ngay dưới là việc đã làm trước kh
   Nền MapThu (12/11): BG, MG, River, Light Factor Y 1, bám mặt phố theo chiều dọc (nhảy, lên mái thì nhà cây, sông tụt xuống cùng phố,
   không hở chân); Main vẫn là BG Y 0 / MG Y 1 / River, Light 0.6. Khúc cột x 6690 → 8930 có hố thật (bước `pillarPits` của 🧱: đáy hố y 0,
   từ 12/11 là đường sụt lộ kênh ngầm: `FishPit` vẽ nước, mỗi hố một con cá lóc nhảy lên cắn khi mèo tới gần, rơi xuống nước mất 1 máu và bật lên mép;
-  4 nón `mg_cone` dời lên mép hố làm biển báo, tắt sát thương. Cá, nước, vách hố là hình tạm, chờ art). **Main vẫn còn lỗi đó:** khung va chạm khúc cột phẳng ở 370, mèo đi trên không qua hố. Chưa vẽ: mây, chim cho trời trống khi lên mái, tổ chim (lớp đứng yên như `Light_Far`).
+  4 nón `mg_cone` dời lên mép hố làm biển báo, tắt sát thương. Cá, nước, vách hố là hình tạm, chờ art). (Main đã có từ 14/11, chép từ MapThu.) Chưa vẽ: mây, chim cho trời trống khi lên mái, tổ chim (lớp đứng yên như `Light_Far`).
   Bục không lơ lửng (12/11): đầu phố = sàn nhà cây gắn vào thân `mg_cay_2` → bục giữa có giàn gỗ chống vào vách quán `mg_cafe` → bục trên mái quán (y 535),
   thanh chống nằm TRƯỚC ảnh của bạn (node `MapThu/NhaCay_ThanhChong`) → nóc tiệm SHOP → máy lạnh (giờ là chỗ cụt, khúc 2 tính tiếp). Hình tạm `PropArt`, chờ art vẽ thật.
   **Làm theo bản vẽ của người dùng (13/11, ảnh toàn cảnh MapThu tô thêm, chia 8 khúc, làm từng khúc, duyệt rồi mới qua khúc sau):**
@@ -94,17 +99,20 @@ Hai dòng "bước 1", "bước 2" ngay dưới là việc đã làm trước kh
   Đã xong khúc 3 + 4 (hàm `highRoute`): bỏ mái nhà, gác trái, bồn nước, giếng trời, cây lớn cũ. Cột trái = ảnh `mg_cotdien` (xà 820, đỉnh 1250) → dây võng đi được
   (khối cứng mỏng, thấp nhất 950 ở x 4770) → cột phải `mg_cotdien-001` (nối tạm lên 1250) → thang W x 6120 → 6440 → lỗ chui → sân thượng x 5750 → 8620 (mặt 1835)
   → cành 2260 / 2680 → ngọn thân cây 3080 (tổ chim, chìa 1). Cá bự gác trái tạm ở đầu trái sân thượng.
-  14/11: cây bự chặn kín bên phải (theo ý người dùng, bỏ đường tắt xuống cổng): thân x 8350 → 8800 là khối cứng tới 3080, sân thượng kéo tới 8800,
+  14/11: cây bự chặn kín bên phải (theo ý người dùng, bỏ đường tắt xuống cổng): thân x 8350 → 8800 là khối cứng tới 4000 (đỉnh tán, không đứng trên đỉnh cây được), tổ chim + chìa 1 trên cành trên (7921, 2705), sân thượng kéo tới 8800,
   cổng 2 ổ khoá cao 4400. Bám / bật tường không còn hồi nhảy 2 lần (Leo và Angelo): tường đơn không leo mãi được, ống 2 vách vẫn leo được.
   Khúc 7 (14/11): ẩn cột giữa `Tile_4` (không xoá) → một hồ x 7182 → 8458 (FishPit, giữ cá lóc), 3 lá sen to `LilyPad` (level/LilyPad.ts) rộng 260 ở y 165:
-  đứng 1 giây thì rung 0,4 giây rồi chìm, 2,5 giây sau nổi lại; rơi xuống nước mất 1 máu, bật lên mép. Điểm lưu 2 dời sang cột đầu (x 6952), 4 nón chia 2 mép hồ.
+  chạm là rung, 0,5 giây sau chìm (nhảy đi rồi vẫn chìm), 2,5 giây sau nổi lại; rơi xuống nước mất 1 máu, bật lên mép. Điểm lưu 2 dời sang cột đầu (x 6952), 4 nón chia 2 mép hồ.
   Khúc 5 + 6 (14/11, `lampsAndFences`): hàng rào = bản sao ảnh MG_hangrao_1 / _2 của bạn (x 6810, 7020 trên cột đầu; 8660 trên cột cuối, y 441);
   2 cột đèn cổ cong hình tạm `PropArt` StreetLamp (`CotDen_CotDau` x 7050 cổ sang phải, `CotDen_CotCuoi` x 8580 cổ sang trái), chờ ảnh thật. Hoa lục bình ở lá 2, 3.
-  Kênh ngầm (12/11, thay cho Bờ sông dưới Nhà Leo): con kênh bị lấp dưới phố, cột và vòm bê tông, bè thùng xốp thay thuyền, nước từ ống cống
-  chảy xuống; node vẫn tên `Song_`. Lớp FR / FR_Top của MapThu có `FadeBelow`: camera xuống dưới phố thì tủ điện, cột đèn, lá cây mờ dần.
-  Hầm cầu thang (12/11) nằm hẳn dưới khối đá cao x 2850 → 4275, mặt phố liền dưới quán THẠCH TRÚC và thùng `mg_up`: vào bằng nắp hầm x 3280
-  (S S, ra thì nhảy 2 lần + bám tường), lối cũ ra phố bị thùng chặn, 4 bậc xuống sàn y -300, `Tile_6` dời sát vách phải có 1 cá bự.
-  Song sắt `SongSat` trên sàn thông xuống Cống, chỉ mở từ dưới (bục `Cong_BucSongSat` y -720, nhảy cụng đầu): đường tắt Cống → điểm lưu 1. Chưa ghi vào ô lưu.
+  Khúc 8 (14/11): cổng 2 ổ khoá (`LockedGate`, chỉ MapThu dùng) vẽ thành cuộn dây kẽm gai xám, 2 ổ khoá hồng ở 330 / 675 trên chân cổng;
+  đủ chìa thì dây mờ dần rồi ẩn (không trượt lên nữa). Nhà hồng trong bản vẽ chỉ là đánh dấu khu boss, không làm. Còn khúc 1 (mây), 2 (tán cây đầu phố).
+  **Kênh ngầm liền dải (14/11, hàm `canal`, thay Cống tím + kênh dưới Nhà Leo):** x -820 → 6160, gờ đi bộ -1150, 3 đoạn nước (100→700, 2000→2450 có bè;
+  4200→4600) là `FishPit` tắt cá kiểu kênh. Ống cống trái x 1380 chỉ rớt xuống (không vách, miệng ống cao hơn gờ 680), ống phải x 5530 bật tường leo lên.
+  Cửa phòng boss chuột x 3600 (Hang chó-gián đổi thành `PhongBossChuot`, chìa 2, cửa sắt lên phố). Hốc đầu trái có cửa Hầm bí mật, che bằng
+  `FakeWall` (level/FakeWall.ts: chém 3 nhát thì vỡ, che cả hốc bằng màu đất); cửa Hầm bí mật trên phố đã bỏ. Vùng camera kênh chặn 2 bên theo vùng.
+  Lớp FR / FR_Top của MapThu có `FadeBelow`: camera xuống dưới phố thì tủ điện, cột đèn, lá cây mờ dần.
+  Hầm cầu thang dưới khối đá cao + song sắt: **đã bỏ (14/11)**, khối đá cao liền lại, ô đá `Tile_6` ẩn, file SongSat.ts đã xoá. Map 1 còn 4 cá bự.
 
 Thiết kế (các khu, giá từng ô): `docs/thiet-ke-game.html` mục 10 và 11.
 - Mọi kỹ năng có từ đầu, riêng **Sóng kiếm** mua ở **cửa hàng** (hiện là NPC tạm `ShopNPC`). Đường bị khoá bằng **chìa khoá**, không bằng kỹ năng.

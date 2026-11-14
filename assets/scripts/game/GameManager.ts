@@ -511,6 +511,24 @@ export class GameManager extends Component {
         this.saveSlot(index, node.position.x, node.position.y, false);
     }
 
+    /**
+     * Lưu ở miếu (SavePoint, người chơi bấm phím Dùng): hồi sinh ở đây, ghi ô lưu đang chơi (luôn ghi, kể cả miếu ở trước chỗ đã lưu),
+     * hồi đầy tim mọi con mèo. Số thứ tự điểm lưu đếm theo các miếu trong cùng node cha, từ trái sang.
+     */
+    saveAtShrine(node: Node) {
+        this.setRespawn(node.position);
+        const parent = node.parent;
+        if (!parent) return;
+        const xs = parent.getComponentsInChildren('SavePoint').map((c) => c.node.position.x).sort((a, b) => a - b);
+        this.savedCheckpoint = xs.indexOf(node.position.x) + 1;
+        this.saveSlot(this.savedCheckpoint, node.position.x, node.position.y, false);
+        for (const c of this.cats) {
+            if (c.downed) continue;
+            c.hp = this.maxHp;
+            this.hudFor(c)?.setHp(c.hp, this.maxHp);
+        }
+    }
+
     /** Ghi tiến độ vào ô lưu đang chơi (chưa chọn ô thì thôi). */
     private saveSlot(checkpoint: number, x: number, y: number, cleared: boolean) {
         const slot = GameSession.slot;

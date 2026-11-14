@@ -1,7 +1,7 @@
 import { EventKeyboard, Game, game, Input, input } from 'cc';
 import { Action, ACTIONS, Settings } from '../core/Settings';
 
-export type TouchButton = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'swap' | 'skill' | 'interact';
+export type TouchButton = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'swap' | 'skill' | 'interact' | 'use';
 
 /** Bộ điều khiển của một con mèo: đọc phím của một hoặc nhiều người chơi. */
 export interface Controls {
@@ -23,6 +23,8 @@ export interface Controls {
     consumeDown(): boolean;
     consumeSkill(): boolean;
     consumeInteract(): boolean;
+    /** Phím Dùng (E): lưu game ở miếu */
+    consumeUse(): boolean;
     consumeSwap(): boolean;
 }
 
@@ -86,6 +88,7 @@ class PlayerControls implements Controls {
     consumeDown() { return this.consume('down'); }
     consumeSkill() { return this.consume('skill'); }
     consumeInteract() { return this.consume('interact'); }
+    consumeUse() { return this.consume('use'); }
     consumeSwap() { return this.consume('swap'); }
 }
 
@@ -98,6 +101,9 @@ const none = new PlayerControls([]);
  * Chơi 1 người thì mèo chỉ nhận bộ phím Người 1 (GameManager gán PlayerInput.player(0)).
  */
 export const PlayerInput = {
+    /** Mèo đang đứng gần miếu lưu game (SavePoint đặt): nút Nhảy trên điện thoại đổi thành nút Dùng */
+    useNearby: false,
+
     init() {
         if (listening) return;
         listening = true;

@@ -4,15 +4,16 @@ import { KeyCode, sys } from 'cc';
  * Cài đặt của người chơi: âm lượng, toàn màn hình, rung màn hình, phím của Người 1 và Người 2.
  * Lưu trong bộ nhớ trình duyệt / máy (localStorage), mở game lần sau vẫn còn. Chỉnh trong menu (Esc → Cài đặt).
  */
-export type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'skill' | 'interact' | 'swap';
+export type Action = 'left' | 'right' | 'up' | 'down' | 'jump' | 'attack' | 'skill' | 'interact' | 'use' | 'swap';
 
-export const ACTIONS: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'skill', 'interact', 'swap'];
+export const ACTIONS: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'skill', 'interact', 'use', 'swap'];
 
 type KeyMap = Record<Action, number>;
 
 /**
  * Kiểu phím có sẵn: WASD (J đánh, K nhảy) hoặc Mũi tên (X đánh, Z nhảy). 'custom' = đã đổi lẻ phím.
  * Game có 4 nút: Đánh, Nhảy, Lướt (hành động interact) và Special (hành động skill). Đổi mèo không gán phím (không còn Angelo).
+ * Phím Dùng (hành động use: WASD E, mũi tên V) để lưu game ở miếu; trên điện thoại nút Nhảy đổi thành Dùng khi đứng gần miếu.
  */
 export type KeyLayout = 'wasd' | 'arrows' | 'custom';
 
@@ -21,11 +22,11 @@ export type LangCode = 'vi' | 'en';
 const LAYOUT_KEYS: Record<'wasd' | 'arrows', KeyMap> = {
     wasd: {
         left: KeyCode.KEY_A, right: KeyCode.KEY_D, up: KeyCode.KEY_W, down: KeyCode.KEY_S,
-        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.KEY_L, interact: KeyCode.SPACE, swap: KeyCode.NONE,
+        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.KEY_L, interact: KeyCode.SPACE, use: KeyCode.KEY_E, swap: KeyCode.NONE,
     },
     arrows: {
         left: KeyCode.ARROW_LEFT, right: KeyCode.ARROW_RIGHT, up: KeyCode.ARROW_UP, down: KeyCode.ARROW_DOWN,
-        jump: KeyCode.KEY_Z, attack: KeyCode.KEY_X, skill: KeyCode.KEY_C, interact: KeyCode.SHIFT_RIGHT, swap: KeyCode.NONE,
+        jump: KeyCode.KEY_Z, attack: KeyCode.KEY_X, skill: KeyCode.KEY_C, interact: KeyCode.SHIFT_RIGHT, use: KeyCode.KEY_V, swap: KeyCode.NONE,
     },
 };
 
@@ -38,11 +39,11 @@ const OLD_LAYOUTS: Partial<KeyMap>[] = [
 const DEFAULT_KEYS: KeyMap[] = [
     {
         left: KeyCode.KEY_A, right: KeyCode.KEY_D, up: KeyCode.KEY_W, down: KeyCode.KEY_S,
-        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.KEY_L, interact: KeyCode.SPACE, swap: KeyCode.NONE,
+        jump: KeyCode.KEY_K, attack: KeyCode.KEY_J, skill: KeyCode.KEY_L, interact: KeyCode.SPACE, use: KeyCode.KEY_E, swap: KeyCode.NONE,
     },
     {
         left: KeyCode.ARROW_LEFT, right: KeyCode.ARROW_RIGHT, up: KeyCode.ARROW_UP, down: KeyCode.ARROW_DOWN,
-        jump: KeyCode.NUM_0, attack: KeyCode.NUM_1, skill: KeyCode.NUM_2, interact: KeyCode.NUM_3, swap: KeyCode.NONE,
+        jump: KeyCode.NUM_0, attack: KeyCode.NUM_1, skill: KeyCode.NUM_2, interact: KeyCode.NUM_3, use: KeyCode.NUM_4, swap: KeyCode.NONE,
     },
 ];
 
@@ -102,6 +103,15 @@ function load(): Data {
         if (p0.interact === KeyCode.NONE) {
             const want = p0.jump === KeyCode.KEY_Z && p0.attack === KeyCode.KEY_X ? KeyCode.SHIFT_RIGHT : KeyCode.SPACE;
             if (!ACTIONS.some((a) => p0[a] === want)) p0.interact = want;
+        }
+        // Bản trước chưa có phím Dùng (lưu game ở miếu): gán theo bộ phím đang dùng (WASD: E, mũi tên: V, bàn phím số: Num 4),
+        // nếu phím đó chưa bị hành động khác của người đó dùng
+        for (let p = 0; p < 2; p++) {
+            if (typeof saved.keys?.[p]?.use === 'number') continue;
+            const k = d.keys[p];
+            const want = k.jump === KeyCode.KEY_Z && k.attack === KeyCode.KEY_X ? KeyCode.KEY_V
+                : k.jump === KeyCode.NUM_0 ? KeyCode.NUM_4 : KeyCode.KEY_E;
+            k.use = ACTIONS.some((a) => a !== 'use' && k[a] === want) ? KeyCode.NONE : want;
         }
     } catch (e) {
         console.warn('[Settings] Không đọc được cài đặt đã lưu, dùng mặc định.', e);
